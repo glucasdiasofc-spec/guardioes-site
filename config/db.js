@@ -98,7 +98,7 @@ async function criarUnidade(nome, arquivoImagem) {
             nome: nome,
             fotoUrl: dadosFoto.url,
             fotoIdPublico: dadosFoto.idPublico,
-            criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            criadoEm: new Date().toISOString() // Salva a data exata em texto de forma segura e sem travas
         });
 
         console.log(`✅ Unidade [${nome}] salva no banco de dados.`);
