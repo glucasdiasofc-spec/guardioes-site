@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <!-- === CATEGORIA 1: CONFIGURAÇÕES E RESPONSIVIDADE MULTIPLATAFORMA === -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Clube Guardiões</title>
+
+    <!-- Manifesto PWA para Android e PC -->
+    <link rel="manifest" href="../public/manifest.json">
+
+    <!-- Configurações Visuais Exclusivas para iOS (iPhone) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Guardiões">
+
+    <!-- === CATEGORIA 2: LINKS DE ESTILO (CSS) === -->
+    <link rel="stylesheet" href="assets/style.css">
+
+    <!-- === CATEGORIA 3: CORE DO SDK DO FIREBASE (Apenas o Necessário) === -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+    <!-- === CATEGORIA 4: CONTAINER CENTRAL DO APLICATIVO === -->
+    <div id="app-core">
+        <h1>Guardiões Core PWA</h1>
+        <p>Firebase e Cloudinary integrados. Pronto para começarmos a moldar a interface.</p>
+    </div>
+
+    <!-- === CATEGORIA 5: CARREGAMENTO DE CONFIGURAÇÕES === -->
+    <script src="config/db.js"></script>
+    <script>
+        console.log("📱 Core estrutural carregado com sucesso.");
+    </script>
+</body>
+</html>
