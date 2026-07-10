@@ -4,7 +4,7 @@
    ================================================================= */
 
 // Defina aqui a versão atual do deploy para checar no navegador se atualizou!
-const VERSAO_ATUAL = "v1.0.3 - Estilos e Prévias de Fotos Corrigidos";
+const VERSAO_ATUAL = "v1.0.4 - Login Permanente e Botões Corrigidos";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -12,10 +12,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (rodape) {
         rodape.textContent = VERSAO_ATUAL;
     }
+    
+    // VERIFICAÇÃO DE LOGIN PERMANENTE:
+    // Se o localStorage disser que o admin já estava logado, joga ele direto para o painel!
+    const loginSalvo = localStorage.getItem("sessaoAdminLogado");
+    if (loginSalvo === "true") {
+        console.log("🔄 Sessão anterior restaurada automaticamente via localStorage.");
+        document.getElementById("tela-login").style.display = "none";
+        document.getElementById("tela-admin").style.display = "flex";
+    }
+
     console.log(`🚀 Sistema rodando na versão: ${VERSAO_ATUAL}`);
 });
 
-// Executa o login temporário do administrador local
+// Executa o login do administrador local e salva a sessão
 function executarLoginMembro() {
     const usuarioInput = document.getElementById("login-username").value.trim();
     const senhaInput = document.getElementById("login-senha").value;
@@ -25,6 +35,10 @@ function executarLoginMembro() {
 
     if (usuarioInput === "admin" && senhaInput === "Alcopoes1") {
         console.log("🔓 Acesso administrativo concedido.");
+        
+        // SALVA NA MEMÓRIA DO DISPOSITIVO: O login fica salvo aqui permanentemente
+        localStorage.setItem("sessaoAdminLogado", "true");
+
         document.getElementById("tela-login").style.display = "none";
         document.getElementById("tela-admin").style.display = "flex";
         
@@ -35,10 +49,14 @@ function executarLoginMembro() {
     }
 }
 
+// Limpa a memória permanente ao deslogar
 function fazerLogoutSessao() {
+    // APAGA DA MEMÓRIA DO DISPOSITIVO: Força a precisar logar de novo
+    localStorage.removeItem("sessaoAdminLogado");
+
     document.getElementById("tela-admin").style.display = "none";
     document.getElementById("tela-login").style.display = "flex";
-    console.log("🔒 Sessão encerrada.");
+    console.log("🔒 Sessão encerrada e localStorage limpo.");
 }
 
 function mudarAbaAdmin(idAbaDestino) {
@@ -80,7 +98,7 @@ function mostrarPreviaImagem(inputElemento, idImgAlvo) {
     if (arquivo && imagemAlvo) {
         const leitor = new FileReader();
         leitor.onload = function(e) {
-            imagemAlvo.src = e.target.result; // Troca o avatar cinza pela foto escolhida
+            imagemAlvo.src = e.target.result;
         };
         leitor.readAsDataURL(arquivo);
     }
@@ -88,10 +106,15 @@ function mostrarPreviaImagem(inputElemento, idImgAlvo) {
 
 // === ENVIO DOS FORMULÁRIOS PARA O CORE ===
 async function salvarNovaUnidadeAdmin() {
+    console.log("🔘 Botão Criar Unidade clicado com sucesso!");
     const nomeInput = document.getElementById("unidade-nome");
     const fotoInput = document.getElementById("unidade-foto");
 
-    if (!nomeInput) return;
+    if (!nomeInput) {
+        console.error("❌ Elemento 'unidade-nome' não foi encontrado no HTML.");
+        return;
+    }
+    
     const nome = nomeInput.value.trim();
     const arquivoFoto = fotoInput ? fotoInput.files[0] : null;
 
@@ -101,17 +124,16 @@ async function salvarNovaUnidadeAdmin() {
     }
 
     try {
-        console.log("⏳ Iniciando criação da unidade...");
+        console.log("⏳ Iniciando comunicação com ClubeDB...");
         if (window.ClubeDB && window.ClubeDB.acoesAdmin) {
             await window.ClubeDB.acoesAdmin.criarUnidade(nome, arquivoFoto);
             alert(`Unidade [${nome}] criada com sucesso!`);
             
             nomeInput.value = "";
             if (fotoInput) fotoInput.value = "";
-            // Reseta a foto da prévia para o avatar padrão
             document.getElementById("previa-unidade-img").src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
         } else {
-            throw new Error("Core do banco de dados não encontrado.");
+            throw new Error("O núcleo de banco de dados (ClubeDB) não respondeu.");
         }
     } catch (erro) {
         alert("Erro ao criar unidade: " + erro.message);
