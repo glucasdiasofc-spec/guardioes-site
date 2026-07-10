@@ -51,6 +51,86 @@ function mudarAbaAdmin(idAbaDestino) {
     // Procura o botão correto pelo evento do clique para marcar ativo
     const botaoClicado = Array.from(botoes).find(btn => btn.getAttribute("onclick").includes(idAbaDestino));
     if (botaoClicado) botaoClicado.classList.add("ativa");
+
+    // === FUNÇÕES DE CRIAÇÃO E ENVIO DE FORMULÁRIOS DO PAINEL ===
+
+// Captura os dados da tela e chama o banco de dados para salvar a unidade
+async function salvarNovaUnidadeAdmin() {
+    const nomeInput = document.getElementById("unidade-nome");
+    const fotoInput = document.getElementById("unidade-foto");
+
+    const nome = nomeInput.value.trim();
+    const arquivoFoto = fotoInput.files[0];
+
+    if (!nome) {
+        alert("Por favor, digite o nome da unidade!");
+        return;
+    }
+
+    try {
+        console.log("⏳ Iniciando criação da unidade e upload da foto...");
+        // Aciona o método global do nosso ClubeDB
+        await window.ClubeDB.acoesAdmin.criarUnidade(nome, arquivoFoto);
+        
+        alert(`Unidade [${nome}] criada com sucesso!`);
+        
+        // Limpa os campos do formulário após o sucesso
+        nomeInput.value = "";
+        fotoInput.value = "";
+    } catch (erro) {
+        alert("Erro ao criar unidade: " + erro.message);
+    }
+}
+
+// Captura os dados da tela e cadastra o usuário no Firebase Auth + Firestore
+async function salvarNovoMembroAdmin() {
+    const username = document.getElementById("membro-username").value.trim();
+    const senha = document.getElementById("membro-senha").value;
+    const nomeReal = document.getElementById("membro-nome-real").value.trim();
+    const tipo = document.getElementById("membro-tipo").value;
+    const unidade = document.getElementById("membro-unidade-vinculo").value;
+    const cargo = document.getElementById("membro-cargo").value.trim();
+    const dataNascimento = document.getElementById("membro-nascimento").value;
+    const fotoInput = document.getElementById("membro-foto");
+    const arquivoFoto = fotoInput.files[0];
+
+    if (!username || !senha || !nomeReal || !cargo || !dataNascimento) {
+        alert("Preencha todos os campos obrigatórios do membro!");
+        return;
+    }
+
+    if (tipo === "Desbravador" && !unidade) {
+        alert("Desbravadores precisam obrigatoriamente estar vinculados a uma unidade!");
+        return;
+    }
+
+    const dadosMembro = {
+        username: username,
+        senha: senha,
+        nomeReal: nomeReal,
+        tipo: tipo,
+        unidade: unidade,
+        cargo: cargo,
+        dataNascimento: dataNascimento
+    };
+
+    try {
+        console.log(`⏳ Registrando o membro ${username}...`);
+        await window.ClubeDB.acoesAdmin.cadastrarMembro(dadosMembro, arquivoFoto);
+        
+        alert(`Membro ${nomeReal} cadastrado com sucesso!`);
+        
+        // Limpa os campos do formulário
+        document.getElementById("membro-username").value = "";
+        document.getElementById("membro-senha").value = "";
+        document.getElementById("membro-nome-real").value = "";
+        document.getElementById("membro-cargo").value = "";
+        document.getElementById("membro-nascimento").value = "";
+        fotoInput.value = "";
+    } catch (erro) {
+        alert("Erro ao cadastrar membro: " + erro.message);
+    }
+}
 }
 
 // Oculta ou exibe o seletor de unidades baseado no cargo do membro
