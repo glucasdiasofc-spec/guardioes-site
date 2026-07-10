@@ -1,59 +1,184 @@
 /* =================================================================
-   ARQUIVO: src/assets/style.css
-   CORE VISUAL: Adaptação de Tela e Cores Base (PC, Android e iOS)
+   ARQUIVO: assets/style.css
+   ESTILO: Visual Dinâmico e Responsivo (Interface Dark Moderna)
    ================================================================= */
 
-/* --- CATEGORIA 1: CONFIGURAÇÕES GERAIS E RESET --- */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
-    background-color: #0b0b0b; /* Fundo escuro padrão para não cansar a vista */
-    color: #ffffff;
+    background-color: #121212;
+    color: #e0e0e0;
     display: flex;
-    justify-content: center; /* Centraliza o app na tela do PC */
-    align-items: flex-start;
+    justify-content: center;
+    align-items: center;
     min-height: 100vh;
 }
 
-/* --- CATEGORIA 2: APP CONTAINER (A MÁGICA MULTIPLATAFORMA) --- */
 #app-core {
     width: 100%;
+    max-width: 480px; /* Mantém proporção de aplicativo de celular no PC */
     min-height: 100vh;
-    background-color: #121212; /* Cor de fundo do app */
-    padding: 20px;
+    background-color: #1a1a1a;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    position: relative;
 }
 
-/* --- CATEGORIA 3: AJUSTES EXCLUSIVOS PARA PC (TELAS GRANDES) --- */
-@media (min-width: 768px) {
-    #app-core {
-        max-width: 450px; /* Limita a largura no PC para parecer um celular */
-        min-height: 92vh;
-        margin-top: 4vh;
-        border-radius: 20px; /* Bordas arredondadas estilo smartphone */
-        box-shadow: 0px 8px 30px rgba(0, 0, 0, 0.5); /* Sombra elegante nas laterais */
-        border: 1px solid #222222;
-    }
+/* === TELA DE LOGIN === */
+.secao-app {
+    padding: 20px;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
-/* --- CATEGORIA 4: ELEMENTOS VISUAIS CORE --- */
-h1 {
-    color: #007bff; /* Azul padrão do clube */
+.card-login {
+    margin: auto;
+    width: 100%;
+    background-color: #242424;
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid #333;
+}
+
+.card-login h2, .barra-topo-admin h2 {
+    color: #007bff;
+    margin-bottom: 20px;
     font-size: 24px;
-    text-align: center;
-    margin-top: 10px;
 }
 
-p {
-    color: #aaaaaa;
+.grupo-campo {
+    margin-bottom: 15px;
+}
+
+.grupo-campo label {
+    display: block;
+    font-size: 13px;
+    color: #aaa;
+    margin-bottom: 5px;
+}
+
+.grupo-campo input, .formulario-admin input, .formulario-admin select {
+    width: 100%;
+    padding: 12px;
+    background-color: #333;
+    border: 1px solid #444;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 15px;
+    outline: none;
+    transition: border 0.2s;
+}
+
+.grupo-campo input:focus, .formulario-admin input:focus {
+    border-color: #007bff;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+.texto-erro {
+    color: #ff4d4d;
     font-size: 14px;
+    margin-top: 10px;
     text-align: center;
-    line-height: 1.5;
+}
+
+/* === PAINEL DO ADMINISTRADOR === */
+.barra-topo-admin {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #333;
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+}
+
+.btn-sair {
+    width: auto;
+    padding: 6px 12px;
+    background-color: #ff4d4d;
+    font-size: 14px;
+}
+.btn-sair:hover {
+    background-color: #cc0000;
+}
+
+.abas-admin {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.aba-item {
+    flex: 1;
+    font-size: 13px;
+    padding: 8px;
+    background-color: #2b2b2b;
+    border: 1px solid #444;
+    color: #aaa;
+}
+
+.aba-item.ativa {
+    background-color: #007bff;
+    color: #fff;
+    border-color: #007bff;
+}
+
+.conteudo-aba h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #fff;
+}
+
+.formulario-admin {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* UPLOADS CUSTOMIZADOS */
+.upload-customizado {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    background-color: #2b2b2b;
+    border: 1px dashed #555;
+    color: #aaa;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.upload-customizado input[type="file"] {
+    display: none;
+}
+
+.lista-itens-painel {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }

@@ -24,16 +24,96 @@
 </head>
 <body>
 
-    <!-- === CATEGORIA 4: CONTAINER CENTRAL DO APLICATIVO === -->
+<!-- === CATEGORIA 4: CONTAINER CENTRAL DO APLICATIVO === -->
     <div id="app-core">
-        <h1>Guardiões Core PWA</h1>
-        <p>Firebase e Cloudinary integrados. Pronto para começarmos a moldar a interface.</p>
+        
+        <!-- Tela de Autenticação Inicial (Visível por padrão) -->
+        <section id="tela-login" class="secao-app">
+            <div class="card-login">
+                <h2>Acesso ao Painel</h2>
+                <div class="grupo-campo">
+                    <label for="login-username">Nome de Usuário</label>
+                    <input type="text" id="login-username" placeholder="Ex: admin" autocomplete="username">
+                </div>
+                <div class="grupo-campo">
+                    <label for="login-senha">Senha</label>
+                    <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password">
+                </div>
+                <button id="btn-entrar" onclick="executarLoginMembro()">Entrar no Sistema</button>
+                <p id="erro-login" class="texto-erro"></p>
+            </div>
+        </section>
+
+        <!-- Área de Administração Secreta (Escondida por padrão) -->
+        <section id="tela-admin" class="secao-app" style="display: none;">
+            <header class="barra-topo-admin">
+                <h2>Painel do Administrador</h2>
+                <button class="btn-sair" onclick="fazerLogoutSessao()">Sair</button>
+            </header>
+
+            <!-- Abas de Navegação Interna -->
+            <nav class="abas-admin">
+                <button class="aba-item ativa" onclick="mudarAbaAdmin('aba-unidades')">Unidades</button>
+                <button class="aba-item" onclick="mudarAbaAdmin('aba-membros')">Membros (Usuários)</button>
+                <button class="aba-item" onclick="mudarAbaAdmin('aba-customizacao')">Customização</button>
+            </nav>
+
+            <!-- Conteúdo: Gerenciamento de Unidades -->
+            <div id="aba-unidades" class="conteudo-aba">
+                <h3>Cadastrar Nova Unidade</h3>
+                <div class="formulario-admin">
+                    <input type="text" id="unidade-nome" placeholder="Nome da Unidade (Ex: Águia)">
+                    <label class="upload-customizado">
+                        Escolher Foto da Unidade
+                        <input type="file" id="unidade-foto" accept="image/*">
+                    </label>
+                    <button onclick="salvarNovaUnidadeAdmin()">Criar Unidade</button>
+                </div>
+                <div class="lista-itens-painel" id="lista-unidades-render">
+                    <!-- Unidades criadas vão aparecer aqui dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Conteúdo: Gerenciamento de Membros -->
+            <div id="aba-membros" class="conteudo-aba" style="display: none;">
+                <h3>Cadastrar Novo Membro</h3>
+                <div class="formulario-admin">
+                    <input type="text" id="membro-nome-real" placeholder="Nome Completo">
+                    <input type="text" id="membro-username" placeholder="Nome de Usuário (Login)">
+                    <input type="password" id="membro-senha" placeholder="Senha de Acesso">
+                    
+                    <select id="membro-tipo" onchange="controlarExibicaoSelecaoUnidade()">
+                        <option value="Desbravador">Desbravador</option>
+                        <option value="Liderança">Liderança</option>
+                    </select>
+
+                    <!-- Este campo some se for selecionado tipo "Liderança" -->
+                    <select id="membro-unidade-vinculo">
+                        <option value="">Selecionar Unidade...</option>
+                    </select>
+
+                    <input type="text" id="membro-cargo" placeholder="Cargo (Ex: Capitão, Conselheiro, Diretor)">
+                    <input type="date" id="membro-nascimento">
+                    
+                    <label class="upload-customizado">
+                        Foto de Perfil do Membro
+                        <input type="file" id="membro-foto" accept="image/*">
+                    </label>
+                    <button onclick="salvarNovoMembroAdmin()">Cadastrar Membro</button>
+                </div>
+            </div>
+
+            <!-- Conteúdo: Customização -->
+            <div id="aba-customizacao" class="conteudo-aba" style="display: none;">
+                <h3>Configurações de Exibição</h3>
+                <p>Configurações finas da liderança e ordenações em breve...</p>
+            </div>
+        </section>
+
     </div>
 
-    <!-- === CATEGORIA 5: CARREGAMENTO DE CONFIGURAÇÕES === -->
+<!-- === CATEGORIA 5: CARREGAMENTO DE CONFIGURAÇÕES === -->
     <script src="config/db.js"></script>
-    <script>
-        console.log("📱 Core estrutural carregado com sucesso.");
-    </script>
+    <script src="js/app.js"></script>
 </body>
 </html>
