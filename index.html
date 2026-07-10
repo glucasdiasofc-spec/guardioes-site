@@ -58,26 +58,34 @@
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-customizacao')">Customização</button>
             </nav>
 
-            <!-- Conteúdo: Gerenciamento de Unidades -->
+           <!-- Conteúdo: Gerenciamento de Unidades -->
             <div id="aba-unidades" class="conteudo-aba">
                 <h3>Cadastrar Nova Unidade</h3>
                 <div class="formulario-admin">
+                    <!-- Área de Pré-visualização da Foto da Unidade -->
+                    <div class="container-avatar-previa">
+                        <img id="previa-unidade-img" src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" class="avatar-previa" alt="Preview">
+                    </div>
+                    
                     <input type="text" id="unidade-nome" placeholder="Nome da Unidade (Ex: Águia)">
                     <label class="upload-customizado">
                         Escolher Foto da Unidade
-                        <input type="file" id="unidade-foto" accept="image/*">
+                        <input type="file" id="unidade-foto" accept="image/*" onchange="mostrarPreviaImagem(this, 'previa-unidade-img')">
                     </label>
-                    <button onclick="salvarNovaUnidadeAdmin()">Criar Unidade</button>
+                    <button type="button" onclick="salvarNovaUnidadeAdmin()">Criar Unidade</button>
                 </div>
-                <div class="lista-itens-painel" id="lista-unidades-render">
-                    <!-- Unidades criadas vão aparecer aqui dinamicamente -->
-                </div>
+                <div class="lista-itens-painel" id="lista-unidades-render"></div>
             </div>
 
             <!-- Conteúdo: Gerenciamento de Membros -->
             <div id="aba-membros" class="conteudo-aba" style="display: none;">
                 <h3>Cadastrar Novo Membro</h3>
                 <div class="formulario-admin">
+                    <!-- Área de Pré-visualização do Perfil -->
+                    <div class="container-avatar-previa">
+                        <img id="previa-membro-img" src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" class="avatar-previa" alt="Preview">
+                    </div>
+
                     <input type="text" id="membro-nome-real" placeholder="Nome Completo">
                     <input type="text" id="membro-username" placeholder="Nome de Usuário (Login)">
                     <input type="password" id="membro-senha" placeholder="Senha de Acesso">
@@ -87,7 +95,6 @@
                         <option value="Liderança">Liderança</option>
                     </select>
 
-                    <!-- Este campo some se for selecionado tipo "Liderança" -->
                     <select id="membro-unidade-vinculo">
                         <option value="">Selecionar Unidade...</option>
                     </select>
@@ -97,9 +104,9 @@
                     
                     <label class="upload-customizado">
                         Foto de Perfil do Membro
-                        <input type="file" id="membro-foto" accept="image/*">
+                        <input type="file" id="membro-foto" accept="image/*" onchange="mostrarPreviaImagem(this, 'previa-membro-img')">
                     </label>
-                    <button onclick="salvarNovoMembroAdmin()">Cadastrar Membro</button>
+                    <button type="button" onclick="salvarNovoMembroAdmin()">Cadastrar Membro</button>
                 </div>
             </div>
 
