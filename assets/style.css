@@ -182,3 +182,34 @@ button:hover {
     flex-direction: column;
     gap: 10px;
 }
+/* === PRÉ-VISUALIZAÇÃO DE AVATAR === */
+.container-avatar-previa {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.avatar-previa {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #007bff;
+    background-color: #2b2b2b;
+}
+
+/* === RODAPÉ DE VERSÃO === */
+.rodape-app {
+    width: 100%;
+    padding: 10px;
+    text-align: center;
+    background-color: #151515;
+    border-top: 1px solid #222;
+    margin-top: auto; /* Força o rodapé a ficar sempre colado embaixo */
+}
+
+.rodape-app span {
+    font-size: 11px;
+    color: #666;
+    letter-spacing: 0.5px;
+}

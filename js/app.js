@@ -1,66 +1,99 @@
 /* =================================================================
    ARQUIVO: js/app.js
-   LÓGICA: Alternância de Telas, Login Admin e Ações do Painel
+   LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-// Executa o login temporário do administrador local para validação sem expor senhas
+// Defina aqui a versão atual do deploy para checar no navegador se atualizou!
+const VERSAO_ATUAL = "v1.0.3 - Estilos e Prévias de Fotos Corrigidos";
+
+// Executa assim que a página termina de carregar no navegador
+document.addEventListener("DOMContentLoaded", () => {
+    const rodape = document.getElementById("versao-app-texto");
+    if (rodape) {
+        rodape.textContent = VERSAO_ATUAL;
+    }
+    console.log(`🚀 Sistema rodando na versão: ${VERSAO_ATUAL}`);
+});
+
+// Executa o login temporário do administrador local
 function executarLoginMembro() {
     const usuarioInput = document.getElementById("login-username").value.trim();
     const senhaInput = document.getElementById("login-senha").value;
     const erroDisplay = document.getElementById("erro-login");
 
-    erroDisplay.textContent = "";
+    if (erroDisplay) erroDisplay.textContent = "";
 
-    // Validação estrita baseada nas configurações combinadas do Admin
     if (usuarioInput === "admin" && senhaInput === "Alcopoes1") {
         console.log("🔓 Acesso administrativo concedido.");
-        
-        // Esconde a tela de login e exibe a central do Admin
         document.getElementById("tela-login").style.display = "none";
         document.getElementById("tela-admin").style.display = "flex";
         
-        // Limpa os campos por segurança
         document.getElementById("login-username").value = "";
         document.getElementById("login-senha").value = "";
     } else {
-        erroDisplay.textContent = "Usuário ou senha incorretos.";
+        if (erroDisplay) erroDisplay.textContent = "Usuário ou senha incorretos.";
     }
 }
 
-// Retorna o aplicativo para o estado original de login
 function fazerLogoutSessao() {
     document.getElementById("tela-admin").style.display = "none";
     document.getElementById("tela-login").style.display = "flex";
     console.log("🔒 Sessão encerrada.");
 }
 
-// Gerencia a troca visual das abas internas do painel admin sem reload
 function mudarAbaAdmin(idAbaDestino) {
-    // 1. Oculta todos os containers de abas
     const conteudos = document.querySelectorAll(".conteudo-aba");
     conteudos.forEach(aba => aba.style.display = "none");
 
-    // 2. Remove a classe ativa de todos os botões de abas
     const botoes = document.querySelectorAll(".aba-item");
     botoes.forEach(btn => btn.classList.remove("ativa"));
 
-    // 3. Exibe o container alvo e ativa o botão correto
-    document.getElementById(idAbaDestino).style.display = "flex";
-    document.getElementById(idAbaDestino).style.flexDirection = "column";
+    const alvo = document.getElementById(idAbaDestino);
+    if (alvo) {
+        alvo.style.display = "flex";
+        alvo.style.flexDirection = "column";
+    }
     
-    // Procura o botão correto pelo evento do clique para marcar ativo
     const botaoClicado = Array.from(botoes).find(btn => btn.getAttribute("onclick").includes(idAbaDestino));
     if (botaoClicado) botaoClicado.classList.add("ativa");
+}
 
-    // === FUNÇÕES DE CRIAÇÃO E ENVIO DE FORMULÁRIOS DO PAINEL ===
+function controlarExibicaoSelecaoUnidade() {
+    const tipoSelecionado = document.getElementById("membro-tipo").value;
+    const campoUnidade = document.getElementById("membro-unidade-vinculo");
 
-// Captura os dados da tela e chama o banco de dados para salvar a unidade
+    if (campoUnidade) {
+        if (tipoSelecionado === "Liderança") {
+            campoUnidade.style.display = "none";
+            campoUnidade.value = "";
+        } else {
+            campoUnidade.style.display = "block";
+        }
+    }
+}
+
+// === INTERFACE DE REDE SOCIAL: PRÉ-VISUALIZAÇÃO DA FOTO EM TEMPO REAL ===
+function mostrarPreviaImagem(inputElemento, idImgAlvo) {
+    const imagemAlvo = document.getElementById(idImgAlvo);
+    const arquivo = inputElemento.files[0];
+
+    if (arquivo && imagemAlvo) {
+        const leitor = new FileReader();
+        leitor.onload = function(e) {
+            imagemAlvo.src = e.target.result; // Troca o avatar cinza pela foto escolhida
+        };
+        leitor.readAsDataURL(arquivo);
+    }
+}
+
+// === ENVIO DOS FORMULÁRIOS PARA O CORE ===
 async function salvarNovaUnidadeAdmin() {
     const nomeInput = document.getElementById("unidade-nome");
     const fotoInput = document.getElementById("unidade-foto");
 
+    if (!nomeInput) return;
     const nome = nomeInput.value.trim();
-    const arquivoFoto = fotoInput.files[0];
+    const arquivoFoto = fotoInput ? fotoInput.files[0] : null;
 
     if (!nome) {
         alert("Por favor, digite o nome da unidade!");
@@ -68,21 +101,23 @@ async function salvarNovaUnidadeAdmin() {
     }
 
     try {
-        console.log("⏳ Iniciando criação da unidade e upload da foto...");
-        // Aciona o método global do nosso ClubeDB
-        await window.ClubeDB.acoesAdmin.criarUnidade(nome, arquivoFoto);
-        
-        alert(`Unidade [${nome}] criada com sucesso!`);
-        
-        // Limpa os campos do formulário após o sucesso
-        nomeInput.value = "";
-        fotoInput.value = "";
+        console.log("⏳ Iniciando criação da unidade...");
+        if (window.ClubeDB && window.ClubeDB.acoesAdmin) {
+            await window.ClubeDB.acoesAdmin.criarUnidade(nome, arquivoFoto);
+            alert(`Unidade [${nome}] criada com sucesso!`);
+            
+            nomeInput.value = "";
+            if (fotoInput) fotoInput.value = "";
+            // Reseta a foto da prévia para o avatar padrão
+            document.getElementById("previa-unidade-img").src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        } else {
+            throw new Error("Core do banco de dados não encontrado.");
+        }
     } catch (erro) {
         alert("Erro ao criar unidade: " + erro.message);
     }
 }
 
-// Captura os dados da tela e cadastra o usuário no Firebase Auth + Firestore
 async function salvarNovoMembroAdmin() {
     const username = document.getElementById("membro-username").value.trim();
     const senha = document.getElementById("membro-senha").value;
@@ -92,7 +127,7 @@ async function salvarNovoMembroAdmin() {
     const cargo = document.getElementById("membro-cargo").value.trim();
     const dataNascimento = document.getElementById("membro-nascimento").value;
     const fotoInput = document.getElementById("membro-foto");
-    const arquivoFoto = fotoInput.files[0];
+    const arquivoFoto = fotoInput ? fotoInput.files[0] : null;
 
     if (!username || !senha || !nomeReal || !cargo || !dataNascimento) {
         alert("Preencha todos os campos obrigatórios do membro!");
@@ -115,33 +150,20 @@ async function salvarNovoMembroAdmin() {
     };
 
     try {
-        console.log(`⏳ Registrando o membro ${username}...`);
-        await window.ClubeDB.acoesAdmin.cadastrarMembro(dadosMembro, arquivoFoto);
-        
-        alert(`Membro ${nomeReal} cadastrado com sucesso!`);
-        
-        // Limpa os campos do formulário
-        document.getElementById("membro-username").value = "";
-        document.getElementById("membro-senha").value = "";
-        document.getElementById("membro-nome-real").value = "";
-        document.getElementById("membro-cargo").value = "";
-        document.getElementById("membro-nascimento").value = "";
-        fotoInput.value = "";
+        if (window.ClubeDB && window.ClubeDB.acoesAdmin) {
+            console.log(`⏳ Registrando o membro ${username}...`);
+            await window.ClubeDB.acoesAdmin.cadastrarMembro(dadosMembro, arquivoFoto);
+            alert(`Membro ${nomeReal} cadastrado com sucesso!`);
+            
+            document.getElementById("membro-username").value = "";
+            document.getElementById("membro-senha").value = "";
+            document.getElementById("membro-nome-real").value = "";
+            document.getElementById("membro-cargo").value = "";
+            document.getElementById("membro-nascimento").value = "";
+            if (fotoInput) fotoInput.value = "";
+            document.getElementById("previa-membro-img").src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        }
     } catch (erro) {
         alert("Erro ao cadastrar membro: " + erro.message);
-    }
-}
-}
-
-// Oculta ou exibe o seletor de unidades baseado no cargo do membro
-function controlarExibicaoSelecaoUnidade() {
-    const tipoSelecionado = document.getElementById("membro-tipo").value;
-    const campoUnidade = document.getElementById("membro-unidade-vinculo");
-
-    if (tipoSelecionado === "Liderança") {
-        campoUnidade.style.display = "none";
-        campoUnidade.value = "";
-    } else {
-        campoUnidade.style.display = "block";
     }
 }
