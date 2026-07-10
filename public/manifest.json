@@ -6,7 +6,7 @@
   "lang": "pt-BR",
 
   "_comentario_inicializacao": "=== CATEGORIA 2: COMPORTAMENTO DE INICIALIZAÇÃO ===",
-  "start_url": "../src/index.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "orientation": "portrait",
 
