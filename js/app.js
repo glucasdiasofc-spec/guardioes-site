@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Executa o login do administrador
-function executarLoginMembro() {
+function executarLoginMembro() {    
     const usuarioInput = document.getElementById("login-username").value.trim();
     const senhaInput = document.getElementById("login-senha").value;
     const erroDisplay = document.getElementById("erro-login");
