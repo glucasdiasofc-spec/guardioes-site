@@ -245,11 +245,11 @@ async function salvarNovoMembroAdmin() {
             if (idMembroSendoEditado) {
                 // Se enviou nova foto, reprocessa tudo. Se não, atualiza apenas os textos preservando a foto atual
                 if (arquivoFoto && window.ClubeDB.acoesAdmin) {
-                    await window.ClubeDB.textoDB.collection("membros").doc(idMembroSendoEditado).delete();
+                    await window.ClubeDB.textoDB.collection("usuarios").doc(idMembroSendoEditado).delete();
                     await window.ClubeDB.acoesAdmin.cadastrarMembro(dadosMembro, arquivoFoto);
                 } else {
-                    await window.ClubeDB.textoDB.collection("membros").doc(idMembroSendoEditado).update(dadosMembro);
-                }
+                    await window.ClubeDB.textoDB.collection("usuarios").doc(idMembroSendoEditado).update(dadosMembro);
+                }   
                 alert(`🎉 Membro ${nomeReal} atualizado com sucesso!`);
                 idMembroSendoEditado = null; 
             } else {
@@ -315,7 +315,7 @@ async function carregarMembrosCadastrados() {
     container.innerHTML = "<p style='color: #aaa;'>Buscando membros no servidor...</p>";
     
     try {
-        const snapshot = await window.ClubeDB.textoDB.collection("membros").get();
+        const snapshot = await window.ClubeDB.textoDB.collection("usuarios").get();
         console.log("Encontrei " + snapshot.size + " membro(s) no banco de dados.");
         
         if (snapshot.empty) {
@@ -379,7 +379,7 @@ async function deletarMembro(id, idFoto) {
         if (idFoto && idFoto !== "undefined" && window.ClubeDB.acoesAdmin.excluirFoto) {
             await window.ClubeDB.acoesAdmin.excluirFoto(idFoto);
         }
-        await window.ClubeDB.textoDB.collection("membros").doc(id).delete();
+        await window.ClubeDB.textoDB.collection("usuarios").doc(id).delete();
         alert("Membro removido com sucesso!");
         carregarMembrosCadastrados();
     } catch (erro) {
