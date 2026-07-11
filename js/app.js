@@ -347,40 +347,6 @@ async function carregarMembrosCadastrados() {
         container.innerHTML = `<p style="color: #ff4d4d;">Erro ao carregar membros: ${erro.message}</p>`;
     }
 }
-    if (!container) {
-        container = document.createElement("div");
-        container.id = "lista-membros-render";
-        container.style.marginTop = "20px";
-        abaMembros.appendChild(container);
-    }
-    
-    container.innerHTML = "<p style='color: #aaa;'>Carregando membros...</p>";
-    
-    try {
-        const snapshot = await window.ClubeDB.textoDB.collection("membros").get();
-        container.innerHTML = ""; 
-        
-        snapshot.forEach(doc => {
-            const m = doc.data();
-            const id = doc.id;
-            const urlFoto = m.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
-
-            container.innerHTML += `
-                <div class="item-membro" style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 10px; background: #2b2b2b; border-radius: 8px;">
-                    <img src="${urlFoto}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">
-                    <div style="flex: 1;">
-                        <div style="font-weight: bold;">${m.nomeReal}</div>
-                        <div style="font-size: 12px; color: #aaa;">${m.cargo} | ${m.unidade || 'Sem unidade'}</div>
-                    </div>
-                    <button onclick="prepararEdicaoMembro('${id}', ${JSON.stringify(m).replace(/"/g, '&quot;')})" style="padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; border: none;">✏️ Editar</button>
-                    <button onclick="deletarMembro('${id}', '${m.fotoIdPublico || ''}')" style="padding: 5px 10px; font-size: 12px; background: #ff4d4d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Apagar</button>
-                </div>
-            `;
-        });
-    } catch (erro) {
-        container.innerHTML = `<p style="color: #ff4d4d;">Erro ao carregar membros: ${erro.message}</p>`;
-    }
-}
 
 function prepararEdicaoMembro(id, dados) {
     idMembroSendoEditado = id;
