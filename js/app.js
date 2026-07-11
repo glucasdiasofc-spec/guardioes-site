@@ -185,6 +185,20 @@ async function iniciarEdicaoUnidade(id, nomeAtual, fotoIdAntiga) {
     }
 }
 
+async function deletarUnidadeComFoto(id, idFoto) {
+    if (!confirm("Tem certeza que deseja apagar esta unidade permanentemente?")) return;
+    
+    try {
+        if (idFoto && idFoto !== "undefined" && window.ClubeDB.acoesAdmin) {
+            await window.ClubeDB.acoesAdmin.excluirFoto(idFoto);
+        }
+        await window.ClubeDB.textoDB.collection("unidades").doc(id).delete();
+        alert("Unidade apagada com sucesso!");
+        carregarUnidadesCadastradas();
+    } catch (erro) {
+        alert("Não foi possível apagar. Erro: " + erro.message);
+    }
+}
 // === LÓGICA DE GERENCIAMENTO DE MEMBROS ===
 
 async function salvarNovoMembroAdmin() {
