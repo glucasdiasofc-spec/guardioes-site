@@ -105,78 +105,42 @@ async function salvarNovaUnidadeAdmin() {
     const btn = document.getElementById("btn-criar-unidade");
     const nomeInput = document.getElementById("unidade-nome");
     const fotoInput = document.getElementById("unidade-foto");
-
     if (!nomeInput) return;
-    
     const nome = nomeInput.value.trim();
     const arquivoFoto = fotoInput ? fotoInput.files[0] : null;
-
-    if (!nome) {
-        alert("Por favor, digite o nome da unidade!");
-        return;
-    }
-
+    if (!nome) { alert("Nome da unidade é obrigatório!"); return; }
     try {
-        // UX: Trava o botão e avisa visualmente o usuário que está processando
         btn.disabled = true;
-        btn.textContent = "⏳ Salvando unidade... Aguarde!";
-
-        if (window.ClubeDB && window.ClubeDB.acoesAdmin) {
-            await window.ClubeDB.acoesAdmin.criarUnidade(nome, arquivoFoto);
-            
-            alert(`🎉 Sucesso! Unidade [${nome}] criada!`);
-            
-            // Limpa os campos da tela
-            nomeInput.value = "";
-            if (fotoInput) fotoInput.value = "";
-            document.getElementById("previa-unidade-img").src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
-            
-            // Atualiza a lista renderizada para a nova unidade aparecer
-            carregarUnidadesCadastradas();
-        }
-    } catch (erro) {
-        alert("⚠️ Erro bloqueante: " + erro.message + "\n\nDICA: Ocorreu um travamento grave. Verifique as Regras do seu Firebase ou seu acesso à internet.");
-    } finally {
-        // UX: Destrava o botão aconteça o que acontecer
-        btn.disabled = false;
-        btn.textContent = "Criar Unidade";
-    }
+        await window.ClubeDB.acoesAdmin.criarUnidade(nome, arquivoFoto);
+        alert(`Sucesso!`);
+        nomeInput.value = "";
+        carregarUnidadesCadastradas();
+    } catch (e) { alert("Erro: " + e.message); } finally { btn.disabled = false; }
 }
 
-// NOVA FUNÇÃO: Renderiza os cartões físicos da unidade na tela
 async function carregarUnidadesCadastradas() {
     const container = document.getElementById("lista-unidades-render");
     const menuSelecao = document.getElementById("membro-unidade-vinculo");
-
     if (container) container.innerHTML = "";
     if (menuSelecao) menuSelecao.innerHTML = '<option value="">Selecione a Unidade...</option>';
-
-    try {
-        const snapshot = await window.ClubeDB.textoDB.collection("unidades").get();
-        snapshot.forEach(doc => {
-            const dados = doc.data();
-            const idDoc = doc.id;
-
-            if (container) {
-                container.innerHTML += `
-                    <div class="item-unidade">
-                        <span>${dados.nome}</span>
-                        <button onclick="iniciarEdicaoUnidade('${idDoc}', '${dados.nome}')">✏️ Editar</button>
-                        <button onclick="deletarUnidadeComFoto('${idDoc}', '${dados.fotoIdPublico || ''}')">🗑️ Apagar</button>
-                    </div>
-                `;
-            }
-            if (menuSelecao) {
-                menuSelecao.innerHTML += `<option value="${dados.nome}">${dados.nome}</option>`;
-            }
-        });
-    } catch (erro) {
-        console.error("Erro:", erro);
-    }
+    const snapshot = await window.ClubeDB.textoDB.collection("unidades").get();
+    snapshot.forEach(doc => {
+        const d = doc.data();
+        const id = doc.id;
+        if (container) {
+            container.innerHTML += `
+                <div class="item-unidade">
+                    <span>${d.nome}</span>
+                    <button onclick="iniciarEdicaoUnidade('${id}', '${d.nome}')" style="padding: 4px 8px; font-size: 12px;">✏️ Editar</button>
+                    <button onclick="deletarUnidadeComFoto('${id}', '${d.fotoIdPublico || ''}')" style="padding: 4px 8px; font-size: 12px; background:#ff4d4d; color:white;">🗑️ Apagar</button>
+                </div>`;
+        }
+        if (menuSelecao) menuSelecao.innerHTML += `<option value="${d.nome}">${d.nome}</option>`;
+    });
 }
 
 async function deletarUnidadeComFoto(id, idFoto) {
-    if (!confirm("Tem certeza?")) return;
+    if (!confirm("Apagar unidade e foto?")) return;
     if (idFoto && window.ClubeDB.acoesAdmin) await window.ClubeDB.acoesAdmin.excluirFoto(idFoto);
     await window.ClubeDB.textoDB.collection("unidades").doc(id).delete();
     carregarUnidadesCadastradas();
