@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
         carregarUnidadesCadastradas(); 
         carregarMembrosCadastrados();
     }
+});
 
 // Executa o login do administrador
 function executarLoginMembro() {
