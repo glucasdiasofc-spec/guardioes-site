@@ -286,10 +286,67 @@ async function salvarNovoMembroAdmin() {
 let idMembroSendoEditado = null;
 
 async function carregarMembrosCadastrados() {
-    const abaMembros = document.getElementById("aba-membros");
-    if (!abaMembros) return;
+    console.log("Iniciando busca de membros no banco...");
+    
+    // Tenta encontrar a área da aba de membros de várias formas possíveis
+    let abaMembros = document.getElementById("aba-membros") || document.getElementById("membros");
+    
+    // Se o ID for diferente, procura o container através do campo de nome que sabemos que existe
+    if (!abaMembros) {
+        const inputNome = document.getElementById("membro-nome-real");
+        if (inputNome) abaMembros = inputNome.parentElement;
+    }
+
+    if (!abaMembros) {
+        console.error("Erro: Não encontrei onde desenhar a lista no HTML (ID da aba não encontrado).");
+        return;
+    }
 
     let container = document.getElementById("lista-membros-render");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "lista-membros-render";
+        container.style.marginTop = "30px";
+        container.style.borderTop = "1px solid #444";
+        container.style.paddingTop = "20px";
+        abaMembros.appendChild(container);
+    }
+    
+    container.innerHTML = "<p style='color: #aaa;'>Buscando membros no servidor...</p>";
+    
+    try {
+        const snapshot = await window.ClubeDB.textoDB.collection("membros").get();
+        console.log("Encontrei " + snapshot.size + " membro(s) no banco de dados.");
+        
+        if (snapshot.empty) {
+            container.innerHTML = "<p style='color: #aaa;'>Nenhum membro cadastrado ainda.</p>";
+            return;
+        }
+
+        container.innerHTML = "<h3 style='margin-bottom:15px;'>Membros Cadastrados</h3>"; 
+        
+        snapshot.forEach(doc => {
+            const m = doc.data();
+            const id = doc.id;
+            const urlFoto = m.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
+
+            container.innerHTML += `
+                <div class="item-membro" style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 10px; background: #2b2b2b; border-radius: 8px;">
+                    <img src="${urlFoto}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold;">${m.nomeReal || 'Sem Nome'}</div>
+                        <div style="font-size: 12px; color: #aaa;">${m.cargo || 'Membro'} | ${m.unidade || 'Sem unidade'}</div>
+                    </div>
+                    <button onclick="prepararEdicaoMembro('${id}', ${JSON.stringify(m).replace(/"/g, '&quot;')})" style="padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; border: none;">✏️ Editar</button>
+                    <button onclick="deletarMembro('${id}', '${m.fotoIdPublico || ''}')" style="padding: 5px 10px; font-size: 12px; background: #ff4d4d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Apagar</button>
+                </div>
+            `;
+        });
+    } catch (erro) {
+        console.error("Erro do Firebase:", erro);
+        container.innerHTML = `<p style="color: #ff4d4d;">Erro ao carregar membros: ${erro.message}</p>`;
+    }
+}
     if (!container) {
         container = document.createElement("div");
         container.id = "lista-membros-render";
