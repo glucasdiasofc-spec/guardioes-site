@@ -125,18 +125,27 @@ async function carregarUnidadesCadastradas() {
     if (menuSelecao) menuSelecao.innerHTML = '<option value="">Selecione a Unidade...</option>';
     const snapshot = await window.ClubeDB.textoDB.collection("unidades").get();
     snapshot.forEach(doc => {
-        const d = doc.data();
-        const id = doc.id;
-        if (container) {
-            container.innerHTML += `
-                <div class="item-unidade">
-                    <span>${d.nome}</span>
-                    <button onclick="iniciarEdicaoUnidade('${id}', '${d.nome}')" style="padding: 4px 8px; font-size: 12px;">✏️ Editar</button>
-                    <button onclick="deletarUnidadeComFoto('${id}', '${d.fotoIdPublico || ''}')" style="padding: 4px 8px; font-size: 12px; background:#ff4d4d; color:white;">🗑️ Apagar</button>
-                </div>`;
-        }
-        if (menuSelecao) menuSelecao.innerHTML += `<option value="${d.nome}">${d.nome}</option>`;
-    });
+    const d = doc.data();
+    const id = doc.id;
+    
+    // Verificamos se existe fotoUrl, caso contrário usa uma padrão
+    const urlFoto = d.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
+
+    if (container) {
+        container.innerHTML += `
+            <div class="item-unidade" style="text-align: center; margin-bottom: 20px; border: 1px solid #444; padding: 10px; border-radius: 8px;">
+                <img src="${urlFoto}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px;">
+                <div style="font-weight: bold; margin-bottom: 10px;">${d.nome}</div>
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="iniciarEdicaoUnidade('${id}', '${d.nome}')" style="flex: 1; padding: 5px;">✏️ Editar</button>
+                    <button onclick="deletarUnidadeComFoto('${id}', '${d.fotoIdPublico || ''}')" style="flex: 1; padding: 5px; background:#ff4d4d; color:white; border:none;">🗑️ Apagar</button>
+                </div>
+            </div>`;
+    }
+    if (menuSelecao) {
+        menuSelecao.innerHTML += `<option value="${d.nome}">${d.nome}</option>`;
+    }
+});
 }
 
 async function deletarUnidadeComFoto(id, idFoto) {
