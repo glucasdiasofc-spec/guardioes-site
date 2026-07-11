@@ -101,34 +101,63 @@ function mostrarPreviaImagem(inputElemento, idImgAlvo) {
 
 // === LÓGICA DE GERENCIAMENTO DAS UNIDADES ===
 
+async function salvarNovaUnidadeAdmin() {
+    const btn = document.getElementById("btn-criar-unidade");
+    const nomeInput = document.getElementById("unidade-nome");
+    const fotoInput = document.getElementById("unidade-foto");
+    if (!nomeInput) return;
+    const nome = nomeInput.value.trim();
+    const arquivoFoto = fotoInput ? fotoInput.files[0] : null;
+    if (!nome) { alert("Nome da unidade é obrigatório!"); return; }
+    try {
+        btn.disabled = true;
+        await window.ClubeDB.acoesAdmin.criarUnidade(nome, arquivoFoto);
+        alert(`Sucesso!`);
+        nomeInput.value = "";
+        carregarUnidadesCadastradas();
+    } catch (e) { alert("Erro: " + e.message); } finally { btn.disabled = false; }
+}
+
+async function carregarUnidadesCadastradas() {
+    const container = document.getElementById("lista-unidades-render");
+    const menuSelecao = document.getElementById("membro-unidade-vinculo");
+    if (container) container.innerHTML = "";
+    if (menuSelecao) menuSelecao.innerHTML = '<option value="">Selecione a Unidade...</option>';
+    const snapshot = await window.ClubeDB.textoDB.collection("unidades").get();
+    snapshot.forEach(doc => {
+        const d = doc.data();
+        const id = doc.id;
+        const urlFoto = d.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
+
+        if (container) {
+            container.innerHTML += `
+                <div class="item-unidade" style="text-align: center; margin-bottom: 20px; border: 1px solid #444; padding: 10px; border-radius: 8px;">
+                    <img src="${urlFoto}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px;">
+                    <div style="font-weight: bold; margin-bottom: 10px;">${d.nome}</div>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="iniciarEdicaoUnidade('${id}', '${d.nome}', '${d.fotoIdPublico || ''}')" style="flex: 1; padding: 5px;">✏️ Editar</button>
+                        <button onclick="deletarUnidadeComFoto('${id}', '${d.fotoIdPublico || ''}')" style="flex: 1; padding: 5px; background:#ff4d4d; color:white; border:none;">🗑️ Apagar</button>
+                    </div>
+                </div>`;
+        }
+        if (menuSelecao) menuSelecao.innerHTML += `<option value="${d.nome}">${d.nome}</option>`;
+    });
+}
+
 async function iniciarEdicaoUnidade(id, nomeAtual, fotoIdAntiga) {
     const novoNome = prompt("Digite o novo nome da unidade:", nomeAtual);
     if (!novoNome) return;
-    
-    if (confirm("Deseja trocar a foto?")) {
+    const trocarFoto = confirm("Deseja trocar a foto?");
+    if (trocarFoto) {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*';
-        
         input.onchange = async (e) => {
             const arquivo = e.target.files[0];
-            if (!arquivo) return;
-
-            try {
-                // 1. Exclui a antiga se existir
-                if (fotoIdAntiga && fotoIdAntiga !== "undefined") {
-                    await window.ClubeDB.acoesAdmin.excluirFoto(fotoIdAntiga);
-                }
-                // 2. Faz o novo cadastro (que inclui o upload)
-                await window.ClubeDB.acoesAdmin.criarUnidade(novoNome, arquivo);
-                alert("Unidade e foto atualizadas!");
-                carregarUnidadesCadastradas();
-            } catch (err) {
-                console.error("Erro na edição:", err);
-                alert("Erro ao trocar foto: " + err.message);
-            }
+            if (fotoIdAntiga) await window.ClubeDB.acoesAdmin.excluirFoto(fotoIdAntiga);
+            await window.ClubeDB.acoesAdmin.criarUnidade(novoNome, arquivo);
+            carregarUnidadesCadastradas();
         };
-        input.click(); // Força a abertura da janela de arquivos
+        input.click();
     } else {
         await window.ClubeDB.textoDB.collection("unidades").doc(id).update({ nome: novoNome });
         carregarUnidadesCadastradas();
