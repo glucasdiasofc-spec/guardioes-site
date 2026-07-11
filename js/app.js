@@ -146,34 +146,47 @@ async function salvarNovaUnidadeAdmin() {
 // NOVA FUNÇÃO: Renderiza os cartões físicos da unidade na tela
 async function carregarUnidadesCadastradas() {
     const container = document.getElementById("lista-unidades-render");
-    if (!container) return;
+    const menuSelecao = document.getElementById("membro-unidade-vinculo");
 
-    container.innerHTML = "<p style='color: #aaa;'>Buscando unidades no banco de dados...</p>";
+    if (container) container.innerHTML = "";
+    if (menuSelecao) menuSelecao.innerHTML = '<option value="">Selecione a Unidade...</option>';
 
     try {
-        if (window.ClubeDB && window.ClubeDB.textoDB) {
-            const snapshot = await window.ClubeDB.textoDB.collection("unidades").get();
-            
-            if (snapshot.empty) {
-                container.innerHTML = "<p style='color: #aaa;'>Nenhuma unidade cadastrada ainda.</p>";
-                return;
-            }
+        const snapshot = await window.ClubeDB.textoDB.collection("unidades").get();
+        snapshot.forEach(doc => {
+            const dados = doc.data();
+            const idDoc = doc.id;
 
-            container.innerHTML = ""; // Limpa a mensagem e inicia a plotagem
-            snapshot.forEach(doc => {
-                const dados = doc.data();
-                const fotoExibicao = dados.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
-                
+            if (container) {
                 container.innerHTML += `
-                    <div style="display: flex; align-items: center; gap: 15px; background: #2b2b2b; padding: 10px; border-radius: 8px; border: 1px solid #444;">
-                        <img src="${fotoExibicao}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #007bff;">
-                        <span style="color: #fff; font-size: 16px; font-weight: bold;">${dados.nome}</span>
+                    <div class="item-unidade">
+                        <span>${dados.nome}</span>
+                        <button onclick="iniciarEdicaoUnidade('${idDoc}', '${dados.nome}')">✏️ Editar</button>
+                        <button onclick="deletarUnidadeComFoto('${idDoc}', '${dados.fotoIdPublico || ''}')">🗑️ Apagar</button>
                     </div>
                 `;
-            });
-        }
+            }
+            if (menuSelecao) {
+                menuSelecao.innerHTML += `<option value="${dados.nome}">${dados.nome}</option>`;
+            }
+        });
     } catch (erro) {
-        container.innerHTML = `<p style="color: #ff4d4d;">⚠️ Erro de permissão. O Firebase bloqueou a leitura. Verifique as Regras do Firestore.</p>`;
+        console.error("Erro:", erro);
+    }
+}
+
+async function deletarUnidadeComFoto(id, idFoto) {
+    if (!confirm("Tem certeza?")) return;
+    if (idFoto && window.ClubeDB.acoesAdmin) await window.ClubeDB.acoesAdmin.excluirFoto(idFoto);
+    await window.ClubeDB.textoDB.collection("unidades").doc(id).delete();
+    carregarUnidadesCadastradas();
+}
+
+async function iniciarEdicaoUnidade(id, nomeAtual) {
+    const novoNome = prompt("Novo nome:", nomeAtual);
+    if (novoNome) {
+        await window.ClubeDB.textoDB.collection("unidades").doc(id).update({ nome: novoNome });
+        carregarUnidadesCadastradas();
     }
 }
 
