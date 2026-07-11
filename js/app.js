@@ -145,20 +145,41 @@ async function carregarUnidadesCadastradas() {
 }
 
 async function iniciarEdicaoUnidade(id, nomeAtual, fotoIdAntiga) {
+    // 1. Edita o nome normalmente
     const novoNome = prompt("Digite o novo nome da unidade:", nomeAtual);
     if (!novoNome) return;
-    const trocarFoto = confirm("Deseja trocar a foto?");
-    if (trocarFoto) {
+
+    // 2. Pergunta sobre a foto
+    if (confirm("Deseja trocar a foto da unidade?")) {
         const input = document.createElement('input');
         input.type = 'file';
+        input.accept = 'image/*';
+        
+        // Quando o usuário selecionar o arquivo, a mágica acontece
         input.onchange = async (e) => {
             const arquivo = e.target.files[0];
-            if (fotoIdAntiga) await window.ClubeDB.acoesAdmin.excluirFoto(fotoIdAntiga);
-            await window.ClubeDB.acoesAdmin.criarUnidade(novoNome, arquivo);
-            carregarUnidadesCadastradas();
+            if (!arquivo) return;
+
+            try {
+                // Apenas deleta a antiga se ela existir no Cloudinary
+                if (fotoIdAntiga && window.ClubeDB && window.ClubeDB.acoesAdmin) {
+                    await window.ClubeDB.acoesAdmin.excluirFoto(fotoIdAntiga);
+                }
+
+                // Faz o upload da nova e cria a entrada no banco
+                // Mantemos o nome atualizado e trocamos a foto
+                await window.ClubeDB.acoesAdmin.criarUnidade(novoNome, arquivo);
+                
+                alert("Foto trocada com sucesso!");
+                carregarUnidadesCadastradas();
+            } catch (err) {
+                console.error(err);
+                alert("Erro ao trocar a foto: " + err.message);
+            }
         };
-        input.click();
+        input.click(); // Abre o seletor de arquivos
     } else {
+        // Se não quiser trocar a foto, apenas atualiza o nome no Firestore
         await window.ClubeDB.textoDB.collection("unidades").doc(id).update({ nome: novoNome });
         carregarUnidadesCadastradas();
     }
