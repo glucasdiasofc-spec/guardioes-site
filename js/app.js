@@ -20,8 +20,8 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Puxa do banco e renderiza as unidades assim que logar!
         carregarUnidadesCadastradas(); 
-        carregarMembrosCadastrados();
     }
+});
 
 // Executa o login do administrador
 function executarLoginMembro() {
