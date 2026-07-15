@@ -132,6 +132,18 @@
                             <button id="btn-salvar-logo" onclick="salvarLogoClubeAdmin()" style="flex: 1; padding: 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Salvar Logo</button>
                             <button onclick="removerLogoClubeAdmin()" style="flex: 1; padding: 8px; background: #ff4d4d; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Usar Texto Padrão</button>
                         </div>
+
+                        <!-- CONTROLE DE TAMANHO DA LOGO -->
+                        <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #333;">
+                            <label style="font-weight: bold; margin-bottom: 5px; display: block; color: #ccc;">Tamanho da Logo no Aplicativo</label>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                                <span style="font-size: 12px; color: #888;">Pequena</span>
+                                <!-- A barra vai de 30px até 120px de altura -->
+                                <input type="range" id="logo-tamanho-slider" min="30" max="120" value="55" oninput="alterarTamanhoLogoEmTempoReal(this.value)" style="flex: 1; cursor: pointer;">
+                                <span style="font-size: 12px; color: #888;">Grande</span>
+                            </div>
+                            <button onclick="salvarTamanhoLogoBD()" style="width: 100%; padding: 8px; background: #0095f6; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">💾 Salvar Tamanho</button>
+                        </div>
                     </div>
                 </div>
             </div>

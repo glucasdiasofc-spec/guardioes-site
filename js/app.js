@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.42 - Perfil e cabeçalho";
+const VERSAO_ATUAL = "v0.0.43 - Perfil e cabeçalho";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -411,32 +411,51 @@ async function removerFotoPerfilUsuario() {
 // === LOGO DO CLUBE ===
 async function carregarLogoClubeConfig() {
     try {
-        const doc = await window.ClubeDB.textoDB.collection("configuracoes").doc("geral").get();
-        const siteLogoImg = document.getElementById("site-logo-img");
-        const siteLogoTexto = document.getElementById("site-logo-texto");
-        const previaLogo = document.getElementById("previa-logo-clube");
+        const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
+        const doc = await docRef.get();
+        
+        const logoImg = document.getElementById("site-logo-img");
+        const logoTexto = document.getElementById("site-logo-texto");
+        const sliderTamanho = document.getElementById("logo-tamanho-slider");
 
         if (doc.exists) {
             const dados = doc.data();
+            
+            // 1. Aplica a Imagem
             if (dados.logoUrl) {
-                if (siteLogoImg) {
-                    siteLogoImg.src = dados.logoUrl;
-                    siteLogoImg.style.display = "block";
+                if (logoImg) {
+                    logoImg.src = dados.logoUrl;
+                    logoImg.style.display = "block";
                 }
-                if (siteLogoTexto) {
-                    siteLogoTexto.style.display = "none";
-                }
-                if (previaLogo) {
-                    previaLogo.src = dados.logoUrl;
-                }
+                if (logoTexto) logoTexto.style.display = "none";
+                
+                const previaAdmin = document.getElementById("previa-logo-clube");
+                if (previaAdmin) previaAdmin.src = dados.logoUrl;
             } else {
-                usarTextoPadraoLogo();
+                if (logoImg) logoImg.style.display = "none";
+                if (logoTexto) logoTexto.style.display = "block";
+                
+                const previaAdmin = document.getElementById("previa-logo-clube");
+                if (previaAdmin) previaAdmin.src = "";
+            }
+
+            // 2. Aplica o Tamanho Responsivo (Se o admin tiver salvo)
+            if (dados.logoTamanho) {
+                if (logoImg) {
+                    logoImg.style.maxHeight = dados.logoTamanho + "px";
+                    logoImg.style.height = dados.logoTamanho + "px";
+                    logoImg.style.maxWidth = "250px";
+                }
+                if (sliderTamanho) {
+                    sliderTamanho.value = dados.logoTamanho;
+                }
             }
         } else {
-            usarTextoPadraoLogo();
+            if (logoImg) logoImg.style.display = "none";
+            if (logoTexto) logoTexto.style.display = "block";
         }
-    } catch (e) {
-        console.error("Erro ao carregar logo configurada:", e);
+    } catch (error) {
+        console.error("Erro ao carregar configurações da logo:", error);
     }
 }
 
@@ -900,3 +919,34 @@ async function deletarMembro(id, idFoto) {
         alert("Erro ao remover membro: " + erro.message);
     }
 }
+
+// ==========================================
+// CONTROLE DE TAMANHO DA LOGO
+// ==========================================
+
+// 1. Faz a logo crescer ou diminuir em tempo real ao arrastar a barra
+window.alterarTamanhoLogoEmTempoReal = function(valor) {
+    const logoImg = document.getElementById("site-logo-img");
+    if (logoImg) {
+        logoImg.style.maxHeight = valor + "px";
+        logoImg.style.height = valor + "px";
+        logoImg.style.maxWidth = "250px"; // Remove o limite antigo de largura para não achatar
+    }
+};
+
+// 2. Salva o tamanho ideal no Firestore
+window.salvarTamanhoLogoBD = async function() {
+    try {
+        const slider = document.getElementById("logo-tamanho-slider");
+        const novoTamanho = slider.value;
+        
+        await window.ClubeDB.textoDB.collection("configuracoes").doc("geral").set({
+            logoTamanho: novoTamanho
+        }, { merge: true });
+        
+        alert("Tamanho da logo salvo com sucesso! 📏");
+    } catch (error) {
+        console.error("Erro ao salvar tamanho:", error);
+        alert("Erro ao salvar tamanho da logo no banco de dados.");
+    }
+};
