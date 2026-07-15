@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.36 - Feedback Visual e Lista Dinâmica";
+const VERSAO_ATUAL = "v0.0.38 - Feedback Visual e Lista Dinâmica";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -297,20 +297,22 @@ async function uploadFotoPerfilUsuario(input) {
         const username = localStorage.getItem("usernameLogado");
         if (!username) return;
 
+        // Feedback visual de carregamento rápido
         const avatarEl = document.getElementById("perfil-usuario-avatar");
-        if (avatarEl) avatarEl.style.opacity = "0.5";
+        if (avatarEl) avatarEl.style.opacity = "0.4";
 
         let novaUrl = "";
         let novoIdPublico = "";
 
+        // 1. Envio dos arquivos para o Cloudinary (Tratando as respostas de forma ultra-segura)
         if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadFoto === "function") {
             const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
-            novaUrl = res.url;
-            novoIdPublico = res.public_id;
+            novaUrl = res.url || res.secure_url || res;
+            novoIdPublico = res.public_id || res.publicId || "";
         } else if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadImagem === "function") {
             const res = await window.ClubeDB.acoesAdmin.uploadImagem(arquivo);
-            novaUrl = res.url;
-            novoIdPublico = res.public_id;
+            novaUrl = res.url || res.secure_url || res;
+            novoIdPublico = res.public_id || res.publicId || "";
         } else {
             const formData = new FormData();
             formData.append("file", arquivo);
@@ -322,38 +324,51 @@ async function uploadFotoPerfilUsuario(input) {
             });
             if (response.ok) {
                 const data = await response.json();
-                novaUrl = data.secure_url;
-                novoIdPublico = data.public_id;
+                novaUrl = data.secure_url || data.url;
+                novoIdPublico = data.public_id || "";
             } else {
-                throw new Error("Erro na conexão do upload.");
+                throw new Error("Não foi possível conectar ao servidor de imagens Cloudinary.");
             }
         }
 
+        // 2. Gravando no Firestore com travas anti-undefined
         if (novaUrl) {
             const snapshot = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
             if (!snapshot.empty) {
                 const docId = snapshot.docs[0].id;
                 const dadosAntigos = snapshot.docs[0].data();
 
+                // Remove imagem antiga se ela existir para economizar seu espaço no Cloudinary
                 if (dadosAntigos.fotoIdPublico && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
-                    await window.ClubeDB.acoesAdmin.excluirFoto(dadosAntigos.fotoIdPublico);
+                    try {
+                        await window.ClubeDB.acoesAdmin.excluirFoto(dadosAntigos.fotoIdPublico);
+                    } catch (errExcluir) {
+                        console.warn("Aviso ao limpar imagem anterior do Cloudinary:", errExcluir);
+                    }
                 }
 
+                // Proteção Máxima contra undefined usando o operador || ""
                 await window.ClubeDB.textoDB.collection("usuarios").doc(docId).update({
-                    fotoUrl: novaUrl,
-                    fotoIdPublico: novoIdPublico
+                    fotoUrl: novaUrl || "",
+                    fotoIdPublico: novoIdPublico || ""
                 });
 
-                alert("Sua foto de perfil foi atualizada!");
-                carregarPerfilDoUsuario();
+                alert("Sua foto de perfil foi atualizada com sucesso! 🎉");
+                await carregarPerfilDoUsuario();
                 fecharModalFoto();
+            } else {
+                alert("Usuário não encontrado no banco de dados.");
             }
+        } else {
+            alert("Não recebemos um link válido da imagem. Tente novamente.");
         }
     } catch (e) {
         alert("Erro ao enviar imagem: " + e.message);
     } finally {
+        // Restaura a opacidade e limpa o input para permitir selecionar a mesma imagem se quiser
         const avatarEl = document.getElementById("perfil-usuario-avatar");
         if (avatarEl) avatarEl.style.opacity = "1";
+        if (input) input.value = "";
     }
 }
 
@@ -486,17 +501,23 @@ async function salvarLogoClubeAdmin() {
             if (doc.exists) {
                 const dados = doc.data();
                 if (dados.logoIdPublico && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
-                    await window.ClubeDB.acoesAdmin.excluirFoto(dados.logoIdPublico);
+                    try {
+                        await window.ClubeDB.acoesAdmin.excluirFoto(dados.logoIdPublico);
+                    } catch (errExcluir) {
+                        console.warn("Aviso ao limpar logo anterior:", errExcluir);
+                    }
                 }
             }
 
+            // Proteção Máxima contra undefined usando o operador || ""
             await docRef.set({
-                logoUrl: urlLogo,
-                logoIdPublico: idPublicoLogo
+                logoUrl: urlLogo || "",
+                logoIdPublico: idPublicoLogo || ""
             }, { merge: true });
 
-            alert("Logo do clube cadastrada com sucesso!");
+            alert("Logo do clube cadastrada com sucesso! 🛡️");
             carregarLogoClubeConfig();
+            if (fileInput) fileInput.value = "";
         }
     } catch (e) {
         alert("Erro ao salvar logo: " + e.message);
