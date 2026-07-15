@@ -40,6 +40,7 @@ async function executarLoginMembro() {
     if (usuarioInput === "admin" && senhaInput === "Alcopoes1") {
         localStorage.setItem("sessaoAdminLogado", "true");
         localStorage.setItem("usuarioLogado", "admin");
+        localStorage.setItem("usernameLogado", "admin");
         
         document.getElementById("tela-login").style.display = "none";
         document.getElementById("tela-admin").style.display = "flex";
@@ -59,6 +60,7 @@ async function executarLoginMembro() {
         
         localStorage.setItem("sessaoAdminLogado", "true");
         localStorage.setItem("usuarioLogado", "membro");
+        localStorage.setItem("usernameLogado", usuarioInput.toLowerCase());
         
         document.getElementById("tela-login").style.display = "none";
         
@@ -80,11 +82,14 @@ function irParaSite() {
     const btnVoltar = document.getElementById("btn-voltar-painel");
     if (btnVoltar) {
         if (tipoUsuario === "admin") {
-            btnVoltar.style.display = "block";
+            btnVoltar.style.display = "inline-block";
         } else {
             btnVoltar.style.display = "none";
         }
     }
+    
+    // Sempre abre na aba do Feed ao entrar
+    mudarSubAbaSite('feed');
 }
 
 // Retorna para o Painel do Administrador
@@ -96,10 +101,86 @@ function irParaPainel() {
     carregarMembrosCadastrados();
 }
 
+// Alterna entre o Feed e o Perfil no App do Usuário
+function mudarSubAbaSite(abaAlvo) {
+    const feedAba = document.getElementById("sub-aba-feed");
+    const perfilAba = document.getElementById("sub-aba-perfil");
+    const btnFeed = document.getElementById("btn-sub-feed");
+    const btnPerfil = document.getElementById("btn-sub-perfil");
+
+    if (abaAlvo === "feed") {
+        if (feedAba) feedAba.style.display = "block";
+        if (perfilAba) perfilAba.style.display = "none";
+        
+        if (btnFeed) btnFeed.style.opacity = "1";
+        if (btnPerfil) btnPerfil.style.opacity = "0.5";
+    } else if (abaAlvo === "perfil") {
+        if (feedAba) feedAba.style.display = "none";
+        if (perfilAba) perfilAba.style.display = "block";
+        
+        if (btnFeed) btnFeed.style.opacity = "0.5";
+        if (btnPerfil) btnPerfil.style.opacity = "1";
+        
+        // Puxa as informações dinâmicas do banco
+        carregarPerfilDoUsuario();
+    }
+}
+
+// Carrega as informações dinâmicas do membro logado diretamente no perfil
+async function carregarPerfilDoUsuario() {
+    const username = localStorage.getItem("usernameLogado");
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
+    
+    const nomeEl = document.getElementById("perfil-usuario-nome");
+    const cargoEl = document.getElementById("perfil-usuario-cargo");
+    const unidadeEl = document.getElementById("perfil-usuario-unidade-status");
+    const nascimentoEl = document.getElementById("perfil-usuario-nascimento");
+    const avatarEl = document.getElementById("perfil-usuario-avatar");
+
+    // Se for o admin visualizando o site
+    if (tipoUsuario === "admin") {
+        if (nomeEl) nomeEl.textContent = "Administrador";
+        if (cargoEl) cargoEl.textContent = "Liderança Geral";
+        if (unidadeEl) unidadeEl.textContent = "Geral";
+        if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
+        if (avatarEl) avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        return;
+    }
+
+    if (!username) return;
+
+    try {
+        const snapshot = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
+        if (!snapshot.empty) {
+            const dados = snapshot.docs[0].data();
+            
+            if (nomeEl) nomeEl.textContent = dados.nomeReal || dados.username;
+            if (cargoEl) cargoEl.textContent = dados.cargo || "Membro";
+            if (unidadeEl) unidadeEl.textContent = dados.unidade || "Sem Unidade";
+            
+            if (dados.dataNascimento) {
+                const [ano, mes, dia] = dados.dataNascimento.split("-");
+                if (nascimentoEl) nascimentoEl.textContent = `Nascido em: ${dia}/${mes}/${ano}`;
+            } else {
+                if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
+            }
+
+            if (dados.fotoUrl && avatarEl) {
+                avatarEl.src = dados.fotoUrl;
+            } else if (avatarEl) {
+                avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+            }
+        }
+    } catch (erro) {
+        console.error("Erro ao carregar dados do perfil:", erro);
+    }
+}
+
 // Limpa a sessão
 function fazerLogoutSessao() {
     localStorage.removeItem("sessaoAdminLogado");
     localStorage.removeItem("usuarioLogado");
+    localStorage.removeItem("usernameLogado");
     
     if (window.ClubeDB && window.ClubeDB.loginDB) {
         window.ClubeDB.loginDB.signOut().catch(err => console.log("Signout efetuado: ", err));
