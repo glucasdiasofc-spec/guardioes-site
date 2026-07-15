@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.48 - Perfil e cabeçalho";
+const VERSAO_ATUAL = "v0.0.49 - especialidades";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1006,3 +1006,72 @@ document.getElementById("busca-especialidade")?.addEventListener("input", async 
     const resultados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     renderizarEspecialidades(resultados);
 });
+// ==========================================
+// RENDERIZAÇÃO DAS ESPECIALIDADES NA TELA
+// ==========================================
+async function carregarEspecialidadesNaTela() {
+    const container = document.getElementById('lista-especialidades-container');
+    if (!container) return; 
+
+    const db = window.ClubeDB.textoDB;
+    
+    try {
+        const snapshot = await db.collection("especialidades").get();
+        
+        if (snapshot.empty) {
+            container.innerHTML = '<p style="color: #8e8e8e; text-align: center;">Nenhuma especialidade encontrada no banco.</p>';
+            return;
+        }
+
+        // Limpa o texto "Carregando lista..."
+        container.innerHTML = '';
+
+        // Cria um card visual para cada especialidade do banco
+        snapshot.forEach(doc => {
+            const esp = doc.data();
+            
+            const card = document.createElement('div');
+            card.className = 'card-especialidade-item'; // Usado para o filtro de busca
+            card.style.cssText = "background: #121212; border: 1px solid #262626; border-radius: 8px; padding: 12px; display: flex; gap: 15px; align-items: center;";
+            
+            card.innerHTML = `
+                <img src="${esp.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover;">
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 5px 0; color: #fff; font-size: 15px;">${esp.nome}</h4>
+                    <span style="background: #262626; color: #a8a8a8; font-size: 11px; padding: 3px 8px; border-radius: 4px;">${esp.categoria}</span>
+                </div>
+            `;
+            
+            container.appendChild(card);
+        });
+
+    } catch (error) {
+        console.error("Erro ao carregar especialidades:", error);
+        container.innerHTML = '<p style="color: #ff4d4d; text-align: center;">Erro ao carregar os dados.</p>';
+    }
+}
+
+// ==========================================
+// A BUSCA (O SEU "CTRL+F" EXATO)
+// ==========================================
+const inputBusca = document.getElementById('busca-especialidade');
+if (inputBusca) {
+    inputBusca.addEventListener('input', function(e) {
+        const termoBusca = e.target.value.toLowerCase();
+        const cards = document.querySelectorAll('.card-especialidade-item');
+        
+        cards.forEach(card => {
+            // Procura pelo nome dentro da tag <h4> do card
+            const nomeEspecialidade = card.querySelector('h4').innerText.toLowerCase();
+            
+            if (nomeEspecialidade.includes(termoBusca)) {
+                card.style.display = "flex"; // Mostra o card
+            } else {
+                card.style.display = "none"; // Esconde o card
+            }
+        });
+    });
+}
+
+// Roda a função de carregar assim que a tela abre
+window.addEventListener('load', carregarEspecialidadesNaTela);
