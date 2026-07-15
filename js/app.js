@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.27 - Feedback Visual e Lista Dinâmica";
+const VERSAO_ATUAL = "v1.0.6 - Feedback Visual e Lista Dinâmica";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -25,33 +25,25 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Executa o login do administrador
-async function executarLoginMembro() {    
+function executarLoginMembro() {    
     const usuarioInput = document.getElementById("login-username").value.trim();
     const senhaInput = document.getElementById("login-senha").value;
     const erroDisplay = document.getElementById("erro-login");
 
-    if (erroDisplay) erroDisplay.textContent = "Validando...";
+    if (erroDisplay) erroDisplay.textContent = "";
 
-    // 1. Acesso do Admin (mantemos para garantir seu acesso)
     if (usuarioInput === "admin" && senhaInput === "Alcopoes1") {
         localStorage.setItem("sessaoAdminLogado", "true");
-        window.location.reload(); 
-        return;
-    }
+        document.getElementById("tela-login").style.display = "none";
+        document.getElementById("tela-admin").style.display = "flex";
+        
+        document.getElementById("login-username").value = "";
+        document.getElementById("login-senha").value = "";
 
-    // 2. Acesso Real (o que você criou no cadastro)
-    try {
-        // Monta o e-mail no mesmo formato que o db.js criou
-        const emailFirebase = `${usuarioInput.toLowerCase()}@guardioesdbv.com`;
-        
-        // Verifica no Firebase Auth
-        await window.ClubeDB.loginDB.signInWithEmailAndPassword(emailFirebase, senhaInput);
-        
-        // Se chegar aqui, login foi sucesso!
-        localStorage.setItem("sessaoAdminLogado", "true");
-        window.location.reload(); 
-    } catch (erro) {
-        console.error("Erro de login:", erro);
+        // Puxa do banco e renderiza as unidades!
+        carregarUnidadesCadastradas();
+        carregarMembrosCadastrados();
+    } else {
         if (erroDisplay) erroDisplay.textContent = "Usuário ou senha incorretos.";
     }
 }
