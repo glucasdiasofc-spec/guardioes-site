@@ -1,36 +1,34 @@
-/**
- * Função para importar as especialidades para o Firestore.
- * Utiliza a variável global listaEspecialidadesParaImportar do arquivo especialidades-dados.js.
- */
-async function rodarImportacaoEspecialidades() {
-    console.log("Iniciando a importação das especialidades...");
-    
-    if (typeof listaEspecialidadesParaImportar === 'undefined' || !Array.isArray(listaEspecialidadesParaImportar)) {
-        console.error("Erro: A variável 'listaEspecialidadesParaImportar' não foi encontrada ou não é um array.");
-        return;
-    }
+// O código abaixo executa automaticamente ao carregar o site
+window.addEventListener('load', async () => {
+    const db = window.ClubeDB.textoDB;
+    const ref = db.collection("especialidades");
 
-    if (!window.ClubeDB || !window.ClubeDB.textoDB) {
-        console.error("Erro: 'window.ClubeDB.textoDB' não está configurado.");
-        return;
-    }
+    // 1. Verifica se já existem especialidades
+    const snapshot = await ref.limit(1).get();
 
-    let sucessos = 0;
-    let erros = 0;
-
-    for (const especialidade of listaEspecialidadesParaImportar) {
-        try {
-            // Utilizando window.ClubeDB.textoDB para adicionar cada item à coleção "especialidades"
-            // Assume-se que textoDB.add ou similar seja o método para inserção direta no Firestore
-            // Como o prompt pede para iterar e adicionar, faremos a chamada para cada item
-            await window.ClubeDB.textoDB("especialidades").add(especialidade);
-            console.log(`Sucesso: Especialidade '${especialidade.nome}' importada.`);
-            sucessos++;
-        } catch (error) {
-            console.error(`Erro ao importar '${especialidade.nome}':`, error);
-            erros++;
+    if (snapshot.empty) {
+        console.log("Banco vazio detectado. Iniciando carga automática...");
+        
+        // 2. Tenta importar a lista que está no outro arquivo
+        if (typeof listaEspecialidadesParaImportar !== 'undefined') {
+            for (const item of listaEspecialidadesParaImportar) {
+                try {
+                    await ref.add({
+                        nome: item.nome,
+                        categoria: item.categoria,
+                        urlImagem: item.urlImagem,
+                        descricao: item.descricao,
+                        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (e) {
+                    console.error("Erro ao importar", item.nome, e);
+                }
+            }
+            console.log("Importação concluída com sucesso!");
+        } else {
+            console.error("Erro: A variável 'listaEspecialidadesParaImportar' não foi encontrada.");
         }
+    } else {
+        console.log("Banco já possui dados. Nenhuma ação necessária.");
     }
-
-    console.log(`Importação concluída! Sucessos: ${sucessos}, Erros: ${erros}.`);
-}
+});
