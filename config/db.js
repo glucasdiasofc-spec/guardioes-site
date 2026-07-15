@@ -145,6 +145,25 @@ async function cadastrarMembro(dadosMembro, arquivoImagem) {
     }
 }
 
+/**
+ * Salva uma nova publicação no banco
+ * @param {object} dadosPost - {autorNome, autorId, conteudo, mediaUrl, categoria, fixado}
+ */
+async function criarPost(dadosPost) {
+    try {
+        await db.collection("posts").add({
+            ...dadosPost,
+            data: firebase.firestore.FieldValue.serverTimestamp(),
+            fixado: dadosPost.fixado || false
+        });
+        console.log("✅ Post publicado na categoria:", dadosPost.categoria);
+        return true;
+    } catch (erro) {
+        console.error("❌ Erro ao criar post:", erro);
+        throw erro;
+    }
+}
+
 // === CATEGORIA 5: EXPORTAÇÃO GLOBAL ORGANIZADA ===
 window.ClubeDB = {
     textoDB: db,
@@ -155,6 +174,7 @@ window.ClubeDB = {
         excluirFoto: excluirFotoCloudinary,
         criarUnidade: criarUnidade,
         cadastrarMembro: cadastrarMembro
+        criarPost: criarPost 
     }
 };
 console.log("🚀 [Core] Banco de dados híbrido e funções de Administração prontas.");
