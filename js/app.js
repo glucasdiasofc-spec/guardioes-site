@@ -12,6 +12,9 @@ document.addEventListener("DOMContentLoaded", () => {
         rodape.textContent = VERSAO_ATUAL;
     }
     
+    // Carrega a logo personalizada do site
+    carregarLogoClubeConfig();
+    
     const loginSalvo = localStorage.getItem("sessaoAdminLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado");
 
@@ -136,6 +139,13 @@ async function carregarPerfilDoUsuario() {
     const unidadeEl = document.getElementById("perfil-usuario-unidade-status");
     const nascimentoEl = document.getElementById("perfil-usuario-nascimento");
     const avatarEl = document.getElementById("perfil-usuario-avatar");
+    const classesEl = document.getElementById("perfil-conquistas-classes");
+    const especialidadesEl = document.getElementById("perfil-conquistas-especialidades");
+    const gridEl = document.getElementById("perfil-usuario-grid");
+    const vazioEl = document.getElementById("perfil-publicacoes-vazio");
+
+    // Reset de sub-abas do perfil para iniciar na principal
+    mudarSubTabPerfil('publicacoes');
 
     // Se for o admin visualizando o site
     if (tipoUsuario === "admin") {
@@ -144,6 +154,11 @@ async function carregarPerfilDoUsuario() {
         if (unidadeEl) unidadeEl.textContent = "Geral";
         if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
         if (avatarEl) avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        
+        if (classesEl) classesEl.innerHTML = "• Classe: Administrador Geral";
+        if (especialidadesEl) especialidadesEl.innerHTML = "<span style='color: #8e8e8e;'>Acesso Irrestrito</span>";
+        if (gridEl) gridEl.style.display = "none";
+        if (vazioEl) vazioEl.style.display = "block";
         return;
     }
 
@@ -170,9 +185,340 @@ async function carregarPerfilDoUsuario() {
             } else if (avatarEl) {
                 avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
             }
+
+            // Exibição condicional do Grid de Publicações (Evita cadeados fakes)
+            if (dados.publicacoes && dados.publicacoes.length > 0) {
+                if (gridEl) {
+                    gridEl.style.display = "grid";
+                    gridEl.innerHTML = dados.publicacoes.map(pubUrl => `
+                        <div style="aspect-ratio: 1; background-color: #121212;">
+                            <img src="${pubUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                    `).join("");
+                }
+                if (vazioEl) vazioEl.style.display = "none";
+            } else {
+                if (gridEl) gridEl.style.display = "none";
+                if (vazioEl) vazioEl.style.display = "block";
+            }
+
+            // Alimentação das Conquistas
+            if (classesEl) {
+                if (dados.classesConcluidas && dados.classesConcluidas.length > 0) {
+                    classesEl.innerHTML = dados.classesConcluidas.map(c => `• ${c}`).join("<br>");
+                } else {
+                    classesEl.innerHTML = `• Classe Vinculada: ${dados.tipo === 'Desbravador' ? 'Classe Regular' : 'Classe de Líder'}`;
+                }
+            }
+
+            if (especialidadesEl) {
+                if (dados.especialidades && dados.especialidades.length > 0) {
+                    especialidadesEl.innerHTML = dados.especialidades.map(esp => `
+                        <span style="background: #262626; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500;">
+                            🎖️ ${esp}
+                        </span>
+                    `).join("");
+                } else {
+                    especialidadesEl.innerHTML = `
+                        <span style="color: #8e8e8e; font-style: italic;">
+                            Nenhuma especialidade registrada. Peça para a liderança validar suas conquistas!
+                        </span>
+                    `;
+                }
+            }
         }
     } catch (erro) {
         console.error("Erro ao carregar dados do perfil:", erro);
+    }
+}
+
+// Alternar sub-abas do próprio perfil (Publicações vs Conquistas)
+function mudarSubTabPerfil(subAba) {
+    const abaPubs = document.getElementById("perfil-secao-publicacoes");
+    const abaConq = document.getElementById("perfil-secao-conquistas");
+    const tabPubsBtn = document.getElementById("tab-perfil-publicacoes");
+    const tabConqBtn = document.getElementById("tab-perfil-conquistas");
+
+    if (subAba === 'publicacoes') {
+        if (abaPubs) abaPubs.style.display = "block";
+        if (abaConq) abaConq.style.display = "none";
+        if (tabPubsBtn) {
+            tabPubsBtn.style.color = "#fff";
+            tabPubsBtn.style.borderTop = "1.5px solid #fff";
+        }
+        if (tabConqBtn) {
+            tabConqBtn.style.color = "#8e8e8e";
+            tabConqBtn.style.borderTop = "1.5px solid transparent";
+        }
+    } else if (subAba === 'conquistas') {
+        if (abaPubs) abaPubs.style.display = "none";
+        if (abaConq) abaConq.style.display = "block";
+        if (tabPubsBtn) {
+            tabPubsBtn.style.color = "#8e8e8e";
+            tabPubsBtn.style.borderTop = "1.5px solid transparent";
+        }
+        if (tabConqBtn) {
+            tabConqBtn.style.color = "#fff";
+            tabConqBtn.style.borderTop = "1.5px solid #fff";
+        }
+    }
+}
+
+// Permite ao usuário logado gerenciar sua própria foto de perfil
+function gerenciarFotoPerfilUsuario() {
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
+    if (tipoUsuario === "admin") {
+        alert("Modo administrador ativo: a foto não pode ser alterada por este canal.");
+        return;
+    }
+
+    const escolha = prompt("Gerenciar Foto de Perfil:\nDigite 1 para ESCOLHER uma nova foto\nDigite 2 para REMOVER sua foto atual\nDigite 3 para CANCELAR");
+    if (escolha === "1") {
+        document.getElementById("perfil-usuario-avatar-input").click();
+    } else if (escolha === "2") {
+        removerFotoPerfilUsuario();
+    }
+}
+
+async function uploadFotoPerfilUsuario(input) {
+    const arquivo = input.files[0];
+    if (!arquivo) return;
+
+    try {
+        const username = localStorage.getItem("usernameLogado");
+        if (!username) return;
+
+        const avatarEl = document.getElementById("perfil-usuario-avatar");
+        if (avatarEl) avatarEl.style.opacity = "0.5";
+
+        let novaUrl = "";
+        let novoIdPublico = "";
+
+        if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadFoto === "function") {
+            const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
+            novaUrl = res.url;
+            novoIdPublico = res.public_id;
+        } else if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadImagem === "function") {
+            const res = await window.ClubeDB.acoesAdmin.uploadImagem(arquivo);
+            novaUrl = res.url;
+            novoIdPublico = res.public_id;
+        } else {
+            const formData = new FormData();
+            formData.append("file", arquivo);
+            formData.append("upload_preset", "guardioes_preset");
+            
+            const response = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
+                method: "POST",
+                body: formData
+            });
+            if (response.ok) {
+                const data = await response.json();
+                novaUrl = data.secure_url;
+                novoIdPublico = data.public_id;
+            } else {
+                throw new Error("Erro na conexão do upload.");
+            }
+        }
+
+        if (novaUrl) {
+            const snapshot = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
+            if (!snapshot.empty) {
+                const docId = snapshot.docs[0].id;
+                const dadosAntigos = snapshot.docs[0].data();
+
+                if (dadosAntigos.fotoIdPublico && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
+                    await window.ClubeDB.acoesAdmin.excluirFoto(dadosAntigos.fotoIdPublico);
+                }
+
+                await window.ClubeDB.textoDB.collection("usuarios").doc(docId).update({
+                    fotoUrl: novaUrl,
+                    fotoIdPublico: novoIdPublico
+                });
+
+                alert("Sua foto de perfil foi atualizada!");
+                carregarPerfilDoUsuario();
+            }
+        }
+    } catch (e) {
+        alert("Erro ao enviar imagem: " + e.message);
+    } finally {
+        const avatarEl = document.getElementById("perfil-usuario-avatar");
+        if (avatarEl) avatarEl.style.opacity = "1";
+    }
+}
+
+async function removerFotoPerfilUsuario() {
+    if (!confirm("Confirmar a remoção da sua foto de perfil?")) return;
+
+    try {
+        const username = localStorage.getItem("usernameLogado");
+        if (!username) return;
+
+        const avatarEl = document.getElementById("perfil-usuario-avatar");
+        if (avatarEl) avatarEl.style.opacity = "0.5";
+
+        const snapshot = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
+        if (!snapshot.empty) {
+            const docId = snapshot.docs[0].id;
+            const dadosAntigos = snapshot.docs[0].data();
+
+            if (dadosAntigos.fotoIdPublico && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
+                await window.ClubeDB.acoesAdmin.excluirFoto(dadosAntigos.fotoIdPublico);
+            }
+
+            await window.ClubeDB.textoDB.collection("usuarios").doc(docId).update({
+                fotoUrl: "",
+                fotoIdPublico: ""
+            });
+
+            alert("Foto de perfil removida com sucesso.");
+            carregarPerfilDoUsuario();
+        }
+    } catch (e) {
+        alert("Erro ao remover a foto: " + e.message);
+    } finally {
+        const avatarEl = document.getElementById("perfil-usuario-avatar");
+        if (avatarEl) avatarEl.style.opacity = "1";
+    }
+}
+
+// === LOGO DO CLUBE ===
+async function carregarLogoClubeConfig() {
+    try {
+        const doc = await window.ClubeDB.textoDB.collection("configuracoes").doc("geral").get();
+        const siteLogoImg = document.getElementById("site-logo-img");
+        const siteLogoTexto = document.getElementById("site-logo-texto");
+        const previaLogo = document.getElementById("previa-logo-clube");
+
+        if (doc.exists) {
+            const dados = doc.data();
+            if (dados.logoUrl) {
+                if (siteLogoImg) {
+                    siteLogoImg.src = dados.logoUrl;
+                    siteLogoImg.style.display = "block";
+                }
+                if (siteLogoTexto) {
+                    siteLogoTexto.style.display = "none";
+                }
+                if (previaLogo) {
+                    previaLogo.src = dados.logoUrl;
+                }
+            } else {
+                usarTextoPadraoLogo();
+            }
+        } else {
+            usarTextoPadraoLogo();
+        }
+    } catch (e) {
+        console.error("Erro ao carregar logo configurada:", e);
+    }
+}
+
+function usarTextoPadraoLogo() {
+    const siteLogoImg = document.getElementById("site-logo-img");
+    const siteLogoTexto = document.getElementById("site-logo-texto");
+    const previaLogo = document.getElementById("previa-logo-clube");
+
+    if (siteLogoImg) siteLogoImg.style.display = "none";
+    if (siteLogoTexto) siteLogoTexto.style.display = "block";
+    if (previaLogo) previaLogo.src = "";
+}
+
+async function salvarLogoClubeAdmin() {
+    const fileInput = document.getElementById("logo-clube-file");
+    const btn = document.getElementById("btn-salvar-logo");
+    const arquivo = fileInput ? fileInput.files[0] : null;
+
+    if (!arquivo) {
+        alert("Selecione um arquivo de imagem para a logo!");
+        return;
+    }
+
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Enviando...";
+        }
+
+        let urlLogo = "";
+        let idPublicoLogo = "";
+
+        if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadFoto === "function") {
+            const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
+            urlLogo = res.url;
+            idPublicoLogo = res.public_id;
+        } else if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadImagem === "function") {
+            const res = await window.ClubeDB.acoesAdmin.uploadImagem(arquivo);
+            urlLogo = res.url;
+            idPublicoLogo = res.public_id;
+        } else {
+            const formData = new FormData();
+            formData.append("file", arquivo);
+            formData.append("upload_preset", "guardioes_preset");
+            
+            const response = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
+                method: "POST",
+                body: formData
+            });
+            if (response.ok) {
+                const data = await response.json();
+                urlLogo = data.secure_url;
+                idPublicoLogo = data.public_id;
+            } else {
+                throw new Error("Erro de conexão com o Cloudinary.");
+            }
+        }
+
+        if (urlLogo) {
+            const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
+            const doc = await docRef.get();
+            if (doc.exists) {
+                const dados = doc.data();
+                if (dados.logoIdPublico && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
+                    await window.ClubeDB.acoesAdmin.excluirFoto(dados.logoIdPublico);
+                }
+            }
+
+            await docRef.set({
+                logoUrl: urlLogo,
+                logoIdPublico: idPublicoLogo
+            }, { merge: true });
+
+            alert("Logo do clube cadastrada com sucesso!");
+            carregarLogoClubeConfig();
+        }
+    } catch (e) {
+        alert("Erro ao salvar logo: " + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Salvar Logo";
+        }
+    }
+}
+
+async function removerLogoClubeAdmin() {
+    if (!confirm("Tem certeza que deseja usar o texto padrão ao invés de imagem?")) return;
+
+    try {
+        const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
+        const doc = await docRef.get();
+        if (doc.exists) {
+            const dados = doc.data();
+            if (dados.logoIdPublico && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
+                await window.ClubeDB.acoesAdmin.excluirFoto(dados.logoIdPublico);
+            }
+        }
+
+        await docRef.set({
+            logoUrl: "",
+            logoIdPublico: ""
+        }, { merge: true });
+
+        alert("Logo personalizada removida.");
+        usarTextoPadraoLogo();
+    } catch (e) {
+        alert("Erro ao remover logo: " + e.message);
     }
 }
 
