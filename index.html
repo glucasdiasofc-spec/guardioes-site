@@ -165,7 +165,7 @@
             </header>
 
             <!-- Container de Conteúdo (Scrollável) -->
-            <main id="conteudo-principal-site" style="flex: 1; overflow-y: auto; width: 100%; box-sizing: border-box; padding-bottom: 20px;">
+            <main id="conteudo-principal-site" style="flex: 1; overflow-y: auto; width: 100%; box-sizing: border-box; padding-bottom: 80px;">
                 
                 <!-- ABA 1: FEED / HOME -->
                 <div id="sub-aba-feed" style="display: block; padding: 35px 16px 20px 16px;">
@@ -253,8 +253,8 @@
 
             </main>
 
-            <!-- Barra de Navegação Inferior (Abas do Site) -->
-            <nav style="display: flex; justify-content: space-around; align-items: center; height: 49px; border-top: 1px solid #262626; background: #000; width: 100%; box-sizing: border-box; padding-bottom: env(safe-area-inset-bottom);">
+            <!-- Barra de Navegação Inferior Fixa (Estilo PWA Nativo) -->
+            <nav style="position: fixed; bottom: 0; left: 0; display: flex; justify-content: space-around; align-items: center; height: 52px; border-top: 1px solid #262626; background: #000; width: 100%; box-sizing: border-box; padding-bottom: env(safe-area-inset-bottom); z-index: 1000;">
                 <button onclick="mudarSubAbaSite('feed')" id="btn-sub-feed" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; flex: 1; height: 100%; opacity: 1;">
                     🏠
                 </button>
