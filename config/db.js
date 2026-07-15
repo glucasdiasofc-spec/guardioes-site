@@ -174,7 +174,6 @@ window.ClubeDB = {
         excluirFoto: excluirFotoCloudinary,
         criarUnidade: criarUnidade,
         cadastrarMembro: cadastrarMembro
-        criarPost: criarPost 
     }
 };
 console.log("🚀 [Core] Banco de dados híbrido e funções de Administração prontas.");
