@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v1.0.6 - Feedback Visual e Lista Dinâmica";
+const VERSAO_ATUAL = "v0.0.36 - Feedback Visual e Lista Dinâmica";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -264,20 +264,29 @@ function mudarSubTabPerfil(subAba) {
     }
 }
 
-// Permite ao usuário logado gerenciar sua própria foto de perfil
-function gerenciarFotoPerfilUsuario() {
-    const tipoUsuario = localStorage.getItem("usuarioLogado");
-    if (tipoUsuario === "admin") {
-        alert("Modo administrador ativo: a foto não pode ser alterada por este canal.");
-        return;
-    }
+// Controladores do Modal de Foto de Perfil
+function abrirModalFoto() {
+    const modal = document.getElementById("modal-foto-perfil");
+    const modalImg = document.getElementById("modal-foto-img");
+    const avatarImg = document.getElementById("perfil-usuario-avatar");
 
-    const escolha = prompt("Gerenciar Foto de Perfil:\nDigite 1 para ESCOLHER uma nova foto\nDigite 2 para REMOVER sua foto atual\nDigite 3 para CANCELAR");
-    if (escolha === "1") {
-        document.getElementById("perfil-usuario-avatar-input").click();
-    } else if (escolha === "2") {
-        removerFotoPerfilUsuario();
+    if (modal && modalImg && avatarImg) {
+        // Copia o caminho da foto que está no perfil para carregar em tamanho real
+        modalImg.src = avatarImg.src;
+        modal.style.display = "flex";
     }
+}
+
+function fecharModalFoto() {
+    const modal = document.getElementById("modal-foto-perfil");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}
+
+// Redireciona a chamada antiga para o novo sistema modal elegante
+function gerenciarFotoPerfilUsuario() {
+    abrirModalFoto();
 }
 
 async function uploadFotoPerfilUsuario(input) {
@@ -337,6 +346,7 @@ async function uploadFotoPerfilUsuario(input) {
 
                 alert("Sua foto de perfil foi atualizada!");
                 carregarPerfilDoUsuario();
+                fecharModalFoto();
             }
         }
     } catch (e) {
@@ -373,6 +383,7 @@ async function removerFotoPerfilUsuario() {
 
             alert("Foto de perfil removida com sucesso.");
             carregarPerfilDoUsuario();
+            fecharModalFoto();
         }
     } catch (e) {
         alert("Erro ao remover a foto: " + e.message);
