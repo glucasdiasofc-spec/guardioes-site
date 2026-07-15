@@ -108,23 +108,22 @@ function irParaPainel() {
 function mudarSubAbaSite(abaAlvo) {
     const feedAba = document.getElementById("sub-aba-feed");
     const perfilAba = document.getElementById("sub-aba-perfil");
-    const btnFeed = document.getElementById("btn-sub-feed");
-    const btnPerfil = document.getElementById("btn-sub-perfil");
+    const espAba = document.getElementById("sub-aba-especialidades"); // Nova aba
 
+    // Reseta todos
+    if (feedAba) feedAba.style.display = "none";
+    if (perfilAba) perfilAba.style.display = "none";
+    if (espAba) espAba.style.display = "none";
+
+    // Mostra o selecionado
     if (abaAlvo === "feed") {
-        if (feedAba) feedAba.style.display = "block";
-        if (perfilAba) perfilAba.style.display = "none";
-        
-        if (btnFeed) btnFeed.style.opacity = "1";
-        if (btnPerfil) btnPerfil.style.opacity = "0.5";
+        feedAba.style.display = "block";
+        // ... (resto da lógica de opacidade dos botões)
+    } else if (abaAlvo === "especialidades") {
+        espAba.style.display = "block";
+        carregarEspecialidades(); // Chama a função que criamos acima
     } else if (abaAlvo === "perfil") {
-        if (feedAba) feedAba.style.display = "none";
-        if (perfilAba) perfilAba.style.display = "block";
-        
-        if (btnFeed) btnFeed.style.opacity = "0.5";
-        if (btnPerfil) btnPerfil.style.opacity = "1";
-        
-        // Puxa as informações dinâmicas do banco
+        perfilAba.style.display = "block";
         carregarPerfilDoUsuario();
     }
 }
@@ -950,3 +949,60 @@ window.salvarTamanhoLogoBD = async function() {
         alert("Erro ao salvar tamanho da logo no banco de dados.");
     }
 };
+// === LÓGICA: ESPECIALIDADES ===
+
+// 1. Carrega e renderiza a lista de especialidades
+async function carregarEspecialidades() {
+    const container = document.getElementById("lista-especialidades-container");
+    if (!container) return;
+
+    try {
+        container.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Carregando especialidades...</p>";
+        
+        const snapshot = await window.ClubeDB.textoDB.collection("especialidades").get();
+        
+        if (snapshot.empty) {
+            container.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Nenhuma especialidade cadastrada ainda.</p>";
+            return;
+        }
+
+        // Armazena todos os itens para filtragem local rápida
+        const especialidades = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderizarEspecialidades(especialidades);
+
+    } catch (erro) {
+        console.error("Erro ao carregar especialidades:", erro);
+        container.innerHTML = "<p style='color: #ff4d4d;'>Erro ao carregar dados.</p>";
+    }
+}
+
+// 2. Renderiza os cards de especialidades
+function renderizarEspecialidades(lista) {
+    const container = document.getElementById("lista-especialidades-container");
+    if (!container) return;
+
+    container.innerHTML = lista.map(esp => `
+        <div style="background: #121212; border: 1px solid #262626; padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 15px;">
+            <img src="${esp.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
+            <div>
+                <div style="font-weight: bold; color: #fff;">${esp.nome}</div>
+                <div style="font-size: 12px; color: #a8a8a8;">Categoria: ${esp.categoria || 'Geral'}</div>
+            </div>
+        </div>
+    `).join("");
+}
+
+// 3. Busca em tempo real
+document.getElementById("busca-especialidade")?.addEventListener("input", async (e) => {
+    const termo = e.target.value.toLowerCase();
+    
+    // Busca filtrada no Firebase
+    const snapshot = await window.ClubeDB.textoDB.collection("especialidades")
+        .orderBy("nome")
+        .startAt(termo)
+        .endAt(termo + "\uf8ff")
+        .get();
+
+    const resultados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderizarEspecialidades(resultados);
+});
