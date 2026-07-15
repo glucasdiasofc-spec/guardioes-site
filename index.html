@@ -46,10 +46,13 @@
 
         <!-- Área de Administração Secreta (Escondida por padrão) -->
         <section id="tela-admin" class="secao-app" style="display: none;">
-            <header class="barra-topo-admin">
-                <h2>Painel do Administrador</h2>
-                <button class="btn-sair" onclick="fazerLogoutSessao()">Sair</button>
-            </header>
+<header class="barra-topo-admin">
+    <h2>Painel do Administrador</h2>
+    <div style="display: flex; gap: 10px;">
+        <button onclick="irParaSite()" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🌍 Ver o Site</button>
+        <button class="btn-sair" onclick="fazerLogoutSessao()">Sair</button>
+    </div>
+</header>
 
             <!-- Abas de Navegação Interna -->
             <nav class="abas-admin">
@@ -116,7 +119,28 @@
                 <p>Configurações finas da liderança e ordenações em breve...</p>
             </div>
         </section>
+<!-- TELA DO SITE PRINCIPAL (HOME/FEED) -->
+        <section id="tela-site" class="secao-app" style="display: none; flex-direction: column;">
+            <header style="padding: 20px; background: #1a1a1a; text-align: center; border-bottom: 2px solid #444; position: relative; width: 100%; box-sizing: border-box;">
+                <h2 style="margin: 0; color: #fff;">Clube Guardiões - Home</h2>
+                
+                <!-- Botão exclusivo para o Admin voltar pro painel (Escondido por padrão) -->
+                <button id="btn-voltar-painel" onclick="irParaPainel()" style="display: none; position: absolute; right: 20px; top: 15px; padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    ⚙️ Painel Admin
+                </button>
+                
+                <!-- Botão de Sair comum a todos -->
+                <button onclick="fazerLogoutSessao()" style="position: absolute; left: 20px; top: 15px; padding: 8px 15px; background: #ff4d4d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    Sair
+                </button>
+            </header>
 
+            <!-- Área onde ficará o Feed e as categorias -->
+            <main style="flex: 1; padding: 20px; text-align: center; color: #ccc;">
+                <p style="font-size: 20px; font-weight: bold; margin-top: 40px;">Bem-vindo à Home do Clube! 🎉</p>
+                <p style="font-size: 14px; color: #888;">Este é o espaço onde os membros verão as publicações gerais e reflexões da Bíblia/Escola Sabatina.</p>
+            </main>
+        </section>
         <!-- Rodapé Dinâmico de Versão do App -->
         <footer class="rodape-app">
             <span id="versao-app-texto">v1.0.2 - Carregando...</span>

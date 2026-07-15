@@ -12,15 +12,19 @@ document.addEventListener("DOMContentLoaded", () => {
         rodape.textContent = VERSAO_ATUAL;
     }
     
-    // Verifica login salvo na memória
     const loginSalvo = localStorage.getItem("sessaoAdminLogado");
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
+
     if (loginSalvo === "true") {
         document.getElementById("tela-login").style.display = "none";
-        document.getElementById("tela-admin").style.display = "flex";
         
-        // Puxa do banco e renderiza as unidades assim que logar!
-        carregarUnidadesCadastradas(); 
-        carregarMembrosCadastrados();
+        if (tipoUsuario === "admin") {
+            document.getElementById("tela-admin").style.display = "flex";
+            carregarUnidadesCadastradas(); 
+            carregarMembrosCadastrados();
+        } else {
+            irParaSite();
+        }
     }
 });
 
@@ -32,9 +36,11 @@ async function executarLoginMembro() {
 
     if (erroDisplay) erroDisplay.textContent = "Validando...";
 
-    // 1. Acesso do Admin (mantemos para garantir seu acesso total)
+    // 1. Acesso do Admin
     if (usuarioInput === "admin" && senhaInput === "Alcopoes1") {
         localStorage.setItem("sessaoAdminLogado", "true");
+        localStorage.setItem("usuarioLogado", "admin");
+        
         document.getElementById("tela-login").style.display = "none";
         document.getElementById("tela-admin").style.display = "flex";
         
@@ -46,31 +52,61 @@ async function executarLoginMembro() {
         return;
     }
 
-    // 2. Acesso Real via Firebase (valida o que foi criado no cadastro)
+    // 2. Acesso via Firebase Auth para membros comuns
     try {
-        // Monta o e-mail no mesmo formato que o db.js usa no cadastro
         const emailFirebase = `${usuarioInput.toLowerCase()}@guardioesdbv.com`;
-        
-        // Tenta logar no Firebase Auth
         await window.ClubeDB.loginDB.signInWithEmailAndPassword(emailFirebase, senhaInput);
         
-        // Se logou com sucesso:
         localStorage.setItem("sessaoAdminLogado", "true");
-        document.getElementById("tela-login").style.display = "none";
-        document.getElementById("tela-admin").style.display = "flex";
+        localStorage.setItem("usuarioLogado", "membro");
         
-        carregarUnidadesCadastradas();
-        carregarMembrosCadastrados();
+        document.getElementById("tela-login").style.display = "none";
+        
+        // Membros comuns vão direto para o site!
+        irParaSite();
+        
     } catch (erro) {
         console.error("Erro de login:", erro);
         if (erroDisplay) erroDisplay.textContent = "Usuário ou senha incorretos.";
     }
 }
 
+// Direciona o fluxo para a tela de visualização do site
+function irParaSite() {
+    document.getElementById("tela-admin").style.display = "none";
+    document.getElementById("tela-site").style.display = "flex";
+    
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
+    const btnVoltar = document.getElementById("btn-voltar-painel");
+    if (btnVoltar) {
+        if (tipoUsuario === "admin") {
+            btnVoltar.style.display = "block";
+        } else {
+            btnVoltar.style.display = "none";
+        }
+    }
+}
+
+// Retorna para o Painel do Administrador
+function irParaPainel() {
+    document.getElementById("tela-site").style.display = "none";
+    document.getElementById("tela-admin").style.display = "flex";
+    
+    carregarUnidadesCadastradas();
+    carregarMembrosCadastrados();
+}
+
 // Limpa a sessão
 function fazerLogoutSessao() {
     localStorage.removeItem("sessaoAdminLogado");
+    localStorage.removeItem("usuarioLogado");
+    
+    if (window.ClubeDB && window.ClubeDB.loginDB) {
+        window.ClubeDB.loginDB.signOut().catch(err => console.log("Signout efetuado: ", err));
+    }
+
     document.getElementById("tela-admin").style.display = "none";
+    document.getElementById("tela-site").style.display = "none";
     document.getElementById("tela-login").style.display = "flex";
 }
 
