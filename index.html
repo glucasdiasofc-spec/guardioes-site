@@ -140,11 +140,20 @@
         <section id="tela-site" class="secao-app" style="display: none; flex-direction: column; background-color: #000; height: 100%; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             
             <!-- Header Minimalista -->
-            <header style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid #262626; background: #000; height: 50px; box-sizing: border-box; width: 100%;">
-                <div id="site-logo-container" style="display: flex; align-items: center; height: 100%;">
-                    <span id="site-logo-texto" style="font-family: 'Satisfy', cursive, sans-serif; font-size: 24px; font-weight: bold; letter-spacing: 1px; color: #fff;">Guardiões</span>
-                    <img id="site-logo-img" src="" style="display: none; max-height: 35px; object-fit: contain;" alt="Logo do Clube">
+            <header style="display: flex; justify-content: flex-end; align-items: center; padding: 10px 16px; border-bottom: 1px solid #262626; background: #000; height: 55px; box-sizing: border-box; width: 100%; position: relative;">
+                
+                <!-- Container da Logo (Absolutamente Centralizado no meio da linha e responsivo) -->
+                <div id="site-logo-container" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; max-width: 55%; height: 100%; z-index: 1;">
+                    <span id="site-logo-texto" style="font-family: 'Satisfy', cursive, sans-serif; font-size: 22px; font-weight: bold; letter-spacing: 1px; color: #fff; white-space: nowrap; text-align: center;">Guardiões</span>
+                    <img id="site-logo-img" src="" style="display: none; max-height: 42px; max-width: 100%; width: auto; object-fit: contain;" alt="Logo do Clube">
                 </div>
+
+                <!-- Botões de Ação na Direita -->
+                <div style="display: flex; gap: 12px; align-items: center; z-index: 10;">
+                    <span onclick="deslogarUsuario()" style="color: #ff4d4d; font-size: 14px; font-weight: bold; cursor: pointer;">Sair</span>
+                    <span id="btn-painel-admin-header" onclick="abrirPainelAdmin()" style="color: #0095f6; font-size: 14px; font-weight: bold; cursor: pointer; display: none;">Painel</span>
+                </div>
+            </header>
                 
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <!-- Botão de Sair Minimalista -->
