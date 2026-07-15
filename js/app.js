@@ -25,25 +25,33 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Executa o login do administrador
-function executarLoginMembro() {    
+async function executarLoginMembro() {    
     const usuarioInput = document.getElementById("login-username").value.trim();
     const senhaInput = document.getElementById("login-senha").value;
     const erroDisplay = document.getElementById("erro-login");
 
-    if (erroDisplay) erroDisplay.textContent = "";
+    if (erroDisplay) erroDisplay.textContent = "Validando...";
 
+    // 1. Acesso do Admin (mantemos para garantir seu acesso)
     if (usuarioInput === "admin" && senhaInput === "Alcopoes1") {
         localStorage.setItem("sessaoAdminLogado", "true");
-        document.getElementById("tela-login").style.display = "none";
-        document.getElementById("tela-admin").style.display = "flex";
-        
-        document.getElementById("login-username").value = "";
-        document.getElementById("login-senha").value = "";
+        window.location.reload(); 
+        return;
+    }
 
-        // Puxa do banco e renderiza as unidades!
-        carregarUnidadesCadastradas();
-        carregarMembrosCadastrados();
-    } else {
+    // 2. Acesso Real (o que você criou no cadastro)
+    try {
+        // Monta o e-mail no mesmo formato que o db.js criou
+        const emailFirebase = `${usuarioInput.toLowerCase()}@guardioesdbv.com`;
+        
+        // Verifica no Firebase Auth
+        await window.ClubeDB.loginDB.signInWithEmailAndPassword(emailFirebase, senhaInput);
+        
+        // Se chegar aqui, login foi sucesso!
+        localStorage.setItem("sessaoAdminLogado", "true");
+        window.location.reload(); 
+    } catch (erro) {
+        console.error("Erro de login:", erro);
         if (erroDisplay) erroDisplay.textContent = "Usuário ou senha incorretos.";
     }
 }
