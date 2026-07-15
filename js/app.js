@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v1.0.6 - Feedback Visual e Lista Dinâmica";
+const VERSAO_ATUAL = "v0.0.27 - Feedback Visual e Lista Dinâmica";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
