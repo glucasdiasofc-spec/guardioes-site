@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.51 - especialidades";
+const VERSAO_ATUAL = "v0.0.52 - especialidades";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -951,58 +951,154 @@ window.salvarTamanhoLogoBD = async function() {
 };
 // === LÓGICA: ESPECIALIDADES ===
 
-// 1. Carrega e renderiza a lista de especialidades
-async function carregarEspecialidades() {
-    const container = document.getElementById("lista-especialidades-container");
-    if (!container) return;
+// Cache em memória para buscas instantâneas sem consumo excessivo de leitura no Firebase
+window.cacheEspecialidades = [];
 
+// Auxiliar para remover acentos e facilitar a busca exata (ignora maiúsculas, minúsculas e acentuações)
+function normalizarTextoBusca(texto) {
+    if (!texto) return "";
+    return texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+// 1. Carrega as especialidades do Firebase apenas uma vez e alimenta o cache local
+async function carregarEspecialidades() {
+    fecharCatalogoEspecialidades(); // Força iniciar sempre na tela de "Em andamento"
+
+    const containerCatalogo = document.getElementById("lista-especialidades-container");
     try {
-        container.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Carregando especialidades...</p>";
-        
-        const snapshot = await window.ClubeDB.textoDB.collection("especialidades").get();
-        
-        if (snapshot.empty) {
-            container.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Nenhuma especialidade cadastrada ainda.</p>";
-            return;
+        if (containerCatalogo) {
+            containerCatalogo.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Carregando catálogo...</p>";
         }
 
-        // Armazena todos os itens para filtragem local rápida
-        const especialidades = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderizarEspecialidades(especialidades);
+        // Se o cache já tiver itens, não faz outra requisição de leitura ao banco
+        if (window.cacheEspecialidades.length === 0) {
+            const snapshot = await window.ClubeDB.textoDB.collection("especialidades").get();
+            if (!snapshot.empty) {
+                window.cacheEspecialidades = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+        }
+
+        renderizarCatalogoEspecialidades(window.cacheEspecialidades);
+        carregarEspecialidadesEmAndamento();
 
     } catch (erro) {
-        console.error("Erro ao carregar especialidades:", erro);
-        container.innerHTML = "<p style='color: #ff4d4d;'>Erro ao carregar dados.</p>";
+        console.error("Erro ao carregar especialidades do banco:", erro);
+        if (containerCatalogo) {
+            containerCatalogo.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao sincronizar dados com o servidor.</p>";
+        }
     }
 }
 
-// 2. Renderiza os cards de especialidades
-function renderizarEspecialidades(lista) {
+// 2. Alternadores de visibilidade de tela
+function abrirCatalogoEspecialidades() {
+    document.getElementById("tela-especialidades-andamento").style.display = "none";
+    document.getElementById("tela-especialidades-catalogo").style.display = "block";
+    
+    // Reseta a pesquisa ao reabrir o catálogo
+    const campoBusca = document.getElementById("busca-especialidade");
+    if (campoBusca) campoBusca.value = "";
+    renderizarCatalogoEspecialidades(window.cacheEspecialidades);
+}
+
+function fecharCatalogoEspecialidades() {
+    document.getElementById("tela-especialidades-catalogo").style.display = "none";
+    document.getElementById("tela-especialidades-andamento").style.display = "block";
+}
+
+// 3. Desenha o catálogo organizado com cabeçalhos de Categorias
+function renderizarCatalogoEspecialidades(lista) {
     const container = document.getElementById("lista-especialidades-container");
     if (!container) return;
 
-    container.innerHTML = lista.map(esp => `
-        <div style="background: #121212; border: 1px solid #262626; padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 15px;">
-            <img src="${esp.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
-            <div>
-                <div style="font-weight: bold; color: #fff;">${esp.nome}</div>
-                <div style="font-size: 12px; color: #a8a8a8;">Categoria: ${esp.categoria || 'Geral'}</div>
+    if (!lista || lista.length === 0) {
+        container.innerHTML = "<p style='color: #8e8e8e; text-align: center; padding: 10px;'>Nenhuma especialidade encontrada.</p>";
+        return;
+    }
+
+    // Agrupamento local por Categoria
+    const categorias = {};
+    lista.forEach(esp => {
+        const cat = esp.categoria || "Geral";
+        if (!categorias[cat]) {
+            categorias[cat] = [];
+        }
+        categorias[cat].push(esp);
+    });
+
+    let htmlAgrupado = "";
+    for (const [nomeCategoria, itens] of Object.entries(categorias)) {
+        htmlAgrupado += `
+            <div class="grupo-categoria-bloco" style="margin-bottom: 8px;">
+                <h4 style="color: #007bff; font-size: 13px; margin-bottom: 10px; border-left: 3.5px solid #007bff; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    ${nomeCategoria}
+                </h4>
+                <div style="display: grid; gap: 8px;">
+                    ${itens.map(esp => `
+                        <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                                <!-- Tratamento de Imagem Quebrada (onerror) -->
+                                <img src="${esp.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" 
+                                     onerror="this.onerror=null; this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';"
+                                     style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" 
+                                     alt="Logo">
+                                <div style="min-width: 0;">
+                                    <div style="font-weight: 600; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esp.nome}</div>
+                                    <div style="font-size: 11px; color: #8e8e8e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esp.descricao ? esp.descricao.substring(0, 45) + '...' : 'Sem requisitos detalhados.'}</div>
+                                </div>
+                            </div>
+                            <button onclick="solicitarInicioEspecialidade('${esp.id}', '${esp.nome}')" style="width: auto; padding: 6px 12px; font-size: 11px; background-color: #007bff; border-radius: 6px; font-weight: bold; cursor: pointer; color: #fff; border: none; flex-shrink: 0;">
+                                Começar
+                            </button>
+                        </div>
+                    `).join("")}
+                </div>
             </div>
-        </div>
-    `).join("");
+        `;
+    }
+
+    container.innerHTML = htmlAgrupado;
 }
 
-// 3. Busca em tempo real
-document.getElementById("busca-especialidade")?.addEventListener("input", async (e) => {
-    const termo = e.target.value.toLowerCase();
-    
-    // Busca filtrada no Firebase
-    const snapshot = await window.ClubeDB.textoDB.collection("especialidades")
-        .orderBy("nome")
-        .startAt(termo)
-        .endAt(termo + "\uf8ff")
-        .get();
+// 4. Mecanismo de busca local instantâneo (resolve os problemas de "Aranhas"/"aranhas" e acentuação)
+function pesquisarEspecialidadeLocal() {
+    const input = document.getElementById("busca-especialidade");
+    if (!input) return;
 
-    const resultados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    renderizarEspecialidades(resultados);
-});
+    const termo = normalizarTextoBusca(input.value);
+
+    // Filtra diretamente no array em memória
+    const resultados = window.cacheEspecialidades.filter(esp => {
+        const nomeNormalizado = normalizarTextoBusca(esp.nome);
+        const categoriaNormalizada = normalizarTextoBusca(esp.categoria);
+        return nomeNormalizado.includes(termo) || categoriaNormalizada.includes(termo);
+    });
+
+    renderizarCatalogoEspecialidades(resultados);
+}
+
+// 5. Função acionada ao clicar em "Começar" no catálogo
+function solicitarInicioEspecialidade(id, nome) {
+    const username = localStorage.getItem("usernameLogado");
+    if (!username || username === "admin") {
+        alert("Apenas membros comuns logados podem iniciar especialidades.");
+        return;
+    }
+    
+    alert(`Especialidade "${nome}" iniciada com sucesso! Você já pode acompanhar seus requisitos.`);
+    fecharCatalogoEspecialidades();
+    
+    // Futuramente, insira sua lógica de escrita do Firebase aqui para associar esta especialidade ao usuário logado
+}
+
+// 6. Atualiza a lista de progresso do usuário logado
+function carregarEspecialidadesEmAndamento() {
+    const container = document.getElementById("lista-especialidades-progresso-container");
+    if (!container) return;
+
+    // Layout limpo de standby
+    container.innerHTML = `
+        <p style="color: #8e8e8e; text-align: center; font-size: 13px; padding: 15px 0; line-height: 1.4;">
+            Você não tem especialidades ativas.<br>Clique no botão abaixo para explorar o catálogo!
+        </p>
+    `;
+}

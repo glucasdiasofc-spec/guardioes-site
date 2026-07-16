@@ -274,11 +274,40 @@
                 </div>
             <!-- ABA 3: ESPECIALIDADES -->
                 <div id="sub-aba-especialidades" style="display: none; padding: 35px 16px 80px 16px;">
-                    <h3 style="color: #fff; margin-bottom: 15px;">Especialidades</h3>
-                    <input type="text" id="busca-especialidade" placeholder="🔍 Pesquisar..." style="width: 100%; padding: 10px; border-radius: 8px; border: none; background: #262626; color: white; margin-bottom: 15px; box-sizing: border-box;">
-                    <div id="lista-especialidades-container" style="display: grid; gap: 10px;">
-                        <p style="color: #8e8e8e; text-align: center;">Carregando lista...</p>
+                    
+                    <!-- TELA 1: EM ANDAMENTO (Visível por padrão) -->
+                    <div id="tela-especialidades-andamento">
+                        <h3 style="color: #fff; margin-bottom: 15px;">Minhas Especialidades</h3>
+                        
+                        <!-- Lista de Especialidades em Progresso -->
+                        <div id="lista-especialidades-progresso-container" style="display: grid; gap: 10px; margin-bottom: 20px;">
+                            <p style="color: #8e8e8e; text-align: center;">Nenhuma especialidade em andamento.</p>
+                        </div>
+                        
+                        <!-- Botão para abrir o catálogo -->
+                        <button onclick="abrirCatalogoEspecialidades()" style="width: 100%; padding: 12px; background-color: #007bff; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                            + Iniciar Especialidade
+                        </button>
                     </div>
+
+                    <!-- TELA 2: CATÁLOGO COMPLETO (Oculto por padrão) -->
+                    <div id="tela-especialidades-catalogo" style="display: none;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                            <h3 style="color: #fff; margin: 0;">Catálogo</h3>
+                            <button onclick="fecharCatalogoEspecialidades()" style="width: auto; padding: 6px 12px; background-color: #262626; color: #fff; border: 1px solid #363636; border-radius: 6px; font-size: 13px;">
+                                ⬅ Voltar
+                            </button>
+                        </div>
+                        
+                        <!-- Campo de Busca Local Inteligente -->
+                        <input type="text" id="busca-especialidade" oninput="pesquisarEspecialidadeLocal()" placeholder="🔍 Pesquisar (ex: aranhas, costura)..." style="width: 100%; padding: 10px; border-radius: 8px; border: none; background: #262626; color: white; margin-bottom: 20px; box-sizing: border-box;">
+                        
+                        <!-- Lista de Especialidades Agrupadas por Categoria -->
+                        <div id="lista-especialidades-container" style="display: flex; flex-direction: column; gap: 20px;">
+                            <p style="color: #8e8e8e; text-align: center;">Carregando catálogo...</p>
+                        </div>
+                    </div>
+
                 </div>
             </main>
 
