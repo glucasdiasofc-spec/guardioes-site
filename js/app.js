@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.53 - especialidades";
+const VERSAO_ATUAL = "v0.0.54 - rapaz...";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1120,11 +1120,11 @@ function renderizarCatalogoEspecialidades(lista) {
             <div style="display:grid; gap:8px;">
                 ${itens.map(e => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                             <img src="${e.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.nome}</div></div>
+                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.nome}</div></div>
                         </div>
-                        <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                        <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                     </div>
                 `).join("")}
             </div>
@@ -1375,19 +1375,30 @@ async function carregarClassesEmAndamento() {
 // ==========================================
 // CONCLUIR / REMOVER PROGRESSO DO BANCO
 // ==========================================
-async function concluirProgresso(colecao, itemId, nomeItem, callbackRecarregar) {
+async function solicitarAprovacao(colecaoOrigem, itemId, nomeItem, callbackRecarregar) {
     const username = localStorage.getItem("usernameLogado");
     if (!username) return;
 
-    if (confirm(`Parabéns! Deseja marcar "${nomeItem}" como concluído(a)?`)) {
+    if (confirm(`Deseja enviar "${nomeItem}" para aprovação do líder?`)) {
         try {
-            // Remove do progresso ativo ao concluir (ou mude para status: "concluido" se preferir manter histórico)
-            await window.ClubeDB.textoDB.collection(colecao).doc(`${username}_${itemId}`).delete();
-            alert(`"${nomeItem}" concluído com sucesso!`);
+            // 1. Salva na coleção de pendências
+            await window.ClubeDB.textoDB.collection("pendencias_aprovacao").doc(`${username}_${itemId}`).set({
+                usuario: username,
+                itemId: itemId,
+                nomeItem: nomeItem,
+                colecaoOrigem: colecaoOrigem, // Para saber se é esp, mest ou class
+                status: "pendente",
+                data: new Date()
+            });
+
+            // 2. Remove do progresso ativo
+            await window.ClubeDB.textoDB.collection(colecaoOrigem).doc(`${username}_${itemId}`).delete();
+            
+            alert(`Pedido de "${nomeItem}" enviado com sucesso!`);
             callbackRecarregar();
         } catch (e) {
-            console.error("Erro ao concluir item:", e);
-            alert("Não foi possível atualizar o progresso.");
+            console.error("Erro ao enviar para aprovação:", e);
+            alert("Erro ao enviar. Tente novamente.");
         }
     }
 }
