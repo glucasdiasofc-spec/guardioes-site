@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.52 - especialidades";
+const VERSAO_ATUAL = "v0.0.53 - especialidades";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -949,156 +949,445 @@ window.salvarTamanhoLogoBD = async function() {
         alert("Erro ao salvar tamanho da logo no banco de dados.");
     }
 };
-// === LÓGICA: ESPECIALIDADES ===
+// ==========================================
+// === LÓGICA: PROGRESSO (ESP, MEST, CLAS) ===
+// ==========================================
 
-// Cache em memória para buscas instantâneas sem consumo excessivo de leitura no Firebase
+// Caches globais para performance instantânea
 window.cacheEspecialidades = [];
+window.cacheMestrados = [];
+window.cacheClasses = [];
 
-// Auxiliar para remover acentos e facilitar a busca exata (ignora maiúsculas, minúsculas e acentuações)
+// Fallbacks de segurança para Mestrados e Classes (caso ainda não estejam criados no Firebase)
+const fallbackMestrados = [
+    { id: "mest_1", nome: "Mestrado em Ecologia", categoria: "Ciência e Natureza", urlImagem: "" },
+    { id: "mest_2", nome: "Mestrado em Artes Manuais", categoria: "Artes e Ofícios", urlImagem: "" }
+];
+const fallbackClasses = [
+    { id: "cl_1", nome: "Amigo", categoria: "Regulares", urlImagem: "" },
+    { id: "cl_2", nome: "Companheiro", categoria: "Regulares", urlImagem: "" },
+    { id: "cl_3", nome: "Guia", categoria: "Regulares", urlImagem: "" },
+    { id: "cl_4", nome: "Líder", categoria: "Liderança", urlImagem: "" }
+];
+
+// Auxiliar para limpar acentos e maiúsculas
 function normalizarTextoBusca(texto) {
     if (!texto) return "";
     return texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
-// 1. Carrega as especialidades do Firebase apenas uma vez e alimenta o cache local
+// === FUNÇÃO DISPARADA AO CLICAR NA ABA PROGRESSO ===
 async function carregarEspecialidades() {
-    fecharCatalogoEspecialidades(); // Força iniciar sempre na tela de "Em andamento"
+    // Fecha todos os catálogos para garantir que o usuário caia na tela principal
+    fecharCatalogoEspecialidades();
+    fecharCatalogoMestrados();
+    fecharCatalogoClasses();
 
-    const containerCatalogo = document.getElementById("lista-especialidades-container");
+    const username = localStorage.getItem("usernameLogado");
+    if (!username) return;
+
     try {
-        if (containerCatalogo) {
-            containerCatalogo.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Carregando catálogo...</p>";
-        }
-
-        // Se o cache já tiver itens, não faz outra requisição de leitura ao banco
+        // 1. CARREGAR E RENDERIZAR ESPECIALIDADES
         if (window.cacheEspecialidades.length === 0) {
-            const snapshot = await window.ClubeDB.textoDB.collection("especialidades").get();
-            if (!snapshot.empty) {
-                window.cacheEspecialidades = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
+            if (!snapEsp.empty) {
+                window.cacheEspecialidades = snapEsp.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             }
         }
-
         renderizarCatalogoEspecialidades(window.cacheEspecialidades);
-        carregarEspecialidadesEmAndamento();
+        await carregarEspecialidadesEmAndamento();
+
+        // 2. CARREGAR E RENDERIZAR MESTRADOS
+        if (window.cacheMestrados.length === 0) {
+            try {
+                const snapMest = await window.ClubeDB.textoDB.collection("mestrados").get();
+                if (!snapMest.empty) {
+                    window.cacheMestrados = snapMest.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                } else {
+                    window.cacheMestrados = fallbackMestrados;
+                }
+            } catch {
+                window.cacheMestrados = fallbackMestrados;
+            }
+        }
+        renderizarCatalogoMestrados(window.cacheMestrados);
+        await carregarMestradosEmAndamento();
+
+        // 3. CARREGAR E RENDERIZAR CLASSES
+        if (window.cacheClasses.length === 0) {
+            try {
+                const snapCl = await window.ClubeDB.textoDB.collection("classes").get();
+                if (!snapCl.empty) {
+                    window.cacheClasses = snapCl.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                } else {
+                    window.cacheClasses = fallbackClasses;
+                }
+            } catch {
+                window.cacheClasses = fallbackClasses;
+            }
+        }
+        renderizarCatalogoClasses(window.cacheClasses);
+        await carregarClassesEmAndamento();
 
     } catch (erro) {
-        console.error("Erro ao carregar especialidades do banco:", erro);
-        if (containerCatalogo) {
-            containerCatalogo.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao sincronizar dados com o servidor.</p>";
-        }
+        console.error("Erro geral de carregamento:", erro);
     }
 }
 
-// 2. Alternadores de visibilidade de tela
+// ==========================================
+// CONTROLE DE VISIBILIDADE DOS CATÁLOGOS
+// ==========================================
 function abrirCatalogoEspecialidades() {
     document.getElementById("tela-especialidades-andamento").style.display = "none";
     document.getElementById("tela-especialidades-catalogo").style.display = "block";
-    
-    // Reseta a pesquisa ao reabrir o catálogo
-    const campoBusca = document.getElementById("busca-especialidade");
-    if (campoBusca) campoBusca.value = "";
+    document.getElementById("busca-especialidade").value = "";
     renderizarCatalogoEspecialidades(window.cacheEspecialidades);
 }
-
 function fecharCatalogoEspecialidades() {
     document.getElementById("tela-especialidades-catalogo").style.display = "none";
     document.getElementById("tela-especialidades-andamento").style.display = "block";
 }
 
-// 3. Desenha o catálogo organizado com cabeçalhos de Categorias
+function abrirCatalogoMestrados() {
+    document.getElementById("tela-especialidades-andamento").style.display = "none";
+    document.getElementById("tela-mestrados-catalogo").style.display = "block";
+    document.getElementById("busca-mestrado").value = "";
+    renderizarCatalogoMestrados(window.cacheMestrados);
+}
+function fecharCatalogoMestrados() {
+    document.getElementById("tela-mestrados-catalogo").style.display = "none";
+    document.getElementById("tela-especialidades-andamento").style.display = "block";
+}
+
+function abrirCatalogoClasses() {
+    document.getElementById("tela-especialidades-andamento").style.display = "none";
+    document.getElementById("tela-classes-catalogo").style.display = "block";
+    document.getElementById("busca-classe").value = "";
+    renderizarCatalogoClasses(window.cacheClasses);
+}
+function fecharCatalogoClasses() {
+    document.getElementById("tela-classes-catalogo").style.display = "none";
+    document.getElementById("tela-especialidades-andamento").style.display = "block";
+}
+
+
+// ==========================================
+// MECANISMO DE BUSCA LOCAL
+// ==========================================
+function pesquisarEspecialidadeLocal() {
+    const termo = normalizarTextoBusca(document.getElementById("busca-especialidade").value);
+    const filtrados = window.cacheEspecialidades.filter(e => 
+        normalizarTextoBusca(e.nome).includes(termo) || normalizarTextoBusca(e.categoria).includes(termo)
+    );
+    renderizarCatalogoEspecialidades(filtrados);
+}
+
+function pesquisarMestradoLocal() {
+    const termo = normalizarTextoBusca(document.getElementById("busca-mestrado").value);
+    const filtrados = window.cacheMestrados.filter(m => 
+        normalizarTextoBusca(m.nome).includes(termo) || normalizarTextoBusca(m.categoria).includes(termo)
+    );
+    renderizarCatalogoMestrados(filtrados);
+}
+
+function pesquisarClasseLocal() {
+    const termo = normalizarTextoBusca(document.getElementById("busca-classe").value);
+    const filtrados = window.cacheClasses.filter(c => 
+        normalizarTextoBusca(c.nome).includes(termo) || normalizarTextoBusca(c.categoria).includes(termo)
+    );
+    renderizarCatalogoClasses(filtrados);
+}
+
+
+// ==========================================
+// RENDERIZAÇÃO DOS CATÁLOGOS (AGRUPADOS)
+// ==========================================
 function renderizarCatalogoEspecialidades(lista) {
     const container = document.getElementById("lista-especialidades-container");
     if (!container) return;
+    if (lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
 
-    if (!lista || lista.length === 0) {
-        container.innerHTML = "<p style='color: #8e8e8e; text-align: center; padding: 10px;'>Nenhuma especialidade encontrada.</p>";
-        return;
-    }
-
-    // Agrupamento local por Categoria
     const categorias = {};
-    lista.forEach(esp => {
-        const cat = esp.categoria || "Geral";
-        if (!categorias[cat]) {
-            categorias[cat] = [];
-        }
-        categorias[cat].push(esp);
+    lista.forEach(item => {
+        const cat = item.categoria || "Geral";
+        if (!categorias[cat]) categorias[cat] = [];
+        categorias[cat].push(item);
     });
 
-    let htmlAgrupado = "";
-    for (const [nomeCategoria, itens] of Object.entries(categorias)) {
-        htmlAgrupado += `
-            <div class="grupo-categoria-bloco" style="margin-bottom: 8px;">
-                <h4 style="color: #007bff; font-size: 13px; margin-bottom: 10px; border-left: 3.5px solid #007bff; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                    ${nomeCategoria}
-                </h4>
-                <div style="display: grid; gap: 8px;">
-                    ${itens.map(esp => `
-                        <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
-                            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
-                                <!-- Tratamento de Imagem Quebrada (onerror) -->
-                                <img src="${esp.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" 
-                                     onerror="this.onerror=null; this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';"
-                                     style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" 
-                                     alt="Logo">
-                                <div style="min-width: 0;">
-                                    <div style="font-weight: 600; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esp.nome}</div>
-                                    <div style="font-size: 11px; color: #8e8e8e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esp.descricao ? esp.descricao.substring(0, 45) + '...' : 'Sem requisitos detalhados.'}</div>
-                                </div>
-                            </div>
-                            <button onclick="solicitarInicioEspecialidade('${esp.id}', '${esp.nome}')" style="width: auto; padding: 6px 12px; font-size: 11px; background-color: #007bff; border-radius: 6px; font-weight: bold; cursor: pointer; color: #fff; border: none; flex-shrink: 0;">
-                                Começar
-                            </button>
+    container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
+        <div>
+            <h4 style="color:#007bff; font-size:12px; margin-bottom:8px; border-left:3px solid #007bff; padding-left:6px; text-transform:uppercase;">${cat}</h4>
+            <div style="display:grid; gap:8px;">
+                ${itens.map(e => `
+                    <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                            <img src="${e.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                            <div style="min-width:0;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.nome}</div></div>
                         </div>
-                    `).join("")}
-                </div>
+                        <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                    </div>
+                `).join("")}
             </div>
-        `;
-    }
-
-    container.innerHTML = htmlAgrupado;
+        </div>
+    `).join("");
 }
 
-// 4. Mecanismo de busca local instantâneo (resolve os problemas de "Aranhas"/"aranhas" e acentuação)
-function pesquisarEspecialidadeLocal() {
-    const input = document.getElementById("busca-especialidade");
-    if (!input) return;
+function renderizarCatalogoMestrados(lista) {
+    const container = document.getElementById("lista-mestrados-container");
+    if (!container) return;
+    if (lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
 
-    const termo = normalizarTextoBusca(input.value);
-
-    // Filtra diretamente no array em memória
-    const resultados = window.cacheEspecialidades.filter(esp => {
-        const nomeNormalizado = normalizarTextoBusca(esp.nome);
-        const categoriaNormalizada = normalizarTextoBusca(esp.categoria);
-        return nomeNormalizado.includes(termo) || categoriaNormalizada.includes(termo);
+    const categorias = {};
+    lista.forEach(item => {
+        const cat = item.categoria || "Mestrado";
+        if (!categorias[cat]) categorias[cat] = [];
+        categorias[cat].push(item);
     });
 
-    renderizarCatalogoEspecialidades(resultados);
+    container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
+        <div>
+            <h4 style="color:#28a745; font-size:12px; margin-bottom:8px; border-left:3px solid #28a745; padding-left:6px; text-transform:uppercase;">${cat}</h4>
+            <div style="display:grid; gap:8px;">
+                ${itens.map(m => `
+                    <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                            <img src="${m.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                            <div style="min-width:0;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.nome}</div></div>
+                        </div>
+                        <button onclick="solicitarInicioMestrado('${m.id}', '${m.nome}')" style="padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `).join("");
 }
 
-// 5. Função acionada ao clicar em "Começar" no catálogo
-function solicitarInicioEspecialidade(id, nome) {
+function renderizarCatalogoClasses(lista) {
+    const container = document.getElementById("lista-classes-container");
+    if (!container) return;
+    if (lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
+
+    const categorias = {};
+    lista.forEach(item => {
+        const cat = item.categoria || "Classe";
+        if (!categorias[cat]) categorias[cat] = [];
+        categorias[cat].push(item);
+    });
+
+    container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
+        <div>
+            <h4 style="color:#ffc107; font-size:12px; margin-bottom:8px; border-left:3px solid #ffc107; padding-left:6px; text-transform:uppercase;">${cat}</h4>
+            <div style="display:grid; gap:8px;">
+                ${itens.map(c => `
+                    <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                            <img src="${c.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                            <div style="min-width:0;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
+                        </div>
+                        <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `).join("");
+}
+
+
+// ==========================================
+// SALVAR NO FIRESTORE (AÇÃO "COMEÇAR")
+// ==========================================
+async function solicitarInicioEspecialidade(id, nome) {
     const username = localStorage.getItem("usernameLogado");
-    if (!username || username === "admin") {
-        alert("Apenas membros comuns logados podem iniciar especialidades.");
-        return;
+    if (!username) return alert("Por favor, faça login para iniciar.");
+
+    try {
+        await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).set({
+            usuario: username,
+            itemId: id,
+            nome: nome,
+            status: "em_andamento"
+        });
+        alert(`Especialidade "${nome}" iniciada com sucesso!`);
+        fecharCatalogoEspecialidades();
+        carregarEspecialidadesEmAndamento();
+    } catch (e) {
+        console.error("Erro ao iniciar especialidade:", e);
+        alert("Ocorreu um erro ao salvar o progresso.");
     }
-    
-    alert(`Especialidade "${nome}" iniciada com sucesso! Você já pode acompanhar seus requisitos.`);
-    fecharCatalogoEspecialidades();
-    
-    // Futuramente, insira sua lógica de escrita do Firebase aqui para associar esta especialidade ao usuário logado
 }
 
-// 6. Atualiza a lista de progresso do usuário logado
-function carregarEspecialidadesEmAndamento() {
+async function solicitarInicioMestrado(id, nome) {
+    const username = localStorage.getItem("usernameLogado");
+    if (!username) return alert("Por favor, faça login para iniciar.");
+
+    try {
+        await window.ClubeDB.textoDB.collection("progresso_mestrados").doc(`${username}_${id}`).set({
+            usuario: username,
+            itemId: id,
+            nome: nome,
+            status: "em_andamento"
+        });
+        alert(`Mestrado "${nome}" iniciado com sucesso!`);
+        fecharCatalogoMestrados();
+        carregarMestradosEmAndamento();
+    } catch (e) {
+        console.error("Erro ao iniciar mestrado:", e);
+        alert("Ocorreu um erro ao salvar o progresso.");
+    }
+}
+
+async function solicitarInicioClasse(id, nome) {
+    const username = localStorage.getItem("usernameLogado");
+    if (!username) return alert("Por favor, faça login para iniciar.");
+
+    try {
+        await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).set({
+            usuario: username,
+            itemId: id,
+            nome: nome,
+            status: "em_andamento"
+        });
+        alert(`Classe "${nome}" iniciada com sucesso!`);
+        fecharCatalogoClasses();
+        carregarClassesEmAndamento();
+    } catch (e) {
+        console.error("Erro ao iniciar classe:", e);
+        alert("Ocorreu um erro ao salvar o progresso.");
+    }
+}
+
+
+// ==========================================
+// LEITURA DO FIRESTORE (CARREGAR "EM ANDAMENTO")
+// ==========================================
+async function carregarEspecialidadesEmAndamento() {
     const container = document.getElementById("lista-especialidades-progresso-container");
     if (!container) return;
+    const username = localStorage.getItem("usernameLogado");
 
-    // Layout limpo de standby
-    container.innerHTML = `
-        <p style="color: #8e8e8e; text-align: center; font-size: 13px; padding: 15px 0; line-height: 1.4;">
-            Você não tem especialidades ativas.<br>Clique no botão abaixo para explorar o catálogo!
-        </p>
-    `;
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("progresso_especialidades")
+            .where("usuario", "==", username)
+            .where("status", "==", "em_andamento").get();
+
+        if (snap.empty) {
+            container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px;">Você não tem especialidades ativas.</p>`;
+            return;
+        }
+
+        const itens = snap.docs.map(doc => doc.data());
+        container.innerHTML = itens.map(item => {
+            const original = window.cacheEspecialidades.find(x => x.id === item.itemId) || {};
+            return `
+                <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                        <div style="min-width:0;">
+                            <div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nome}</div>
+                            <div style="font-size:11px; color:#007bff; font-weight:bold;">Em Andamento</div>
+                        </div>
+                    </div>
+                    <button onclick="concluirProgresso('progresso_especialidades', '${item.itemId}', '${item.nome}', carregarEspecialidadesEmAndamento)" style="padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Concluir</button>
+                </div>
+            `;
+        }).join("");
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro de carregamento.</p>`;
+    }
+}
+
+async function carregarMestradosEmAndamento() {
+    const container = document.getElementById("lista-mestrados-progresso-container");
+    if (!container) return;
+    const username = localStorage.getItem("usernameLogado");
+
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("progresso_mestrados")
+            .where("usuario", "==", username)
+            .where("status", "==", "em_andamento").get();
+
+        if (snap.empty) {
+            container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px;">Você não tem mestrados ativos.</p>`;
+            return;
+        }
+
+        const itens = snap.docs.map(doc => doc.data());
+        container.innerHTML = itens.map(item => {
+            const original = window.cacheMestrados.find(x => x.id === item.itemId) || {};
+            return `
+                <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                        <div style="min-width:0;">
+                            <div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nome}</div>
+                            <div style="font-size:11px; color:#28a745; font-weight:bold;">Em Andamento</div>
+                        </div>
+                    </div>
+                    <button onclick="concluirProgresso('progresso_mestrados', '${item.itemId}', '${item.nome}', carregarMestradosEmAndamento)" style="padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Concluir</button>
+                </div>
+            `;
+        }).join("");
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro de carregamento.</p>`;
+    }
+}
+
+async function carregarClassesEmAndamento() {
+    const container = document.getElementById("lista-classes-progresso-container");
+    if (!container) return;
+    const username = localStorage.getItem("usernameLogado");
+
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("progresso_classes")
+            .where("usuario", "==", username)
+            .where("status", "==", "em_andamento").get();
+
+        if (snap.empty) {
+            container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px;">Você não tem classes ativas.</p>`;
+            return;
+        }
+
+        const itens = snap.docs.map(doc => doc.data());
+        container.innerHTML = itens.map(item => {
+            const original = window.cacheClasses.find(x => x.id === item.itemId) || {};
+            return `
+                <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                        <div style="min-width:0;">
+                            <div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nome}</div>
+                            <div style="font-size:11px; color:#ffc107; font-weight:bold;">Em Andamento</div>
+                        </div>
+                    </div>
+                    <button onclick="concluirProgresso('progresso_classes', '${item.itemId}', '${item.nome}', carregarClassesEmAndamento)" style="padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Concluir</button>
+                </div>
+            `;
+        }).join("");
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro de carregamento.</p>`;
+    }
+}
+
+
+// ==========================================
+// CONCLUIR / REMOVER PROGRESSO DO BANCO
+// ==========================================
+async function concluirProgresso(colecao, itemId, nomeItem, callbackRecarregar) {
+    const username = localStorage.getItem("usernameLogado");
+    if (!username) return;
+
+    if (confirm(`Parabéns! Deseja marcar "${nomeItem}" como concluído(a)?`)) {
+        try {
+            // Remove do progresso ativo ao concluir (ou mude para status: "concluido" se preferir manter histórico)
+            await window.ClubeDB.textoDB.collection(colecao).doc(`${username}_${itemId}`).delete();
+            alert(`"${nomeItem}" concluído com sucesso!`);
+            callbackRecarregar();
+        } catch (e) {
+            console.error("Erro ao concluir item:", e);
+            alert("Não foi possível atualizar o progresso.");
+        }
+    }
 }

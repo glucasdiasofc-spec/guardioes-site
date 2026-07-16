@@ -272,43 +272,94 @@
                         </div>
                     </div>
                 </div>
-            <!-- ABA 3: ESPECIALIDADES -->
-                <div id="sub-aba-especialidades" style="display: none; padding: 35px 16px 80px 16px;">
+            <!-- ABA 3: PROGRESSO (ESPECIALIDADES, MESTRADOS E CLASSES) -->
+            <div id="sub-aba-especialidades" style="display: none; padding: 35px 16px 80px 16px;">
+                
+                <!-- TELA 1: EM ANDAMENTO (Principal) -->
+                <div id="tela-especialidades-andamento">
                     
-                    <!-- TELA 1: EM ANDAMENTO (Visível por padrão) -->
-                    <div id="tela-especialidades-andamento">
-                        <h3 style="color: #fff; margin-bottom: 15px;">Minhas Especialidades</h3>
-                        
-                        <!-- Lista de Especialidades em Progresso -->
-                        <div id="lista-especialidades-progresso-container" style="display: grid; gap: 10px; margin-bottom: 20px;">
-                            <p style="color: #8e8e8e; text-align: center;">Nenhuma especialidade em andamento.</p>
+                    <!-- 1. SEÇÃO ESPECIALIDADES -->
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #fff; margin-bottom: 12px; font-size: 18px;">Minhas Especialidades</h3>
+                        <div id="lista-especialidades-progresso-container" style="display: grid; gap: 10px; margin-bottom: 12px;">
+                            <p style="color: #8e8e8e; text-align: center; font-size: 13px;">Carregando...</p>
                         </div>
-                        
-                        <!-- Botão para abrir o catálogo -->
-                        <button onclick="abrirCatalogoEspecialidades()" style="width: 100%; padding: 12px; background-color: #007bff; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                        <button onclick="abrirCatalogoEspecialidades()" style="width: 100%; padding: 12px; background-color: #007bff; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px;">
                             + Iniciar Especialidade
                         </button>
                     </div>
 
-                    <!-- TELA 2: CATÁLOGO COMPLETO (Oculto por padrão) -->
-                    <div id="tela-especialidades-catalogo" style="display: none;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                            <h3 style="color: #fff; margin: 0;">Catálogo</h3>
-                            <button onclick="fecharCatalogoEspecialidades()" style="width: auto; padding: 6px 12px; background-color: #262626; color: #fff; border: 1px solid #363636; border-radius: 6px; font-size: 13px;">
-                                ⬅ Voltar
-                            </button>
+                    <hr style="border: 0; border-top: 1px solid #262626; margin: 20px 0;">
+
+                    <!-- 2. SEÇÃO MESTRADOS -->
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #fff; margin-bottom: 12px; font-size: 18px;">Meus Mestrados</h3>
+                        <div id="lista-mestrados-progresso-container" style="display: grid; gap: 10px; margin-bottom: 12px;">
+                            <p style="color: #8e8e8e; text-align: center; font-size: 13px;">Carregando...</p>
                         </div>
-                        
-                        <!-- Campo de Busca Local Inteligente -->
-                        <input type="text" id="busca-especialidade" oninput="pesquisarEspecialidadeLocal()" placeholder="🔍 Pesquisar (ex: aranhas, costura)..." style="width: 100%; padding: 10px; border-radius: 8px; border: none; background: #262626; color: white; margin-bottom: 20px; box-sizing: border-box;">
-                        
-                        <!-- Lista de Especialidades Agrupadas por Categoria -->
-                        <div id="lista-especialidades-container" style="display: flex; flex-direction: column; gap: 20px;">
-                            <p style="color: #8e8e8e; text-align: center;">Carregando catálogo...</p>
+                        <button onclick="abrirCatalogoMestrados()" style="width: 100%; padding: 12px; background-color: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px;">
+                            + Iniciar Mestrado
+                        </button>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid #262626; margin: 20px 0;">
+
+                    <!-- 3. SEÇÃO CLASSES -->
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #fff; margin-bottom: 12px; font-size: 18px;">Minhas Classes</h3>
+                        <div id="lista-classes-progresso-container" style="display: grid; gap: 10px; margin-bottom: 12px;">
+                            <p style="color: #8e8e8e; text-align: center; font-size: 13px;">Carregando...</p>
                         </div>
+                        <button onclick="abrirCatalogoClasses()" style="width: 100%; padding: 12px; background-color: #ffc107; color: #121212; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px;">
+                            + Iniciar Classe
+                        </button>
                     </div>
 
                 </div>
+
+                <!-- TELA 2: CATÁLOGO DE ESPECIALIDADES -->
+                <div id="tela-especialidades-catalogo" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                        <h3 style="color: #fff; margin: 0;">Catálogo de Especialidades</h3>
+                        <button onclick="fecharCatalogoEspecialidades()" style="width: auto; padding: 6px 12px; background-color: #262626; color: #fff; border: 1px solid #363636; border-radius: 6px; font-size: 13px;">
+                            ⬅ Voltar
+                        </button>
+                    </div>
+                    <input type="text" id="busca-especialidade" oninput="pesquisarEspecialidadeLocal()" placeholder="🔍 Pesquisar especialidade..." style="width: 100%; padding: 10px; border-radius: 8px; border: none; background: #262626; color: white; margin-bottom: 20px; box-sizing: border-box;">
+                    <div id="lista-especialidades-container" style="display: flex; flex-direction: column; gap: 20px;">
+                        <p style="color: #8e8e8e; text-align: center;">Carregando catálogo...</p>
+                    </div>
+                </div>
+
+                <!-- TELA 3: CATÁLOGO DE MESTRADOS -->
+                <div id="tela-mestrados-catalogo" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                        <h3 style="color: #fff; margin: 0;">Catálogo de Mestrados</h3>
+                        <button onclick="fecharCatalogoMestrados()" style="width: auto; padding: 6px 12px; background-color: #262626; color: #fff; border: 1px solid #363636; border-radius: 6px; font-size: 13px;">
+                            ⬅ Voltar
+                        </button>
+                    </div>
+                    <input type="text" id="busca-mestrado" oninput="pesquisarMestradoLocal()" placeholder="🔍 Pesquisar mestrado..." style="width: 100%; padding: 10px; border-radius: 8px; border: none; background: #262626; color: white; margin-bottom: 20px; box-sizing: border-box;">
+                    <div id="lista-mestrados-container" style="display: flex; flex-direction: column; gap: 20px;">
+                        <p style="color: #8e8e8e; text-align: center;">Carregando catálogo...</p>
+                    </div>
+                </div>
+
+                <!-- TELA 4: CATÁLOGO DE CLASSES -->
+                <div id="tela-classes-catalogo" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                        <h3 style="color: #fff; margin: 0;">Catálogo de Classes</h3>
+                        <button onclick="fecharCatalogoClasses()" style="width: auto; padding: 6px 12px; background-color: #262626; color: #fff; border: 1px solid #363636; border-radius: 6px; font-size: 13px;">
+                            ⬅ Voltar
+                        </button>
+                    </div>
+                    <input type="text" id="busca-classe" oninput="pesquisarClasseLocal()" placeholder="🔍 Pesquisar classe..." style="width: 100%; padding: 10px; border-radius: 8px; border: none; background: #262626; color: white; margin-bottom: 20px; box-sizing: border-box;">
+                    <div id="lista-classes-container" style="display: flex; flex-direction: column; gap: 20px;">
+                        <p style="color: #8e8e8e; text-align: center;">Carregando catálogo...</p>
+                    </div>
+                </div>
+
+            </div>
             </main>
 
             <!-- Barra de Navegação Inferior Fixa -->
