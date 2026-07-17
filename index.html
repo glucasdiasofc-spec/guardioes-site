@@ -186,10 +186,15 @@
                     <button onclick="fazerLogoutSessao()" style="background: none; border: none; color: #ff4d4d; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0;">
                         Sair
                     </button>
+                    <!-- Botão de Adicionar Conquista (Apenas Admin) -->
+                    <button id="btn-admin-adicionar-item" onclick="abrirModalCriarItem()" style="display: none; background: #0095f6; border: none; color: #fff; width: 24px; height: 24px; border-radius: 50%; font-size: 18px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1;">
+                        +
+                    </button>
                     <!-- Ícone discreto para o Admin voltar ao Painel -->
                     <button id="btn-voltar-painel" onclick="irParaPainel()" style="display: none; background: none; border: none; color: #0095f6; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0;">
                         Painel
                     </button>
+
                 </div>
             </header>
 
@@ -435,5 +440,42 @@
     <script src="js/app.js"></script>
     <script src="js/especialidades-dados.js"></script>
 <script src="js/especialidades-importador.js"></script>
+<!-- MODAL DE GERENCIAMENTO DE ITENS (ESPECIALIDADES/MESTRADOS/CLASSES) -->
+    <div id="modal-gerenciar-item" class="modal-sobreposto" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;">
+        <div style="background: #1c1c1c; width: 100%; max-width: 400px; border-radius: 12px; padding: 20px; border: 1px solid #333;">
+            <h3 id="titulo-modal-item" style="color: #fff; margin-top: 0;">Gerenciar Item</h3>
+            
+            <input type="hidden" id="edit-item-id">
+            <input type="hidden" id="edit-item-tipo">
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                    <label style="color: #8e8e8e; font-size: 12px;">Nome do Item</label>
+                    <input type="text" id="edit-item-nome" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; box-sizing: border-box;">
+                </div>
+
+                <div>
+                    <label style="color: #8e8e8e; font-size: 12px;">URL da Imagem (Logo)</label>
+                    <input type="text" id="edit-item-foto" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; box-sizing: border-box;">
+                </div>
+
+                <div>
+                    <label style="color: #8e8e8e; font-size: 12px;">Categoria/Área</label>
+                    <input type="text" id="edit-item-categoria" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; box-sizing: border-box;" placeholder="Ex: Atividades Missionárias">
+                </div>
+
+                <div>
+                    <label style="color: #8e8e8e; font-size: 12px;">Requisitos (Um por linha)</label>
+                    <textarea id="edit-item-requisitos" style="width: 100%; height: 100px; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; box-sizing: border-box; resize: none;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button onclick="salvarAlteracoesItemAdmin()" style="flex: 1; background: #28a745; color: #fff; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Salvar</button>
+                    <button id="btn-excluir-item" onclick="excluirItemAdmin()" style="flex: 1; background: #ff4d4d; color: #fff; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Excluir</button>
+                </div>
+                <button onclick="fecharModalGerenciarItem()" style="background: none; border: none; color: #8e8e8e; font-size: 13px; cursor: pointer; margin-top: 5px;">Cancelar</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
