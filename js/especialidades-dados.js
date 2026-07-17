@@ -3981,5 +3981,5 @@ const listaEspecialidadesParaImportar = [
         reqs: [
             "Ter sete especialidades em Artes e Habilidades Manuais."
         ]
-    },
-    {
+    }
+];
