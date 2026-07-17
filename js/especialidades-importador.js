@@ -3,34 +3,32 @@ window.addEventListener('load', async () => {
     const db = window.ClubeDB.textoDB;
     const ref = db.collection("especialidades");
 
-    // 1. Verifica se já existem especialidades
-    const snapshot = await ref.limit(1).get();
+    console.log("Verificando necessidade de atualização do catálogo...");
+    
+    if (typeof listaEspecialidadesParaImportar !== 'undefined') {
+        const snapshot = await ref.get();
+        const nomesExistentes = snapshot.docs.map(doc => doc.data().nome);
 
-    if (snapshot.empty) {
-        console.log("Banco vazio detectado. Iniciando carga automática...");
-        
-        // 2. Tenta importar a lista que está no outro arquivo
-        if (typeof listaEspecialidadesParaImportar !== 'undefined') {
-            for (const item of listaEspecialidadesParaImportar) {
+        for (const item of listaEspecialidadesParaImportar) {
+            // Só adiciona se o nome da especialidade não existir no banco
+            if (!nomesExistentes.includes(item.nome)) {
                 try {
                     await ref.add({
                         nome: item.nome,
-                        categoria: item.categoria,
-                        urlImagem: item.urlImagem,
-                        descricao: item.descricao,
-                        // Adicionando o campo requisitos para o frontend consumir
-                        requisitos: item.requisitos || [], 
+                        categoria: item.area || item.categoria || "Geral",
+                        urlImagem: item.logo || item.urlImagem,
+                        descricao: item.descricao || "",
+                        requisitos: item.reqs || item.requisitos || [], 
                         criadoEm: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    console.log("Importado com sucesso:", item.nome);
                 } catch (e) {
                     console.error("Erro ao importar", item.nome, e);
                 }
             }
-            console.log("Importação concluída com sucesso!");
-        } else {
-            console.error("Erro: A variável 'listaEspecialidadesParaImportar' não foi encontrada.");
         }
+        console.log("Processo de sincronização de catálogo finalizado.");
     } else {
-        console.log("Banco já possui dados. Nenhuma ação necessária.");
+        console.error("Erro: A variável 'listaEspecialidadesParaImportar' não foi encontrada.");
     }
 });

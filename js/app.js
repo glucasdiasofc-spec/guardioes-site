@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.64 - versão de teste";
+const VERSAO_ATUAL = "v0.0.65 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1026,40 +1026,35 @@ async function carregarEspecialidades() {
     if (!username) return;
 
     try {
-        // 1. CARREGAR E RENDERIZAR ESPECIALIDADES
+                // 1. CARREGAR E RENDERIZAR ESPECIALIDADES
         if (window.cacheEspecialidades.length === 0) {
-            try {
-                const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
-                if (!snapEsp.empty) {
-                    window.cacheEspecialidades = snapEsp.docs.map(doc => ({ 
-                        id: String(doc.id), 
-                        ...doc.data(),
-                        // Garante compatibilidade de campos do Firestore
-                        categoria: doc.data().categoria || doc.data().area,
-                        urlImagem: doc.data().urlImagem || doc.data().logo,
-                        requisitos: doc.data().requisitos || doc.data().reqs || []
-                    }));
-                } else if (typeof listaEspecialidadesParaImportar !== "undefined") {
-                    window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
-                        ...item,
-                        id: String(item.id),
-                        categoria: item.area || item.categoria,
-                        urlImagem: item.logo || item.urlImagem,
-                        requisitos: item.reqs || item.requisitos || []
-                    }));
-                }
-            } catch (erro) {
-                if (typeof listaEspecialidadesParaImportar !== "undefined") {
-                    window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
-                        ...item,
-                        id: String(item.id),
-                        categoria: item.area || item.categoria,
-                        urlImagem: item.logo || item.urlImagem,
-                        requisitos: item.reqs || item.requisitos || []
-                    }));
+            // Prioridade Sênior: Se existe a lista local com os 500 itens, usamos ela para garantir a exibição imediata
+            if (typeof listaEspecialidadesParaImportar !== "undefined" && listaEspecialidadesParaImportar.length > 0) {
+                console.log("Carregando catálogo local de especialidades...");
+                window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
+                    ...item,
+                    id: String(item.id || item.nome),
+                    categoria: item.area || item.categoria || "Geral",
+                    urlImagem: item.logo || item.urlImagem,
+                    requisitos: item.reqs || item.requisitos || []
+                }));
+            } else {
+                try {
+                    const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
+                    if (!snapEsp.empty) {
+                        window.cacheEspecialidades = snapEsp.docs.map(doc => ({ 
+                            id: String(doc.id), 
+                            ...doc.data(),
+                            categoria: doc.data().categoria || doc.data().area,
+                            urlImagem: doc.data().urlImagem || doc.data().logo
+                        }));
+                    }
+                } catch (erro) {
+                    console.error("Erro ao buscar especialidades no banco:", erro);
                 }
             }
         }
+
         renderizarCatalogoEspecialidades(window.cacheEspecialidades);
         await carregarEspecialidadesEmAndamento();
 
