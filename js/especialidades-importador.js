@@ -18,6 +18,8 @@ window.addEventListener('load', async () => {
                         categoria: item.categoria,
                         urlImagem: item.urlImagem,
                         descricao: item.descricao,
+                        // Adicionando o campo requisitos para o frontend consumir
+                        requisitos: item.requisitos || [], 
                         criadoEm: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 } catch (e) {

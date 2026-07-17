@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.58 - correções";
+const VERSAO_ATUAL = "v0.0.59 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1239,20 +1239,57 @@ async function solicitarInicioEspecialidade(id, nome) {
     const username = localStorage.getItem("usernameLogado");
     if (!username) return alert("Por favor, faça login para iniciar.");
 
-    try {
-        await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).set({
-            usuario: username,
-            itemId: id,
-            nome: nome,
-            status: "em_andamento"
-        });
-        alert(`Especialidade "${nome}" iniciada com sucesso!`);
-        fecharCatalogoEspecialidades();
-        carregarEspecialidadesEmAndamento();
-    } catch (e) {
-        console.error("Erro ao iniciar especialidade:", e);
-        alert("Ocorreu um erro ao salvar o progresso.");
-    }
+    // Busca a especialidade no cache para pegar os requisitos
+    const especialidade = window.cacheEspecialidades.find(e => e.id === id);
+    const requisitos = especialidade?.requisitos || ["Requisito 1 (Padrão)", "Requisito 2 (Padrão)"];
+
+    // Cria o modal de checklist dinamicamente
+    const modalChecklist = document.createElement("div");
+    modalChecklist.id = "modal-checklist";
+    modalChecklist.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; padding:20px; box-sizing:border-box; overflow-y:auto; color:#fff;";
+    
+    modalChecklist.innerHTML = `
+        <h3>Checklist: ${nome}</h3>
+        <div id="lista-requisitos" style="margin: 20px 0;">
+            ${requisitos.map((req, i) => `
+                <label style="display:flex; align-items:center; gap:10px; margin-bottom:10px; cursor:pointer;">
+                    <input type="checkbox" class="req-check" style="width:20px; height:20px;"> ${req}
+                </label>
+            `).join("")}
+        </div>
+        <button id="btn-finalizar-checklist" disabled style="width:100%; padding:12px; background:#444; color:#fff; border:none; border-radius:8px; font-weight:bold;">Enviar para Avaliação</button>
+        <button onclick="this.parentElement.remove()" style="width:100%; padding:10px; background:none; border:1px solid #444; color:#8e8e8e; margin-top:10px;">Cancelar</button>
+    `;
+
+    document.body.appendChild(modalChecklist);
+
+    // Lógica do botão ativado
+    const checks = modalChecklist.querySelectorAll(".req-check");
+    const btnFinal = modalChecklist.querySelector("#btn-finalizar-checklist");
+    
+    checks.forEach(c => c.onchange = () => {
+        const todosMarcados = Array.from(checks).every(i => i.checked);
+        btnFinal.disabled = !todosMarcados;
+        btnFinal.style.background = todosMarcados ? "#28a745" : "#444";
+    });
+
+    btnFinal.onclick = async () => {
+        try {
+            await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).set({
+                usuario: username,
+                itemId: id,
+                nome: nome,
+                status: "em_andamento",
+                requisitosConcluidos: true
+            });
+            alert(`Checklist de "${nome}" concluída! Enviando para avaliação...`);
+            solicitarAprovacao('progresso_especialidades', id, nome, carregarEspecialidadesEmAndamento);
+            modalChecklist.remove();
+            fecharCatalogoEspecialidades();
+        } catch (e) {
+            alert("Erro ao salvar progresso.");
+        }
+    };
 }
 
 async function solicitarInicioMestrado(id, nome) {
