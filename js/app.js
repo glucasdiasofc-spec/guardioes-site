@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.63 - versão de teste";
+const VERSAO_ATUAL = "v0.0.64 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1031,11 +1031,20 @@ async function carregarEspecialidades() {
             try {
                 const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
                 if (!snapEsp.empty) {
-                    window.cacheEspecialidades = snapEsp.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
+                    window.cacheEspecialidades = snapEsp.docs.map(doc => ({ 
+                        id: String(doc.id), 
+                        ...doc.data(),
+                        // Garante compatibilidade de campos do Firestore
+                        categoria: doc.data().categoria || doc.data().area,
+                        urlImagem: doc.data().urlImagem || doc.data().logo,
+                        requisitos: doc.data().requisitos || doc.data().reqs || []
+                    }));
                 } else if (typeof listaEspecialidadesParaImportar !== "undefined") {
                     window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
                         ...item,
                         id: String(item.id),
+                        categoria: item.area || item.categoria,
+                        urlImagem: item.logo || item.urlImagem,
                         requisitos: item.reqs || item.requisitos || []
                     }));
                 }
@@ -1044,6 +1053,8 @@ async function carregarEspecialidades() {
                     window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
                         ...item,
                         id: String(item.id),
+                        categoria: item.area || item.categoria,
+                        urlImagem: item.logo || item.urlImagem,
                         requisitos: item.reqs || item.requisitos || []
                     }));
                 }
@@ -1059,12 +1070,13 @@ async function carregarEspecialidades() {
                 if (!snapMest.empty) {
                     window.cacheMestrados = snapMest.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
                 } else {
+                    // Se não houver lista de mestrados no arquivo de dados, usamos um array vazio ou fallback
                     window.cacheMestrados = typeof listaMestradosParaImportar !== "undefined" ? 
-                        listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : fallbackMestrados;
+                        listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : (typeof fallbackMestrados !== 'undefined' ? fallbackMestrados : []);
                 }
             } catch {
                 window.cacheMestrados = typeof listaMestradosParaImportar !== "undefined" ? 
-                    listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : fallbackMestrados;
+                    listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : (typeof fallbackMestrados !== 'undefined' ? fallbackMestrados : []);
             }
         }
         renderizarCatalogoMestrados(window.cacheMestrados);
@@ -1078,11 +1090,11 @@ async function carregarEspecialidades() {
                     window.cacheClasses = snapCl.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
                 } else {
                     window.cacheClasses = typeof listaClassesParaImportar !== "undefined" ? 
-                        listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : fallbackClasses;
+                        listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : (typeof fallbackClasses !== 'undefined' ? fallbackClasses : []);
                 }
             } catch {
                 window.cacheClasses = typeof listaClassesParaImportar !== "undefined" ? 
-                    listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : fallbackClasses;
+                    listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : (typeof fallbackClasses !== 'undefined' ? fallbackClasses : []);
             }
         }
         renderizarCatalogoClasses(window.cacheClasses);
@@ -1092,6 +1104,7 @@ async function carregarEspecialidades() {
         console.error("Erro geral de carregamento:", erro);
     }
 }
+
 
 // ==========================================
 // CONTROLE DE VISIBILIDADE DOS CATÁLOGOS
