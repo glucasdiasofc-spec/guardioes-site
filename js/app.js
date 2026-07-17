@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.61 - versão de teste";
+const VERSAO_ATUAL = "v0.0.62 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1116,7 +1116,7 @@ function fecharCatalogoClasses() {
 function pesquisarEspecialidadeLocal() {
     const termo = normalizarTextoBusca(document.getElementById("busca-especialidade").value);
     const filtrados = window.cacheEspecialidades.filter(e => 
-        normalizarTextoBusca(e.nome).includes(termo) || normalizarTextoBusca(e.categoria).includes(termo)
+        normalizarTextoBusca(e.nome).includes(termo) || normalizarTextoBusca(e.categoria || e.area).includes(termo)
     );
     renderizarCatalogoEspecialidades(filtrados);
 }
@@ -1124,7 +1124,7 @@ function pesquisarEspecialidadeLocal() {
 function pesquisarMestradoLocal() {
     const termo = normalizarTextoBusca(document.getElementById("busca-mestrado").value);
     const filtrados = window.cacheMestrados.filter(m => 
-        normalizarTextoBusca(m.nome).includes(termo) || normalizarTextoBusca(m.categoria).includes(termo)
+        normalizarTextoBusca(m.nome).includes(termo) || normalizarTextoBusca(m.categoria || m.area).includes(termo)
     );
     renderizarCatalogoMestrados(filtrados);
 }
@@ -1148,7 +1148,7 @@ function renderizarCatalogoEspecialidades(lista) {
 
     const categorias = {};
     lista.forEach(item => {
-        const cat = item.categoria || "Geral";
+        const cat = item.categoria || item.area || "Geral";
         if (!categorias[cat]) categorias[cat] = [];
         categorias[cat].push(item);
     });
@@ -1160,7 +1160,7 @@ function renderizarCatalogoEspecialidades(lista) {
                 ${itens.map(e => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                            <img src="${e.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                            <img src="${e.urlImagem || e.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.nome}</div></div>
                         </div>
                         <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
@@ -1178,7 +1178,7 @@ function renderizarCatalogoMestrados(lista) {
 
     const categorias = {};
     lista.forEach(item => {
-        const cat = item.categoria || "Mestrado";
+        const cat = item.categoria || item.area || "Mestrado";
         if (!categorias[cat]) categorias[cat] = [];
         categorias[cat].push(item);
     });
@@ -1190,7 +1190,7 @@ function renderizarCatalogoMestrados(lista) {
                 ${itens.map(m => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                            <img src="${m.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                            <img src="${m.urlImagem || m.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.nome}</div></div>
                         </div>
                         <button onclick="solicitarInicioMestrado('${m.id}', '${m.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
