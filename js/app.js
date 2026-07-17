@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.62 - versão de teste";
+const VERSAO_ATUAL = "v0.0.63 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1028,9 +1028,25 @@ async function carregarEspecialidades() {
     try {
         // 1. CARREGAR E RENDERIZAR ESPECIALIDADES
         if (window.cacheEspecialidades.length === 0) {
-            const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
-            if (!snapEsp.empty) {
-                window.cacheEspecialidades = snapEsp.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            try {
+                const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
+                if (!snapEsp.empty) {
+                    window.cacheEspecialidades = snapEsp.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
+                } else if (typeof listaEspecialidadesParaImportar !== "undefined") {
+                    window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
+                        ...item,
+                        id: String(item.id),
+                        requisitos: item.reqs || item.requisitos || []
+                    }));
+                }
+            } catch (erro) {
+                if (typeof listaEspecialidadesParaImportar !== "undefined") {
+                    window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
+                        ...item,
+                        id: String(item.id),
+                        requisitos: item.reqs || item.requisitos || []
+                    }));
+                }
             }
         }
         renderizarCatalogoEspecialidades(window.cacheEspecialidades);
@@ -1041,12 +1057,14 @@ async function carregarEspecialidades() {
             try {
                 const snapMest = await window.ClubeDB.textoDB.collection("mestrados").get();
                 if (!snapMest.empty) {
-                    window.cacheMestrados = snapMest.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    window.cacheMestrados = snapMest.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
                 } else {
-                    window.cacheMestrados = fallbackMestrados;
+                    window.cacheMestrados = typeof listaMestradosParaImportar !== "undefined" ? 
+                        listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : fallbackMestrados;
                 }
             } catch {
-                window.cacheMestrados = fallbackMestrados;
+                window.cacheMestrados = typeof listaMestradosParaImportar !== "undefined" ? 
+                    listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : fallbackMestrados;
             }
         }
         renderizarCatalogoMestrados(window.cacheMestrados);
@@ -1057,12 +1075,14 @@ async function carregarEspecialidades() {
             try {
                 const snapCl = await window.ClubeDB.textoDB.collection("classes").get();
                 if (!snapCl.empty) {
-                    window.cacheClasses = snapCl.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    window.cacheClasses = snapCl.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
                 } else {
-                    window.cacheClasses = fallbackClasses;
+                    window.cacheClasses = typeof listaClassesParaImportar !== "undefined" ? 
+                        listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : fallbackClasses;
                 }
             } catch {
-                window.cacheClasses = fallbackClasses;
+                window.cacheClasses = typeof listaClassesParaImportar !== "undefined" ? 
+                    listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : fallbackClasses;
             }
         }
         renderizarCatalogoClasses(window.cacheClasses);
@@ -1623,22 +1643,31 @@ async function abrirModalConquistasVisualizacao(tipo) {
         
         // 2. Garante que os catálogos estejam em memória para puxarmos as imagens
         if (window.cacheEspecialidades.length === 0) {
-            const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
-            if (!snapEsp.empty) window.cacheEspecialidades = snapEsp.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            try {
+                const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
+                if (!snapEsp.empty) window.cacheEspecialidades = snapEsp.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
+                else if (typeof listaEspecialidadesParaImportar !== "undefined") {
+                    window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({ ...item, id: String(item.id), requisitos: item.reqs || item.requisitos || [] }));
+                }
+            } catch {
+                if (typeof listaEspecialidadesParaImportar !== "undefined") {
+                    window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({ ...item, id: String(item.id), requisitos: item.reqs || item.requisitos || [] }));
+                }
+            }
         }
         if (window.cacheMestrados.length === 0) {
             try {
                 const snapMest = await window.ClubeDB.textoDB.collection("mestrados").get();
-                if (!snapMest.empty) window.cacheMestrados = snapMest.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                else window.cacheMestrados = fallbackMestrados;
-            } catch { window.cacheMestrados = fallbackMestrados; }
+                if (!snapMest.empty) window.cacheMestrados = snapMest.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
+                else window.cacheMestrados = typeof listaMestradosParaImportar !== "undefined" ? listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : fallbackMestrados;
+            } catch { window.cacheMestrados = typeof listaMestradosParaImportar !== "undefined" ? listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : fallbackMestrados; }
         }
         if (window.cacheClasses.length === 0) {
             try {
                 const snapCl = await window.ClubeDB.textoDB.collection("classes").get();
-                if (!snapCl.empty) window.cacheClasses = snapCl.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                else window.cacheClasses = fallbackClasses;
-            } catch { window.cacheClasses = fallbackClasses; }
+                if (!snapCl.empty) window.cacheClasses = snapCl.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
+                else window.cacheClasses = typeof listaClassesParaImportar !== "undefined" ? listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : fallbackClasses;
+            } catch { window.cacheClasses = typeof listaClassesParaImportar !== "undefined" ? listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : fallbackClasses; }
         }
 
         // 3. Define onde buscar baseado no card clicado
