@@ -1,5 +1,8 @@
 // O código abaixo executa automaticamente ao carregar o site
 window.addEventListener('load', async () => {
+    if (!window.ClubeDB || !window.ClubeDB.textoDB) {
+        return console.warn("Aguardando inicialização do Banco de Dados...");
+    }
     const db = window.ClubeDB.textoDB;
     const ref = db.collection("especialidades");
 
@@ -19,7 +22,7 @@ window.addEventListener('load', async () => {
                         urlImagem: item.logo || item.urlImagem,
                         descricao: item.descricao || "",
                         requisitos: item.reqs || item.requisitos || [], 
-                        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+                        criadoEm: new Date()
                     });
                     console.log("Importado com sucesso:", item.nome);
                 } catch (e) {

@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.67 - versão de teste";
+const VERSAO_ATUAL = "v0.0.68 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1030,32 +1030,35 @@ async function carregarEspecialidades() {
     try {
                 // 1. CARREGAR E RENDERIZAR ESPECIALIDADES
         if (window.cacheEspecialidades.length === 0) {
-            // Prioridade Sênior: Se existe a lista local com os 500 itens, usamos ela para garantir a exibição imediata
-            if (typeof listaEspecialidadesParaImportar !== "undefined" && listaEspecialidadesParaImportar.length > 0) {
-                console.log("Carregando catálogo local de especialidades...");
-                window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
-                    ...item,
-                    id: String(item.id || item.nome),
-                    categoria: item.area || item.categoria || "Geral",
-                    urlImagem: item.logo || item.urlImagem,
-                    requisitos: item.reqs || item.requisitos || []
-                }));
-            } else {
-                try {
-                    const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
-                    if (!snapEsp.empty) {
-                        window.cacheEspecialidades = snapEsp.docs.map(doc => ({ 
-                            id: String(doc.id), 
-                            ...doc.data(),
-                            categoria: doc.data().categoria || doc.data().area,
-                            urlImagem: doc.data().urlImagem || doc.data().logo
-                        }));
-                    }
-                } catch (erro) {
-                    console.error("Erro ao buscar especialidades no banco:", erro);
+            try {
+                // Tenta carregar primeiro do Banco de Dados (Firestore)
+                const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
+                if (!snapEsp.empty) {
+                    window.cacheEspecialidades = snapEsp.docs.map(doc => ({ 
+                        id: String(doc.id), 
+                        ...doc.data(),
+                        categoria: doc.data().categoria || doc.data().area || "Geral",
+                        urlImagem: doc.data().urlImagem || doc.data().logo
+                    }));
+                    console.log("Catálogo carregado do Banco de Dados.");
+                } else {
+                    throw new Error("Banco vazio");
+                }
+            } catch (erro) {
+                // Fallback: Se o banco falhar ou estiver vazio, usa a lista local
+                if (typeof listaEspecialidadesParaImportar !== "undefined") {
+                    console.log("Usando fallback local de especialidades...");
+                    window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
+                        ...item,
+                        id: String(item.id || item.nome),
+                        categoria: item.area || item.categoria || "Geral",
+                        urlImagem: item.logo || item.urlImagem,
+                        requisitos: item.reqs || item.requisitos || []
+                    }));
                 }
             }
         }
+
 
         renderizarCatalogoEspecialidades(window.cacheEspecialidades);
         await carregarEspecialidadesEmAndamento();
@@ -1270,7 +1273,7 @@ async function solicitarInicioEspecialidade(id, nome) {
     if (!username) return alert("Por favor, faça login para iniciar.");
 
     // Busca a especialidade no cache para pegar os requisitos
-    const especialidade = window.cacheEspecialidades.find(e => e.id === id);
+    const especialidade = window.cacheEspecialidades.find(e => String(e.id) === String(id));
     const requisitos = especialidade?.requisitos || ["Requisito 1 (Padrão)", "Requisito 2 (Padrão)"];
 
     // Cria o modal de checklist dinamicamente
