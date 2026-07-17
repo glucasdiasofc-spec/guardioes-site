@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.55 - rapaz...";
+const VERSAO_ATUAL = "v0.0.56 - correções";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1280,14 +1280,14 @@ async function carregarEspecialidadesEmAndamento() {
             const original = window.cacheEspecialidades.find(x => x.id === item.itemId) || {};
             return `
                 <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                         <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                        <div style="min-width:0;">
+                        <div style="min-width:0; flex:1;">
                             <div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nome}</div>
                             <div style="font-size:11px; color:#007bff; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="concluirProgresso('progresso_especialidades', '${item.itemId}', '${item.nome}', carregarEspecialidadesEmAndamento)" style="padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Concluir</button>
+                    <button onclick="solicitarAprovacao('progresso_especialidades', '${item.itemId}', '${item.nome}', carregarEspecialidadesEmAndamento)" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
                 </div>
             `;
         }).join("");
@@ -1317,14 +1317,14 @@ async function carregarMestradosEmAndamento() {
             const original = window.cacheMestrados.find(x => x.id === item.itemId) || {};
             return `
                 <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                         <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                        <div style="min-width:0;">
+                        <div style="min-width:0; flex:1;">
                             <div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nome}</div>
                             <div style="font-size:11px; color:#28a745; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="concluirProgresso('progresso_mestrados', '${item.itemId}', '${item.nome}', carregarMestradosEmAndamento)" style="padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Concluir</button>
+                    <button onclick="solicitarAprovacao('progresso_mestrados', '${item.itemId}', '${item.nome}', carregarMestradosEmAndamento)" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
                 </div>
             `;
         }).join("");
@@ -1354,14 +1354,14 @@ async function carregarClassesEmAndamento() {
             const original = window.cacheClasses.find(x => x.id === item.itemId) || {};
             return `
                 <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                         <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                        <div style="min-width:0;">
+                        <div style="min-width:0; flex:1;">
                             <div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nome}</div>
                             <div style="font-size:11px; color:#ffc107; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="concluirProgresso('progresso_classes', '${item.itemId}', '${item.nome}', carregarClassesEmAndamento)" style="padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Concluir</button>
+                    <button onclick="solicitarAprovacao('progresso_classes', '${item.itemId}', '${item.nome}', carregarClassesEmAndamento)" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
                 </div>
             `;
         }).join("");
