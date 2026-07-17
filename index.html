@@ -68,6 +68,7 @@
             <nav class="abas-admin">
                 <button class="aba-item ativa" onclick="mudarAbaAdmin('aba-unidades')">Unidades</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-membros')">Membros (Usuários)</button>
+                <button class="aba-item" onclick="mudarAbaAdmin('aba-aprovacoes')">Aprovações</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-customizacao')">Customização</button>
             </nav>
 
@@ -120,6 +121,14 @@
                         <input type="file" id="membro-foto" accept="image/*" onchange="mostrarPreviaImagem(this, 'previa-membro-img')">
                     </label>
                     <button type="button" onclick="salvarNovoMembroAdmin()">Cadastrar Membro</button>
+                </div>
+            </div>
+
+            <!-- Conteúdo: Aprovações Pendentes -->
+            <div id="aba-aprovacoes" class="conteudo-aba" style="display: none;">
+                <h3>Aprovações Pendentes</h3>
+                <div class="lista-itens-painel" id="lista-aprovacoes-render" style="width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 15px; box-sizing: border-box;">
+                    <p style="color: #8e8e8e; text-align: center;">Carregando solicitações...</p>
                 </div>
             </div>
 
@@ -206,11 +215,15 @@
                         
                         
 
-                        <!-- Stats limpos: Unidade (com quebra para nomes grandes) e Presença -->
+                        <!-- Stats limpos: Unidade, Conquistas e Presença -->
                         <div style="display: flex; flex: 1; justify-content: space-around; text-align: center; gap: 15px; align-items: center;">
                             <div style="flex: 1; min-width: 0;">
                                 <div id="perfil-usuario-unidade-status" style="font-weight: bold; font-size: 14px; color: #fff; word-break: break-word; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">-</div>
                                 <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Unidade</div>
+                            </div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div id="perfil-usuario-conquistas-status" style="font-weight: bold; font-size: 15px; color: #fff;">0</div>
+                                <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Conquistas</div>
                             </div>
                             <div style="flex: 1; min-width: 0;">
                                 <div style="font-weight: bold; font-size: 15px; color: #fff;">100%</div>
@@ -251,12 +264,12 @@
                         </div>
                     </div>
 
-                    <!-- Seção 2: Conquistas (Classes, Especialidades) -->
+                    <!-- Seção 2: Conquistas (Classes, Especialidades, Mestrados) -->
                     <div id="perfil-secao-conquistas" style="display: none; padding: 10px 0;">
                         <div style="display: flex; flex-direction: column; gap: 15px;">
                             <!-- Classes Regulares -->
                             <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; text-align: left;">
-                                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #fff;">🎒 Classes Regulares</h4>
+                                <h4 id="titulo-conquistas-classes" style="margin: 0 0 8px 0; font-size: 14px; color: #fff;">🎒 Classes Regulares</h4>
                                 <div id="perfil-conquistas-classes" style="font-size: 13px; color: #a8a8a8;">
                                     Nenhuma classe concluída ou vinculada ainda.
                                 </div>
@@ -264,9 +277,17 @@
 
                             <!-- Especialidades -->
                             <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; text-align: left;">
-                                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #fff;">🏅 Especialidades Adquiridas</h4>
+                                <h4 id="titulo-conquistas-especialidades" style="margin: 0 0 8px 0; font-size: 14px; color: #fff;">🏅 Especialidades Adquiridas</h4>
                                 <div id="perfil-conquistas-especialidades" style="font-size: 13px; color: #a8a8a8; display: flex; flex-wrap: wrap; gap: 8px;">
                                     Nenhuma especialidade registrada ainda.
+                                </div>
+                            </div>
+
+                            <!-- Mestrados -->
+                            <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; text-align: left;">
+                                <h4 id="titulo-conquistas-mestrados" style="margin: 0 0 8px 0; font-size: 14px; color: #fff;">🏆 Mestrados Adquiridos</h4>
+                                <div id="perfil-conquistas-mestrados" style="font-size: 13px; color: #a8a8a8; display: flex; flex-wrap: wrap; gap: 8px;">
+                                    Nenhum mestrado registrado ainda.
                                 </div>
                             </div>
                         </div>

@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("tela-admin").style.display = "flex";
             carregarUnidadesCadastradas(); 
             carregarMembrosCadastrados();
+            carregarPendenciasAprovacaoAdmin();
         } else {
             irParaSite();
         }
@@ -53,6 +54,7 @@ async function executarLoginMembro() {
 
         carregarUnidadesCadastradas();
         carregarMembrosCadastrados();
+        carregarPendenciasAprovacaoAdmin();
         return;
     }
 
@@ -102,6 +104,7 @@ function irParaPainel() {
     
     carregarUnidadesCadastradas();
     carregarMembrosCadastrados();
+    carregarPendenciasAprovacaoAdmin();
 }
 
 // Alterna entre o Feed e o Perfil no App do Usuário
@@ -140,6 +143,13 @@ async function carregarPerfilDoUsuario() {
     const avatarEl = document.getElementById("perfil-usuario-avatar");
     const classesEl = document.getElementById("perfil-conquistas-classes");
     const especialidadesEl = document.getElementById("perfil-conquistas-especialidades");
+    const mestradosEl = document.getElementById("perfil-conquistas-mestrados");
+    const contadorEl = document.getElementById("perfil-usuario-conquistas-status");
+
+    const tClasses = document.getElementById("titulo-conquistas-classes");
+    const tEspecialidades = document.getElementById("titulo-conquistas-especialidades");
+    const tMestrados = document.getElementById("titulo-conquistas-mestrados");
+    
     const gridEl = document.getElementById("perfil-usuario-grid");
     const vazioEl = document.getElementById("perfil-publicacoes-vazio");
 
@@ -153,9 +163,11 @@ async function carregarPerfilDoUsuario() {
         if (unidadeEl) unidadeEl.textContent = "Geral";
         if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
         if (avatarEl) avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        if (contadorEl) contadorEl.textContent = "∞";
         
         if (classesEl) classesEl.innerHTML = "• Classe: Administrador Geral";
         if (especialidadesEl) especialidadesEl.innerHTML = "<span style='color: #8e8e8e;'>Acesso Irrestrito</span>";
+        if (mestradosEl) mestradosEl.innerHTML = "<span style='color: #8e8e8e;'>Acesso Irrestrito</span>";
         if (gridEl) gridEl.style.display = "none";
         if (vazioEl) vazioEl.style.display = "block";
         return;
@@ -185,7 +197,13 @@ async function carregarPerfilDoUsuario() {
                 avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
             }
 
-            // Exibição condicional do Grid de Publicações (Evita cadeados fakes)
+            // Cálculo dinâmico do contador centralizado de conquistas
+            const qtdClasses = (dados.classesConcluidas || []).length;
+            const qtdEspecialidades = (dados.especialidades || []).length;
+            const qtdMestrados = (dados.mestrados || []).length;
+            if (contadorEl) contadorEl.textContent = (qtdClasses + qtdEspecialidades + qtdMestrados);
+
+            // Exibição condicional do Grid de Publicações
             if (dados.publicacoes && dados.publicacoes.length > 0) {
                 if (gridEl) {
                     gridEl.style.display = "grid";
@@ -201,26 +219,47 @@ async function carregarPerfilDoUsuario() {
                 if (vazioEl) vazioEl.style.display = "block";
             }
 
-            // Alimentação das Conquistas
+            // Renderização Detalhada: Classes Regulares
+            if (tClasses) tClasses.textContent = `🎒 Classes Regulares (${qtdClasses})`;
             if (classesEl) {
-                if (dados.classesConcluidas && dados.classesConcluidas.length > 0) {
+                if (qtdClasses > 0) {
                     classesEl.innerHTML = dados.classesConcluidas.map(c => `• ${c}`).join("<br>");
                 } else {
                     classesEl.innerHTML = `• Classe Vinculada: ${dados.tipo === 'Desbravador' ? 'Classe Regular' : 'Classe de Líder'}`;
                 }
             }
 
+            // Renderização Detalhada: Especialidades
+            if (tEspecialidades) tEspecialidades.textContent = `🏅 Especialidades Adquiridas (${qtdEspecialidades})`;
             if (especialidadesEl) {
-                if (dados.especialidades && dados.especialidades.length > 0) {
+                if (qtdEspecialidades > 0) {
                     especialidadesEl.innerHTML = dados.especialidades.map(esp => `
-                        <span style="background: #262626; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500;">
+                        <span style="background: #262626; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: nowrap;">
                             🎖️ ${esp}
                         </span>
                     `).join("");
                 } else {
                     especialidadesEl.innerHTML = `
-                        <span style="color: #8e8e8e; font-style: italic;">
-                            Nenhuma especialidade registrada. Peça para a liderança validar suas conquistas!
+                        <span style="color: #8e8e8e; font-style: italic; font-size: 12px;">
+                            Nenhuma especialidade validada. Envie itens para avaliação na aba de alvos!
+                        </span>
+                    `;
+                }
+            }
+
+            // Renderização Detalhada: Mestrados
+            if (tMestrados) tMestrados.textContent = `🏆 Mestrados Adquiridos (${qtdMestrados})`;
+            if (mestradosEl) {
+                if (qtdMestrados > 0) {
+                    mestradosEl.innerHTML = dados.mestrados.map(mest => `
+                        <span style="background: #1e3a1e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: nowrap; border: 1px solid #2e5a2e;">
+                            🏆 ${mest}
+                        </span>
+                    `).join("");
+                } else {
+                    mestradosEl.innerHTML = `
+                        <span style="color: #8e8e8e; font-style: italic; font-size: 12px;">
+                            Nenhum mestrado concluído ainda.
                         </span>
                     `;
                 }
@@ -1400,5 +1439,127 @@ async function solicitarAprovacao(colecaoOrigem, itemId, nomeItem, callbackRecar
             console.error("Erro ao enviar para aprovação:", e);
             alert("Erro ao enviar. Tente novamente.");
         }
+    }
+}
+
+// ==========================================
+// CORE: LÓGICA DE APROVAÇÃO DE CONQUISTAS (ADMIN)
+// ==========================================
+
+async function carregarPendenciasAprovacaoAdmin() {
+    const container = document.getElementById("lista-aprovacoes-render");
+    if (!container) return;
+    
+    container.innerHTML = "<p style='color: #aaa; text-align: center; font-size: 13px;'>Buscando solicitações...</p>";
+    
+    try {
+        const snapshot = await window.ClubeDB.textoDB.collection("pendencias_aprovacao").where("status", "==", "pendente").get();
+        if (snapshot.empty) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 30px 10px; color: #8e8e8e;">
+                    <div style="font-size: 28px; margin-bottom: 8px;">🎉</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 14px;">Tudo limpo por aqui!</div>
+                    Nenhuma solicitação pendente no momento.
+                </div>`;
+            return;
+        }
+        
+        container.innerHTML = "";
+        snapshot.forEach(doc => {
+            const p = doc.data();
+            const id = doc.id;
+            
+            let badgeCor = "#007bff";
+            let icone = "🎯";
+            let rotulo = "Especialidade";
+            
+            if (p.colecaoOrigem === "progresso_mestrados") {
+                badgeCor = "#28a745";
+                icone = "🏆";
+                rotulo = "Mestrado";
+            } else if (p.colecaoOrigem === "progresso_classes") {
+                badgeCor = "#ffc107";
+                icone = "🎒";
+                rotulo = "Classe";
+            }
+            
+            container.innerHTML += `
+                <div style="background: #121212; border: 1px solid #262626; padding: 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="font-weight: bold; color: #fff; font-size: 14px; word-break: break-word;">${p.nomeItem}</div>
+                            <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Membro: <span style="color: #0095f6; font-weight: 600;">@${p.usuario}</span></div>
+                        </div>
+                        <span style="background: ${badgeCor}; color: ${p.colecaoOrigem === 'progresso_classes' ? '#121212' : '#fff'}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">
+                            ${icone} ${rotulo}
+                        </span>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 4px;">
+                        <button onclick="processarAprovacaoAdmin('${id}', true)" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: filter 0.2s;">Conceder</button>
+                        <button onclick="processarAprovacaoAdmin('${id}', false)" style="flex: 1; padding: 10px; background: #ff4d4d; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: filter 0.2s;">Recusar</button>
+                    </div>
+                </div>
+            `;
+        });
+    } catch (error) {
+        console.error("Erro ao processar solicitações pendentes:", error);
+        container.innerHTML = "<p style='color: #ff4d4d; text-align: center; font-size: 12px;'>Falha ao carregar aprovações do banco.</p>";
+    }
+}
+
+async function processarAprovacaoAdmin(idPendencia, statusAprovado) {
+    try {
+        const docRef = window.ClubeDB.textoDB.collection("pendencias_aprovacao").doc(idPendencia);
+        const snapshotDoc = await docRef.get();
+        
+        if (!snapshotDoc.exists) {
+            alert("Esta requisição já foi processada ou não existe.");
+            carregarPendenciasAprovacaoAdmin();
+            return;
+        }
+        
+        const dadosPendencia = snapshotDoc.data();
+        
+        if (statusAprovado) {
+            // Localiza o membro no banco para injetar a conquista definitiva
+            const usuarioSnap = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", dadosPendencia.usuario).get();
+            if (!usuarioSnap.empty) {
+                const userDoc = usuarioSnap.docs[0];
+                const userId = userDoc.id;
+                const userDados = userDoc.data();
+                
+                // Mapeia o array correto no documento do usuário
+                let campoAlvo = "especialidades";
+                if (dadosPendencia.colecaoOrigem === "progresso_mestrados") campoAlvo = "mestrados";
+                if (dadosPendencia.colecaoOrigem === "progresso_classes") campoAlvo = "classesConcluidas";
+                
+                let conquistasAtuais = userDados[campoAlvo] || [];
+                if (!conquistasAtuais.includes(dadosPendencia.nomeItem)) {
+                    conquistasAtuais.push(dadosPendencia.nomeItem);
+                }
+                
+                await window.ClubeDB.textoDB.collection("usuarios").doc(userId).update({
+                    [campoAlvo]: conquistasAtuais
+                });
+            }
+            alert(`Sucesso! Conquista vinculada ao perfil de @${dadosPendencia.usuario}.`);
+        } else {
+            // Se recusado, o item volta para a aba "Em andamento" do usuário
+            await window.ClubeDB.textoDB.collection(dadosPendencia.colecaoOrigem).doc(`${dadosPendencia.usuario}_${dadosPendencia.itemId}`).set({
+                usuario: dadosPendencia.usuario,
+                itemId: dadosPendencia.itemId,
+                nome: dadosPendencia.nomeItem,
+                status: "em_andamento"
+            });
+            alert("Solicitação recusada. O item retornou ao progresso do desbravador.");
+        }
+        
+        // Deleta o registro de pendência
+        await docRef.delete();
+        carregarPendenciasAprovacaoAdmin();
+        
+    } catch (e) {
+        console.error("Erro crítico ao processar ação:", e);
+        alert("Erro operacional ao atualizar registros: " + e.message);
     }
 }
