@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.54 - rapaz...";
+const VERSAO_ATUAL = "v0.0.55 - rapaz...";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1124,7 +1124,7 @@ function renderizarCatalogoEspecialidades(lista) {
                             <img src="${e.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.nome}</div></div>
                         </div>
-                        <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                        <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                     </div>
                 `).join("")}
             </div>
@@ -1150,11 +1150,11 @@ function renderizarCatalogoMestrados(lista) {
             <div style="display:grid; gap:8px;">
                 ${itens.map(m => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                             <img src="${m.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.nome}</div></div>
+                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.nome}</div></div>
                         </div>
-                        <button onclick="solicitarInicioMestrado('${m.id}', '${m.nome}')" style="padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                        <button onclick="solicitarInicioMestrado('${m.id}', '${m.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                     </div>
                 `).join("")}
             </div>
@@ -1180,11 +1180,11 @@ function renderizarCatalogoClasses(lista) {
             <div style="display:grid; gap:8px;">
                 ${itens.map(c => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                             <img src="${c.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
+                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
                         </div>
-                        <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                        <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                     </div>
                 `).join("")}
             </div>
