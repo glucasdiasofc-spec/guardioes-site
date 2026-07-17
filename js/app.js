@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.66 - versão de teste";
+const VERSAO_ATUAL = "v0.0.67 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -85,13 +85,15 @@ function irParaSite() {
     
     const tipoUsuario = localStorage.getItem("usuarioLogado");
     const btnVoltar = document.getElementById("btn-voltar-painel");
-    if (btnVoltar) {
-        if (tipoUsuario === "admin") {
-            btnVoltar.style.display = "inline-block";
-        } else {
-            btnVoltar.style.display = "none";
-        }
+    const btnAdd = document.getElementById("btn-admin-adicionar-item");
+    if (tipoUsuario === "admin") {
+        if (btnVoltar) btnVoltar.style.display = "inline-block";
+        if (btnAdd) btnAdd.style.display = "flex";
+    } else {
+        if (btnVoltar) btnVoltar.style.display = "none";
+        if (btnAdd) btnAdd.style.display = "none";
     }
+
     
     // Sempre abre na aba do Feed ao entrar
     mudarSubAbaSite('feed');
