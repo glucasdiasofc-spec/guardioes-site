@@ -268,7 +268,7 @@
                     <div id="perfil-secao-conquistas" style="display: none; padding: 10px 0;">
                         <div style="display: flex; flex-direction: column; gap: 15px;">
                             <!-- Classes Regulares -->
-                            <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; text-align: left;">
+                            <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; text-align: left; cursor: pointer; transition: 0.2s;" onclick="abrirModalConquistasVisualizacao('classes')">
                                 <h4 id="titulo-conquistas-classes" style="margin: 0 0 8px 0; font-size: 14px; color: #fff;">🎒 Classes Regulares</h4>
                                 <div id="perfil-conquistas-classes" style="font-size: 13px; color: #a8a8a8;">
                                     Nenhuma classe concluída ou vinculada ainda.
@@ -276,7 +276,7 @@
                             </div>
 
                             <!-- Especialidades -->
-                            <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; text-align: left;">
+                            <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; text-align: left; cursor: pointer; transition: 0.2s;" onclick="abrirModalConquistasVisualizacao('especialidades')">
                                 <h4 id="titulo-conquistas-especialidades" style="margin: 0 0 8px 0; font-size: 14px; color: #fff;">🏅 Especialidades Adquiridas</h4>
                                 <div id="perfil-conquistas-especialidades" style="font-size: 13px; color: #a8a8a8; display: flex; flex-wrap: wrap; gap: 8px;">
                                     Nenhuma especialidade registrada ainda.
@@ -284,7 +284,7 @@
                             </div>
 
                             <!-- Mestrados -->
-                            <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; text-align: left;">
+                            <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; text-align: left; cursor: pointer; transition: 0.2s;" onclick="abrirModalConquistasVisualizacao('mestrados')">
                                 <h4 id="titulo-conquistas-mestrados" style="margin: 0 0 8px 0; font-size: 14px; color: #fff;">🏆 Mestrados Adquiridos</h4>
                                 <div id="perfil-conquistas-mestrados" style="font-size: 13px; color: #a8a8a8; display: flex; flex-wrap: wrap; gap: 8px;">
                                     Nenhum mestrado registrado ainda.
@@ -395,6 +395,17 @@
                     👤
                 </button>
             </nav>
+
+            <!-- MODAL DE VISUALIZAÇÃO DE CONQUISTAS ADQUIRIDAS -->
+            <div id="modal-conquistas-adquiridas" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; flex-direction: column; box-sizing: border-box; overflow-y: auto;">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #262626; position: sticky; top: 0; background: #000; z-index: 10;">
+                    <h3 id="modal-conquistas-titulo" style="color: #fff; margin: 0; font-size: 16px;">Conquistas</h3>
+                    <button onclick="fecharModalConquistasVisualizacao()" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer;">✕</button>
+                </div>
+                <div id="modal-conquistas-lista" style="padding: 15px; display: grid; gap: 10px;">
+                    <!-- Renderizado via JS -->
+                </div>
+            </div>
 
             <!-- MODAL DE MAXIMIZAÇÃO DA FOTO DE PERFIL (VISUAL INSTA) -->
             <div id="modal-foto-perfil" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; padding: 20px; box-sizing: border-box;">

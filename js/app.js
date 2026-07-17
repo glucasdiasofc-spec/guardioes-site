@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.57 - correções";
+const VERSAO_ATUAL = "v0.0.58 - correções";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1563,3 +1563,98 @@ async function processarAprovacaoAdmin(idPendencia, statusAprovado) {
         alert("Erro operacional ao atualizar registros: " + e.message);
     }
 }
+
+// ==========================================
+// VISUALIZAÇÃO DE CONQUISTAS ADQUIRIDAS (TELA CHEIA)
+// ==========================================
+async function abrirModalConquistasVisualizacao(tipo) {
+    const modal = document.getElementById("modal-conquistas-adquiridas");
+    const tituloEl = document.getElementById("modal-conquistas-titulo");
+    const listaEl = document.getElementById("modal-conquistas-lista");
+    const username = localStorage.getItem("usernameLogado");
+    
+    if (!modal || !username) return;
+
+    modal.style.display = "flex";
+    listaEl.innerHTML = "<p style='color:#8e8e8e; text-align:center;'>Buscando informações...</p>";
+    
+    try {
+        // 1. Pega os dados mais recentes do membro
+        const userSnap = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
+        if (userSnap.empty) throw new Error("Usuário não encontrado.");
+        const dadosUser = userSnap.docs[0].data();
+        
+        // 2. Garante que os catálogos estejam em memória para puxarmos as imagens
+        if (window.cacheEspecialidades.length === 0) {
+            const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
+            if (!snapEsp.empty) window.cacheEspecialidades = snapEsp.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+        if (window.cacheMestrados.length === 0) {
+            try {
+                const snapMest = await window.ClubeDB.textoDB.collection("mestrados").get();
+                if (!snapMest.empty) window.cacheMestrados = snapMest.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                else window.cacheMestrados = fallbackMestrados;
+            } catch { window.cacheMestrados = fallbackMestrados; }
+        }
+        if (window.cacheClasses.length === 0) {
+            try {
+                const snapCl = await window.ClubeDB.textoDB.collection("classes").get();
+                if (!snapCl.empty) window.cacheClasses = snapCl.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                else window.cacheClasses = fallbackClasses;
+            } catch { window.cacheClasses = fallbackClasses; }
+        }
+
+        // 3. Define onde buscar baseado no card clicado
+        let conquistasNomes = [];
+        let catalogoBase = [];
+        let corBadge = "#007bff";
+
+        if (tipo === 'classes') {
+            tituloEl.textContent = "🎒 Classes Regulares";
+            conquistasNomes = dadosUser.classesConcluidas || [];
+            catalogoBase = window.cacheClasses;
+            corBadge = "#ffc107";
+        } else if (tipo === 'especialidades') {
+            tituloEl.textContent = "🏅 Especialidades Adquiridas";
+            conquistasNomes = dadosUser.especialidades || [];
+            catalogoBase = window.cacheEspecialidades;
+            corBadge = "#007bff";
+        } else if (tipo === 'mestrados') {
+            tituloEl.textContent = "🏆 Mestrados Adquiridos";
+            conquistasNomes = dadosUser.mestrados || [];
+            catalogoBase = window.cacheMestrados;
+            corBadge = "#28a745";
+        }
+
+        // Validação se não houver conquistas
+        if (conquistasNomes.length === 0) {
+            listaEl.innerHTML = `<p style="color:#8e8e8e; text-align:center; padding: 20px;">Você ainda não possui conquistas validadas nesta categoria.</p>`;
+            return;
+        }
+
+        // 4. Renderiza cruzando os arrays para achar as fotos
+        listaEl.innerHTML = conquistasNomes.map(nomeItem => {
+            const infoBanco = catalogoBase.find(item => item.nome === nomeItem) || {};
+            const fotoUrl = infoBanco.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
+            
+            return `
+                <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:8px; display:flex; align-items:center; gap:12px;">
+                    <img src="${fotoUrl}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:45px; height:45px; object-fit:cover; border-radius:8px; border: 1px solid #333;">
+                    <div style="flex:1;">
+                        <div style="font-weight:bold; color:#fff; font-size:14px;">${nomeItem}</div>
+                        <div style="font-size:11px; color:${corBadge}; font-weight:bold; text-transform:uppercase; margin-top:4px;">Adquirida</div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+    } catch (erro) {
+        console.error("Erro ao carregar visualização de conquistas:", erro);
+        listaEl.innerHTML = "<p style='color:#ff4d4d; text-align:center;'>Erro ao processar as conquistas. Tente novamente.</p>";
+    }
+}
+
+function fecharModalConquistasVisualizacao() {
+    const modal = document.getElementById("modal-conquistas-adquiridas");
+    if (modal) modal.style.display = "none";
+}       
