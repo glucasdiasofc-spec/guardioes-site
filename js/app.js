@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.71 - versão de teste";
+const VERSAO_ATUAL = "v0.0.72 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1019,7 +1019,6 @@ function normalizarTextoBusca(texto) {
 
 // === FUNÇÃO DISPARADA AO CLICAR NA ABA PROGRESSO ===
 async function carregarEspecialidades() {
-    // Fecha todos os catálogos para garantir que o usuário caia na tela principal
     fecharCatalogoEspecialidades();
     fecharCatalogoMestrados();
     fecharCatalogoClasses();
@@ -1028,76 +1027,67 @@ async function carregarEspecialidades() {
     if (!username) return;
 
     try {
-        // 1. CARREGAR ESPECIALIDADES
+        // 1. ESPECIALIDADES
         if (window.cacheEspecialidades.length === 0) {
             try {
-                const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
-                if (!snapEsp.empty) {
-                    window.cacheEspecialidades = snapEsp.docs.map(doc => ({ 
+                const snap = await window.ClubeDB.textoDB.collection("especialidades").get();
+                if (!snap.empty) {
+                    window.cacheEspecialidades = snap.docs.map(doc => ({ 
                         id: String(doc.id), ...doc.data(),
                         categoria: doc.data().categoria || doc.data().area || "Geral",
                         urlImagem: doc.data().urlImagem || doc.data().logo
                     }));
-                } else { throw new Error("Vazio"); }
+                } else { throw "vazio"; }
             } catch {
-                if (typeof listaEspecialidadesParaImportar !== "undefined") {
-                    window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
-                        ...item, id: String(item.id || item.nome),
-                        categoria: item.area || item.categoria || "Geral",
-                        urlImagem: item.logo || item.urlImagem,
-                        requisitos: item.reqs || item.requisitos || []
-                    }));
-                }
+                window.cacheEspecialidades = (typeof listaEspecialidadesParaImportar !== "undefined") ? 
+                    listaEspecialidadesParaImportar.map(e => ({ ...e, id: String(e.id || e.nome), categoria: e.area || "Geral", urlImagem: e.logo })) : [];
             }
         }
         renderizarCatalogoEspecialidades(window.cacheEspecialidades);
         await carregarEspecialidadesEmAndamento();
 
-        // 2. CARREGAR MESTRADOS
+        // 2. MESTRADOS (Correção de Fallback e Renderização)
         if (window.cacheMestrados.length === 0) {
             try {
-                const snapMest = await window.ClubeDB.textoDB.collection("mestrados").get();
-                if (!snapMest.empty) {
-                    window.cacheMestrados = snapMest.docs.map(doc => ({ 
+                const snap = await window.ClubeDB.textoDB.collection("mestrados").get();
+                if (!snap.empty) {
+                    window.cacheMestrados = snap.docs.map(doc => ({ 
                         id: String(doc.id), ...doc.data(),
                         categoria: doc.data().categoria || doc.data().area || "Mestrado",
                         urlImagem: doc.data().urlImagem || doc.data().logo
                     }));
-                } else { throw new Error("Vazio"); }
+                } else { throw "vazio"; }
             } catch {
-                // Fallback para lista local ou array vazio se não existir
-                window.cacheMestrados = (typeof listaMestradosParaImportar !== "undefined") ? 
-                    listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id), categoria: m.area || "Mestrado" })) : 
-                    (typeof fallbackMestrados !== 'undefined' ? fallbackMestrados : []);
+                // Se não houver dados no banco, USA O FALLBACK OBRIGATORIAMENTE para não ficar em branco
+                window.cacheMestrados = (typeof fallbackMestrados !== "undefined") ? fallbackMestrados : [];
             }
         }
         renderizarCatalogoMestrados(window.cacheMestrados);
         await carregarMestradosEmAndamento();
 
-        // 3. CARREGAR CLASSES
+        // 3. CLASSES (Correção de Fallback e Renderização)
         if (window.cacheClasses.length === 0) {
             try {
-                const snapCl = await window.ClubeDB.textoDB.collection("classes").get();
-                if (!snapCl.empty) {
-                    window.cacheClasses = snapCl.docs.map(doc => ({ 
+                const snap = await window.ClubeDB.textoDB.collection("classes").get();
+                if (!snap.empty) {
+                    window.cacheClasses = snap.docs.map(doc => ({ 
                         id: String(doc.id), ...doc.data(),
                         categoria: doc.data().categoria || "Classe",
                         urlImagem: doc.data().urlImagem || doc.data().logo
                     }));
-                } else { throw new Error("Vazio"); }
+                } else { throw "vazio"; }
             } catch {
-                window.cacheClasses = (typeof listaClassesParaImportar !== "undefined") ? 
-                    listaClassesParaImportar.map(c => ({ ...c, id: String(c.id), categoria: c.categoria || "Classe" })) : 
-                    (typeof fallbackClasses !== 'undefined' ? fallbackClasses : []);
+                window.cacheClasses = (typeof fallbackClasses !== "undefined") ? fallbackClasses : [];
             }
         }
         renderizarCatalogoClasses(window.cacheClasses);
         await carregarClassesEmAndamento();
 
     } catch (erro) {
-        console.error("Erro geral de carregamento:", erro);
+        console.error("Erro crítico no carregamento:", erro);
     }
 }
+
 
 
 // ==========================================
@@ -1410,78 +1400,38 @@ async function carregarEspecialidadesEmAndamento() {
     }
 }
 
-async function carregarMestradosEmAndamento() {
-    const container = document.getElementById("lista-mestrados-progresso-container");
+function renderizarCatalogoMestrados(lista) {
+    const container = document.getElementById("lista-mestrados-container");
     if (!container) return;
-    const username = localStorage.getItem("usernameLogado");
+    if (!lista || lista.length === 0) { container.innerHTML = "<p style='color:#8e8e8e;text-align:center;'>Nenhum mestrado disponível.</p>"; return; }
 
-    try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_mestrados")
-            .where("usuario", "==", username)
-            .where("status", "==", "em_andamento").get();
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
+    const categorias = {};
+    lista.forEach(item => {
+        const cat = item.categoria || item.area || "Mestrado";
+        if (!categorias[cat]) categorias[cat] = [];
+        categorias[cat].push(item);
+    });
 
-        if (snap.empty) {
-            container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px;">Você não tem mestrados ativos.</p>`;
-            return;
-        }
-
-        const itens = snap.docs.map(doc => doc.data());
-        container.innerHTML = itens.map(item => {
-            const original = window.cacheMestrados.find(x => x.id === item.itemId) || {};
-            return `
-                <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                        <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                        <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nome}</div>
-                            <div style="font-size:11px; color:#28a745; font-weight:bold;">Em Andamento</div>
+    container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
+        <div style="margin-bottom:15px;">
+            <h4 style="color:#28a745; font-size:12px; margin-bottom:8px; border-left:3px solid #28a745; padding-left:6px; text-transform:uppercase;">${cat}</h4>
+            <div style="display:grid; gap:8px;">
+                ${itens.map(m => `
+                    <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+                            <img src="${m.urlImagem || m.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.nome}</div></div>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('mestrados', '${m.id}' )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            <button onclick="solicitarInicioMestrado('${m.id}', '${m.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                         </div>
                     </div>
-                    <button onclick="solicitarAprovacao('progresso_mestrados', '${item.itemId}', '${item.nome}', carregarMestradosEmAndamento)" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
-                </div>
-            `;
-        }).join("");
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro de carregamento.</p>`;
-    }
-}
-
-async function carregarClassesEmAndamento() {
-    const container = document.getElementById("lista-classes-progresso-container");
-    if (!container) return;
-    const username = localStorage.getItem("usernameLogado");
-
-    try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_classes")
-            .where("usuario", "==", username)
-            .where("status", "==", "em_andamento").get();
-
-        if (snap.empty) {
-            container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px;">Você não tem classes ativas.</p>`;
-            return;
-        }
-
-        const itens = snap.docs.map(doc => doc.data());
-        container.innerHTML = itens.map(item => {
-            const original = window.cacheClasses.find(x => x.id === item.itemId) || {};
-            return `
-                <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                        <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                        <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nome}</div>
-                            <div style="font-size:11px; color:#ffc107; font-weight:bold;">Em Andamento</div>
-                        </div>
-                    </div>
-                    <button onclick="solicitarAprovacao('progresso_classes', '${item.itemId}', '${item.nome}', carregarClassesEmAndamento)" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
-                </div>
-            `;
-        }).join("");
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro de carregamento.</p>`;
-    }
+                `).join("")}
+            </div>
+        </div>
+    `).join("");
 }
 
 
