@@ -451,11 +451,12 @@
                 <!-- SELETOR DE TIPO (Aparece apenas na criação) -->
                 <div id="container-seletor-tipo">
                     <label style="color: #8e8e8e; font-size: 12px;">Tipo de Item</label>
-                    <select id="edit-item-tipo" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px;">
-                        <option value="especialidades">Especialidade</option>
-                        <option value="mestrados">Mestrado</option>
-                        <option value="classes">Classe</option>
-                    </select>
+<select id="edit-item-tipo" onchange="popularCategoriasNoModal(this.value)" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px;">
+    <option value="especialidades">Especialidade</option>
+    <option value="mestrados">Mestrado</option>
+    <option value="classes">Classe</option>
+</select>
+
                 </div>
 
                 <!-- UPLOAD DE FOTO -->
@@ -480,6 +481,7 @@
                 <div>
                     <label style="color: #8e8e8e; font-size: 12px;">Categoria/Área</label>
                     <select id="edit-item-categoria-select" onchange="verificarNovaCategoria(this.value)" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; margin-bottom: 5px;">
+                        <button onclick="gerenciarCategoriasAdmin()" style="background: none; border: none; color: #0095f6; font-size: 11px; cursor: pointer; padding: 5px 0;">⚙️ Editar/Apagar Categoria Selecionada</button>
                         <!-- Populado via JS -->
                     </select>
                     <input type="text" id="edit-item-categoria-nova" style="display: none; width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; box-sizing: border-box;" placeholder="Digite a nova categoria...">

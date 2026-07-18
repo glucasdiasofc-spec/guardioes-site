@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.73 - versão de teste";
+const VERSAO_ATUAL = "v0.0.74 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1179,7 +1179,7 @@ function renderizarCatalogoEspecialidades(lista) {
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                             <img src="${e.urlImagem || e.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.nome}</div></div>
+                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; word-break:break-word;">${e.nome}</div></div>
                         </div>
                         <div style="display:flex; gap:6px;">
                             ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('especialidades', '${e.id}' )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
@@ -1726,9 +1726,16 @@ function verificarNovaCategoria(valor) {
 
 function popularCategoriasNoModal(tipo, selecionada = "") {
     const select = document.getElementById("edit-item-categoria-select");
-    let cache = window.cacheEspecialidades;
+    let cache = [];
+    if (tipo === 'especialidades') cache = window.cacheEspecialidades;
     if (tipo === 'mestrados') cache = window.cacheMestrados;
     if (tipo === 'classes') cache = window.cacheClasses;
+
+    // Se o cache estiver vazio, tenta popular com fallbacks para o seletor não vir em branco
+    if (cache.length === 0) {
+        if (tipo === 'mestrados') cache = fallbackMestrados;
+        if (tipo === 'classes') cache = fallbackClasses;
+    }
 
     const categoriasUnicas = [...new Set(cache.map(i => i.categoria || i.area || "Geral"))].sort();
     
@@ -1741,6 +1748,41 @@ function popularCategoriasNoModal(tipo, selecionada = "") {
     select.innerHTML = html;
     verificarNovaCategoria(selecionada === "NOVA" ? "NOVA" : "");
 }
+
+async function gerenciarCategoriasAdmin() {
+    const tipo = document.getElementById("edit-item-tipo").value;
+    const catAtual = document.getElementById("edit-item-categoria-select").value;
+    
+    if (!catAtual || catAtual === "NOVA") return alert("Selecione uma categoria existente para editar ou apagar.");
+
+    const acao = prompt(`Categoria: "${catAtual}"\nDigite 'EDITAR' para renomear ou 'APAGAR' para remover de todos os itens desta categoria:`);
+    
+    if (!acao) return;
+
+    if (acao.toUpperCase() === 'EDITAR') {
+        const novoNome = prompt("Novo nome para a categoria:", catAtual);
+        if (!novoNome || novoNome === catAtual) return;
+        
+        if (confirm(`Isso vai renomear a categoria de TODOS os itens em "${tipo}". Continuar?`)) {
+            const snap = await window.ClubeDB.textoDB.collection(tipo).where("categoria", "==", catAtual).get();
+            const batch = window.ClubeDB.textoDB.batch();
+            snap.forEach(doc => batch.update(doc.ref, { categoria: novoNome }));
+            await batch.commit();
+            alert("Categoria atualizada!");
+            location.reload(); // Recarrega para limpar caches
+        }
+    } else if (acao.toUpperCase() === 'APAGAR') {
+        if (confirm(`Deseja remover a categoria "${catAtual}" de todos os itens? (Os itens não serão excluídos, apenas ficarão sem categoria)`)) {
+            const snap = await window.ClubeDB.textoDB.collection(tipo).where("categoria", "==", catAtual).get();
+            const batch = window.ClubeDB.textoDB.batch();
+            snap.forEach(doc => batch.update(doc.ref, { categoria: "Geral" }));
+            await batch.commit();
+            alert("Categoria removida!");
+            location.reload();
+        }
+    }
+}
+
 
 function abrirModalCriarItem() {
     document.getElementById("titulo-modal-item").textContent = "Criar Novo Item";
