@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.69 - versão de teste";
+const VERSAO_ATUAL = "v0.0.70 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1209,35 +1209,40 @@ function renderizarCatalogoEspecialidades(lista) {
 }
 
 
-function renderizarCatalogoMestrados(lista) {
-    const container = document.getElementById("lista-mestrados-container");
+function renderizarCatalogoClasses(lista) {
+    const container = document.getElementById("lista-classes-container");
     if (!container) return;
     if (lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
 
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
     const categorias = {};
     lista.forEach(item => {
-        const cat = item.categoria || item.area || "Mestrado";
+        const cat = item.categoria || "Classe";
         if (!categorias[cat]) categorias[cat] = [];
         categorias[cat].push(item);
     });
 
     container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
         <div>
-            <h4 style="color:#28a745; font-size:12px; margin-bottom:8px; border-left:3px solid #28a745; padding-left:6px; text-transform:uppercase;">${cat}</h4>
+            <h4 style="color:#ffc107; font-size:12px; margin-bottom:8px; border-left:3px solid #ffc107; padding-left:6px; text-transform:uppercase;">${cat}</h4>
             <div style="display:grid; gap:8px;">
-                ${itens.map(m => `
+                ${itens.map(c => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                            <img src="${m.urlImagem || m.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.nome}</div></div>
+                            <img src="${c.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
                         </div>
-                        <button onclick="solicitarInicioMestrado('${m.id}', '${m.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                        <div style="display:flex; gap:6px;">
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}' )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                        </div>
                     </div>
                 `).join("")}
             </div>
         </div>
     `).join("");
 }
+
 
 function renderizarCatalogoClasses(lista) {
     const container = document.getElementById("lista-classes-container");
@@ -1744,24 +1749,44 @@ function fecharModalConquistasVisualizacao() {
 }   
 
 // ==========================================
-// GERENCIAMENTO DE ITENS (ADMIN)
+// GERENCIAMENTO DE ITENS (ADMIN) - V2 SENIOR
 // ==========================================
 
-function abrirModalCriarItem() {
-    const subAba = document.getElementById("sub-aba-especialidades");
-    let tipo = "especialidades";
-    
-    // Identifica qual catálogo está aberto para saber o que criar
-    if (document.getElementById("tela-mestrados-catalogo").style.display === "block") tipo = "mestrados";
-    if (document.getElementById("tela-classes-catalogo").style.display === "block") tipo = "classes";
+function verificarNovaCategoria(valor) {
+    const campoNova = document.getElementById("edit-item-categoria-nova");
+    campoNova.style.display = (valor === "NOVA") ? "block" : "none";
+}
 
+function popularCategoriasNoModal(tipo, selecionada = "") {
+    const select = document.getElementById("edit-item-categoria-select");
+    let cache = window.cacheEspecialidades;
+    if (tipo === 'mestrados') cache = window.cacheMestrados;
+    if (tipo === 'classes') cache = window.cacheClasses;
+
+    const categoriasUnicas = [...new Set(cache.map(i => i.categoria || i.area || "Geral"))].sort();
+    
+    let html = `<option value="">Selecionar Categoria...</option>`;
+    categoriasUnicas.forEach(cat => {
+        html += `<option value="${cat}" ${cat === selecionada ? 'selected' : ''}>${cat}</option>`;
+    });
+    html += `<option value="NOVA" style="color: #0095f6; font-weight: bold;">+ Criar Nova Categoria</option>`;
+    
+    select.innerHTML = html;
+    verificarNovaCategoria(selecionada === "NOVA" ? "NOVA" : "");
+}
+
+function abrirModalCriarItem() {
     document.getElementById("titulo-modal-item").textContent = "Criar Novo Item";
     document.getElementById("edit-item-id").value = "";
-    document.getElementById("edit-item-tipo").value = tipo;
+    document.getElementById("container-seletor-tipo").style.display = "block";
+    
     document.getElementById("edit-item-nome").value = "";
-    document.getElementById("edit-item-foto").value = "";
-    document.getElementById("edit-item-categoria").value = "";
+    document.getElementById("edit-item-foto-url").value = "";
+    document.getElementById("previa-item-img").style.display = "none";
     document.getElementById("edit-item-requisitos").value = "";
+    document.getElementById("edit-item-categoria-nova").value = "";
+    
+    popularCategoriasNoModal('especialidades'); // Padrão inicial
     
     document.getElementById("btn-excluir-item").style.display = "none";
     document.getElementById("modal-gerenciar-item").style.display = "flex";
@@ -1778,9 +1803,21 @@ function abrirModalGerenciarItem(tipo, id) {
     document.getElementById("titulo-modal-item").textContent = "Editar Item";
     document.getElementById("edit-item-id").value = id;
     document.getElementById("edit-item-tipo").value = tipo;
+    document.getElementById("container-seletor-tipo").style.display = "none"; // Não muda tipo na edição
+
     document.getElementById("edit-item-nome").value = item.nome;
-    document.getElementById("edit-item-foto").value = item.urlImagem || item.logo || "";
-    document.getElementById("edit-item-categoria").value = item.categoria || item.area || "";
+    const fotoUrl = item.urlImagem || item.logo || "";
+    document.getElementById("edit-item-foto-url").value = fotoUrl;
+    
+    const previa = document.getElementById("previa-item-img");
+    if (fotoUrl) {
+        previa.src = fotoUrl;
+        previa.style.display = "block";
+    } else {
+        previa.style.display = "none";
+    }
+
+    popularCategoriasNoModal(tipo, item.categoria || item.area || "");
     document.getElementById("edit-item-requisitos").value = (item.requisitos || []).join("\n");
 
     document.getElementById("btn-excluir-item").style.display = "block";
@@ -1792,60 +1829,84 @@ function fecharModalGerenciarItem() {
 }
 
 async function salvarAlteracoesItemAdmin() {
+    const btn = document.getElementById("btn-salvar-item-geral");
     const id = document.getElementById("edit-item-id").value;
     const tipo = document.getElementById("edit-item-tipo").value;
     const nome = document.getElementById("edit-item-nome").value.trim();
-    const foto = document.getElementById("edit-item-foto").value.trim();
-    const categoria = document.getElementById("edit-item-categoria").value.trim();
     const requisitos = document.getElementById("edit-item-requisitos").value.split("\n").filter(r => r.trim() !== "");
+    
+    const catSelect = document.getElementById("edit-item-categoria-select").value;
+    const categoria = (catSelect === "NOVA") ? document.getElementById("edit-item-categoria-nova").value.trim() : catSelect;
 
-    if (!nome) return alert("O nome é obrigatório.");
+    if (!nome || !categoria) return alert("Nome e Categoria são obrigatórios.");
+
+    btn.disabled = true;
+    btn.textContent = "Salvando...";
 
     try {
+        let finalFotoUrl = document.getElementById("edit-item-foto-url").value;
+        const arquivoFoto = document.getElementById("edit-item-foto-file").files[0];
+
+        // Se houver novo arquivo, faz o upload para o Cloudinary (usando a lógica já existente no seu app)
+        if (arquivoFoto) {
+            finalFotoUrl = await subirImagemParaNuvem(arquivoFoto);
+        }
+
         const db = window.ClubeDB.textoDB;
         const dados = {
             nome,
-            urlImagem: foto,
+            urlImagem: finalFotoUrl,
             categoria,
             requisitos,
             atualizadoEm: new Date()
         };
 
         if (id) {
-            // EDITAR
             await db.collection(tipo).doc(id).update(dados);
-            alert("Item atualizado com sucesso!");
+            alert("Item atualizado!");
         } else {
-            // CRIAR NOVO
             await db.collection(tipo).add(dados);
-            alert("Item criado com sucesso!");
+            alert("Item criado!");
         }
 
         fecharModalGerenciarItem();
-        // Recarrega o catálogo para mostrar as mudanças
         window.cacheEspecialidades = []; 
         window.cacheMestrados = [];
         window.cacheClasses = [];
         carregarEspecialidades(); 
         
     } catch (e) {
-        console.error(e);
         alert("Erro ao salvar: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Salvar";
     }
+}
+
+// Função auxiliar para upload (Reutilizando o padrão do seu app)
+async function subirImagemParaNuvem(arquivo) {
+    const formData = new FormData();
+    formData.append("file", arquivo);
+    formData.append("upload_preset", "ml_default"); // Substitua pelo seu preset se necessário
+
+    const resp = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
+        method: "POST",
+        body: formData
+    } );
+    const data = await resp.json();
+    return data.secure_url;
 }
 
 async function excluirItemAdmin() {
     const id = document.getElementById("edit-item-id").value;
     const tipo = document.getElementById("edit-item-tipo").value;
-    if (!id || !confirm("Tem certeza que deseja excluir este item permanentemente?")) return;
+    if (!id || !confirm("Excluir permanentemente?")) return;
 
     try {
         await window.ClubeDB.textoDB.collection(tipo).doc(id).delete();
-        alert("Item excluído.");
+        alert("Excluído.");
         fecharModalGerenciarItem();
         window.cacheEspecialidades = []; 
         carregarEspecialidades();
-    } catch (e) {
-        alert("Erro ao excluir.");
-    }
+    } catch (e) { alert("Erro ao excluir."); }
 }

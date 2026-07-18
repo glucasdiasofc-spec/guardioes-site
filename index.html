@@ -442,26 +442,47 @@
 <script src="js/especialidades-importador.js"></script>
 <!-- MODAL DE GERENCIAMENTO DE ITENS (ESPECIALIDADES/MESTRADOS/CLASSES) -->
     <div id="modal-gerenciar-item" class="modal-sobreposto" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;">
-        <div style="background: #1c1c1c; width: 100%; max-width: 400px; border-radius: 12px; padding: 20px; border: 1px solid #333;">
+        <div style="background: #1c1c1c; width: 100%; max-width: 400px; border-radius: 12px; padding: 20px; border: 1px solid #333; overflow-y: auto; max-height: 90vh;">
             <h3 id="titulo-modal-item" style="color: #fff; margin-top: 0;">Gerenciar Item</h3>
             
             <input type="hidden" id="edit-item-id">
-            <input type="hidden" id="edit-item-tipo">
 
             <div style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- SELETOR DE TIPO (Aparece apenas na criação) -->
+                <div id="container-seletor-tipo">
+                    <label style="color: #8e8e8e; font-size: 12px;">Tipo de Item</label>
+                    <select id="edit-item-tipo" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px;">
+                        <option value="especialidades">Especialidade</option>
+                        <option value="mestrados">Mestrado</option>
+                        <option value="classes">Classe</option>
+                    </select>
+                </div>
+
+                <!-- UPLOAD DE FOTO -->
+                <div>
+                    <label style="color: #8e8e8e; font-size: 12px;">Foto do Item</label>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                        <img id="previa-item-img" src="" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover; background: #000; border: 1px solid #333; display: none;">
+                        <label class="upload-customizado" style="flex: 1; font-size: 12px; padding: 8px;">
+                            Escolher Arquivo
+                            <input type="file" id="edit-item-foto-file" accept="image/*" onchange="mostrarPreviaImagem(this, 'previa-item-img')" style="display: none;">
+                        </label>
+                    </div>
+                    <input type="hidden" id="edit-item-foto-url">
+                </div>
+
                 <div>
                     <label style="color: #8e8e8e; font-size: 12px;">Nome do Item</label>
                     <input type="text" id="edit-item-nome" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; box-sizing: border-box;">
                 </div>
 
-                <div>
-                    <label style="color: #8e8e8e; font-size: 12px;">URL da Imagem (Logo)</label>
-                    <input type="text" id="edit-item-foto" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; box-sizing: border-box;">
-                </div>
-
+                <!-- CATEGORIA COM OPÇÃO DE CRIAR NOVA -->
                 <div>
                     <label style="color: #8e8e8e; font-size: 12px;">Categoria/Área</label>
-                    <input type="text" id="edit-item-categoria" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; box-sizing: border-box;" placeholder="Ex: Atividades Missionárias">
+                    <select id="edit-item-categoria-select" onchange="verificarNovaCategoria(this.value)" style="width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; margin-bottom: 5px;">
+                        <!-- Populado via JS -->
+                    </select>
+                    <input type="text" id="edit-item-categoria-nova" style="display: none; width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; box-sizing: border-box;" placeholder="Digite a nova categoria...">
                 </div>
 
                 <div>
@@ -470,12 +491,13 @@
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <button onclick="salvarAlteracoesItemAdmin()" style="flex: 1; background: #28a745; color: #fff; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Salvar</button>
+                    <button id="btn-salvar-item-geral" onclick="salvarAlteracoesItemAdmin()" style="flex: 1; background: #28a745; color: #fff; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Salvar</button>
                     <button id="btn-excluir-item" onclick="excluirItemAdmin()" style="flex: 1; background: #ff4d4d; color: #fff; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Excluir</button>
                 </div>
                 <button onclick="fecharModalGerenciarItem()" style="background: none; border: none; color: #8e8e8e; font-size: 13px; cursor: pointer; margin-top: 5px;">Cancelar</button>
             </div>
         </div>
     </div>
+
 </body>
 </html>
