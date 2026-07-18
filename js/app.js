@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.70 - versão de teste";
+const VERSAO_ATUAL = "v0.0.71 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1028,29 +1028,21 @@ async function carregarEspecialidades() {
     if (!username) return;
 
     try {
-                // 1. CARREGAR E RENDERIZAR ESPECIALIDADES
+        // 1. CARREGAR ESPECIALIDADES
         if (window.cacheEspecialidades.length === 0) {
             try {
-                // Tenta carregar primeiro do Banco de Dados (Firestore)
                 const snapEsp = await window.ClubeDB.textoDB.collection("especialidades").get();
                 if (!snapEsp.empty) {
                     window.cacheEspecialidades = snapEsp.docs.map(doc => ({ 
-                        id: String(doc.id), 
-                        ...doc.data(),
+                        id: String(doc.id), ...doc.data(),
                         categoria: doc.data().categoria || doc.data().area || "Geral",
                         urlImagem: doc.data().urlImagem || doc.data().logo
                     }));
-                    console.log("Catálogo carregado do Banco de Dados.");
-                } else {
-                    throw new Error("Banco vazio");
-                }
-            } catch (erro) {
-                // Fallback: Se o banco falhar ou estiver vazio, usa a lista local
+                } else { throw new Error("Vazio"); }
+            } catch {
                 if (typeof listaEspecialidadesParaImportar !== "undefined") {
-                    console.log("Usando fallback local de especialidades...");
                     window.cacheEspecialidades = listaEspecialidadesParaImportar.map(item => ({
-                        ...item,
-                        id: String(item.id || item.nome),
+                        ...item, id: String(item.id || item.nome),
                         categoria: item.area || item.categoria || "Geral",
                         urlImagem: item.logo || item.urlImagem,
                         requisitos: item.reqs || item.requisitos || []
@@ -1058,43 +1050,45 @@ async function carregarEspecialidades() {
                 }
             }
         }
-
-
         renderizarCatalogoEspecialidades(window.cacheEspecialidades);
         await carregarEspecialidadesEmAndamento();
 
-        // 2. CARREGAR E RENDERIZAR MESTRADOS
+        // 2. CARREGAR MESTRADOS
         if (window.cacheMestrados.length === 0) {
             try {
                 const snapMest = await window.ClubeDB.textoDB.collection("mestrados").get();
                 if (!snapMest.empty) {
-                    window.cacheMestrados = snapMest.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
-                } else {
-                    // Se não houver lista de mestrados no arquivo de dados, usamos um array vazio ou fallback
-                    window.cacheMestrados = typeof listaMestradosParaImportar !== "undefined" ? 
-                        listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : (typeof fallbackMestrados !== 'undefined' ? fallbackMestrados : []);
-                }
+                    window.cacheMestrados = snapMest.docs.map(doc => ({ 
+                        id: String(doc.id), ...doc.data(),
+                        categoria: doc.data().categoria || doc.data().area || "Mestrado",
+                        urlImagem: doc.data().urlImagem || doc.data().logo
+                    }));
+                } else { throw new Error("Vazio"); }
             } catch {
-                window.cacheMestrados = typeof listaMestradosParaImportar !== "undefined" ? 
-                    listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id) })) : (typeof fallbackMestrados !== 'undefined' ? fallbackMestrados : []);
+                // Fallback para lista local ou array vazio se não existir
+                window.cacheMestrados = (typeof listaMestradosParaImportar !== "undefined") ? 
+                    listaMestradosParaImportar.map(m => ({ ...m, id: String(m.id), categoria: m.area || "Mestrado" })) : 
+                    (typeof fallbackMestrados !== 'undefined' ? fallbackMestrados : []);
             }
         }
         renderizarCatalogoMestrados(window.cacheMestrados);
         await carregarMestradosEmAndamento();
 
-        // 3. CARREGAR E RENDERIZAR CLASSES
+        // 3. CARREGAR CLASSES
         if (window.cacheClasses.length === 0) {
             try {
                 const snapCl = await window.ClubeDB.textoDB.collection("classes").get();
                 if (!snapCl.empty) {
-                    window.cacheClasses = snapCl.docs.map(doc => ({ id: String(doc.id), ...doc.data() }));
-                } else {
-                    window.cacheClasses = typeof listaClassesParaImportar !== "undefined" ? 
-                        listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : (typeof fallbackClasses !== 'undefined' ? fallbackClasses : []);
-                }
+                    window.cacheClasses = snapCl.docs.map(doc => ({ 
+                        id: String(doc.id), ...doc.data(),
+                        categoria: doc.data().categoria || "Classe",
+                        urlImagem: doc.data().urlImagem || doc.data().logo
+                    }));
+                } else { throw new Error("Vazio"); }
             } catch {
-                window.cacheClasses = typeof listaClassesParaImportar !== "undefined" ? 
-                    listaClassesParaImportar.map(c => ({ ...c, id: String(c.id) })) : (typeof fallbackClasses !== 'undefined' ? fallbackClasses : []);
+                window.cacheClasses = (typeof listaClassesParaImportar !== "undefined") ? 
+                    listaClassesParaImportar.map(c => ({ ...c, id: String(c.id), categoria: c.categoria || "Classe" })) : 
+                    (typeof fallbackClasses !== 'undefined' ? fallbackClasses : []);
             }
         }
         renderizarCatalogoClasses(window.cacheClasses);
