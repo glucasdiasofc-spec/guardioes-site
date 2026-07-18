@@ -3960,26 +3960,6 @@ const listaEspecialidadesParaImportar = [
         area: "Ciência e Saúde",
         logo: "https://mda.wiki.br/site/@imgs_wiki/imagem@cs007.png",
         reqs: ["Definir e desenhar um gráfico dos seguintes sistemas ópticos:", "Explicar como a luz se comporta quando atinge ou atravessa água, óleo, metais e um espelho.", "Mencionar o nome e fazer diagramas de 3 tipos de lentes convergentes e 3 tipos de lentes divergentes.", "Fazer a construção geométrica das imagens em lentes convergentes, informando a natureza da imagem, sua localização, tamanho, orientação e dê exemplos:", "Fazer a construção geométrica das imagens em lentes divergentes.", "Demonstrar, através de gráficos, como funciona um prisma. Marcar os ângulos em que as cores aparecem e desaparecem.", "Demonstrar o que acontece quando a luz atravessa um vidro translúcido.", "Com uma lente convergente e os raios solares, acender uma fogueira e explicar o porquê isso acontece. Explicar também o porquê não é possível acender uma fogueira com uma lente divergente.", "Construir um instrumento óptico usando espelhos ou lentes, tais como um periscópio, um projetor de slides ou um telescópio simples.", "Explicar o que significa o termo 6x35 e 7x50 aplicado a binóculos.", "Definir o termo “número-f” usado em conexão com câmeras fotográficas. O que significa o fato de uma lente ser rápida ou lenta? Uma lente f-8,5 é mais rápida ou mais lenta que uma lente f-8?", "Como os 10 Mandamentos podem ser comparados com um espelho?"]
-    },
-    {
-        id: 567,
-        nome: "Mestrado em ADRA",
-        area: "Mestrados",
-        mestrado: true,
-        logo: "https://mda.wiki.br/site/@imgs_wiki/imagem@mestrado_adra.png",
-        reqs: [
-            "Ter as seguintes especialidades: Alívio da fome, Avaliação da comunidade, Serviço comunitário.",
-            "Ter duas das seguintes especialidades: Alfabetização, Desenvolvimento comunitário, Reassentamento de refugiados, Resolução de conflitos, Resposta a emergências e desastres, Resposta a emergências e desastres - avançado."
-        ]
-    },
-    {
-        id: 568,
-        nome: "Mestrado em Artes e Habilidades Manuais",
-        area: "Mestrados",
-        mestrado: true,
-        logo: "https://mda.wiki.br/site/@imgs_wiki/imagem@mestrado_artes.png",
-        reqs: [
-            "Ter sete especialidades em Artes e Habilidades Manuais."
-        ]
+
     }
 ];
