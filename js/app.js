@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.72 - versão de teste";
+const VERSAO_ATUAL = "v0.0.73 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1196,7 +1196,7 @@ function renderizarCatalogoEspecialidades(lista) {
 function renderizarCatalogoClasses(lista) {
     const container = document.getElementById("lista-classes-container");
     if (!container) return;
-    if (lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
+    if (!lista || lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
 
     const tipoUsuario = localStorage.getItem("usuarioLogado");
     const categorias = {};
@@ -1217,7 +1217,7 @@ function renderizarCatalogoClasses(lista) {
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
                         </div>
                         <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}' )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}'  )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
                             <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                         </div>
                     </div>
@@ -1227,36 +1227,6 @@ function renderizarCatalogoClasses(lista) {
     `).join("");
 }
 
-
-function renderizarCatalogoClasses(lista) {
-    const container = document.getElementById("lista-classes-container");
-    if (!container) return;
-    if (lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
-
-    const categorias = {};
-    lista.forEach(item => {
-        const cat = item.categoria || "Classe";
-        if (!categorias[cat]) categorias[cat] = [];
-        categorias[cat].push(item);
-    });
-
-    container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
-        <div>
-            <h4 style="color:#ffc107; font-size:12px; margin-bottom:8px; border-left:3px solid #ffc107; padding-left:6px; text-transform:uppercase;">${cat}</h4>
-            <div style="display:grid; gap:8px;">
-                ${itens.map(c => `
-                    <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                            <img src="${c.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
-                        </div>
-                        <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
-                    </div>
-                `).join("")}
-            </div>
-        </div>
-    `).join("");
-}
 
 
 // ==========================================
@@ -1390,7 +1360,7 @@ async function carregarEspecialidadesEmAndamento() {
                             <div style="font-size:11px; color:#007bff; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarAprovacao('progresso_especialidades', '${item.itemId}', '${item.nome}', carregarEspecialidadesEmAndamento)" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
+                    <button onclick="solicitarAprovacao('progresso_especialidades', '${item.itemId}', '${item.nome}', carregarEspecialidadesEmAndamento )" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
                 </div>
             `;
         }).join("");
@@ -1399,6 +1369,59 @@ async function carregarEspecialidadesEmAndamento() {
         container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro de carregamento.</p>`;
     }
 }
+
+async function carregarMestradosEmAndamento() {
+    const container = document.getElementById("lista-mestrados-progresso-container");
+    if (!container) return;
+    const username = localStorage.getItem("usernameLogado");
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("progresso_mestrados").where("usuario", "==", username).where("status", "==", "em_andamento").get();
+        if (snap.empty) { container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px;">Nenhum mestrado ativo.</p>`; return; }
+        const itens = snap.docs.map(doc => doc.data());
+        container.innerHTML = itens.map(item => {
+            const original = window.cacheMestrados.find(x => x.id === item.itemId) || {};
+            return `
+                <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+                        <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                        <div style="min-width:0; flex:1;">
+                            <div style="font-weight:bold; color:#fff; font-size:13px;">${item.nome}</div>
+                            <div style="font-size:11px; color:#28a745; font-weight:bold;">Em Andamento</div>
+                        </div>
+                    </div>
+                    <button onclick="solicitarAprovacao('progresso_mestrados', '${item.itemId}', '${item.nome}', carregarMestradosEmAndamento )" style="padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
+                </div>
+            `;
+        }).join("");
+    } catch (e) { container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro.</p>`; }
+}
+
+async function carregarClassesEmAndamento() {
+    const container = document.getElementById("lista-classes-progresso-container");
+    if (!container) return;
+    const username = localStorage.getItem("usernameLogado");
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("progresso_classes").where("usuario", "==", username).where("status", "==", "em_andamento").get();
+        if (snap.empty) { container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px;">Nenhuma classe ativa.</p>`; return; }
+        const itens = snap.docs.map(doc => doc.data());
+        container.innerHTML = itens.map(item => {
+            const original = window.cacheClasses.find(x => x.id === item.itemId) || {};
+            return `
+                <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+                        <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                        <div style="min-width:0; flex:1;">
+                            <div style="font-weight:bold; color:#fff; font-size:13px;">${item.nome}</div>
+                            <div style="font-size:11px; color:#ffc107; font-weight:bold;">Em Andamento</div>
+                        </div>
+                    </div>
+                    <button onclick="solicitarAprovacao('progresso_classes', '${item.itemId}', '${item.nome}', carregarClassesEmAndamento )" style="padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
+                </div>
+            `;
+        }).join("");
+    } catch (e) { container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro.</p>`; }
+}
+
 
 function renderizarCatalogoMestrados(lista) {
     const container = document.getElementById("lista-mestrados-container");
