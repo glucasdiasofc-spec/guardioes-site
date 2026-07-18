@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.68 - versão de teste";
+const VERSAO_ATUAL = "v0.0.69 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1179,6 +1179,7 @@ function renderizarCatalogoEspecialidades(lista) {
     if (!container) return;
     if (lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
 
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
     const categorias = {};
     lista.forEach(item => {
         const cat = item.categoria || item.area || "Geral";
@@ -1196,13 +1197,17 @@ function renderizarCatalogoEspecialidades(lista) {
                             <img src="${e.urlImagem || e.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.nome}</div></div>
                         </div>
-                        <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                        <div style="display:flex; gap:6px;">
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('especialidades', '${e.id}' )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
+                        </div>
                     </div>
                 `).join("")}
             </div>
         </div>
     `).join("");
 }
+
 
 function renderizarCatalogoMestrados(lista) {
     const container = document.getElementById("lista-mestrados-container");
@@ -1736,4 +1741,111 @@ async function abrirModalConquistasVisualizacao(tipo) {
 function fecharModalConquistasVisualizacao() {
     const modal = document.getElementById("modal-conquistas-adquiridas");
     if (modal) modal.style.display = "none";
-}       
+}   
+
+// ==========================================
+// GERENCIAMENTO DE ITENS (ADMIN)
+// ==========================================
+
+function abrirModalCriarItem() {
+    const subAba = document.getElementById("sub-aba-especialidades");
+    let tipo = "especialidades";
+    
+    // Identifica qual catálogo está aberto para saber o que criar
+    if (document.getElementById("tela-mestrados-catalogo").style.display === "block") tipo = "mestrados";
+    if (document.getElementById("tela-classes-catalogo").style.display === "block") tipo = "classes";
+
+    document.getElementById("titulo-modal-item").textContent = "Criar Novo Item";
+    document.getElementById("edit-item-id").value = "";
+    document.getElementById("edit-item-tipo").value = tipo;
+    document.getElementById("edit-item-nome").value = "";
+    document.getElementById("edit-item-foto").value = "";
+    document.getElementById("edit-item-categoria").value = "";
+    document.getElementById("edit-item-requisitos").value = "";
+    
+    document.getElementById("btn-excluir-item").style.display = "none";
+    document.getElementById("modal-gerenciar-item").style.display = "flex";
+}
+
+function abrirModalGerenciarItem(tipo, id) {
+    let cache = window.cacheEspecialidades;
+    if (tipo === 'mestrados') cache = window.cacheMestrados;
+    if (tipo === 'classes') cache = window.cacheClasses;
+
+    const item = cache.find(i => String(i.id) === String(id));
+    if (!item) return;
+
+    document.getElementById("titulo-modal-item").textContent = "Editar Item";
+    document.getElementById("edit-item-id").value = id;
+    document.getElementById("edit-item-tipo").value = tipo;
+    document.getElementById("edit-item-nome").value = item.nome;
+    document.getElementById("edit-item-foto").value = item.urlImagem || item.logo || "";
+    document.getElementById("edit-item-categoria").value = item.categoria || item.area || "";
+    document.getElementById("edit-item-requisitos").value = (item.requisitos || []).join("\n");
+
+    document.getElementById("btn-excluir-item").style.display = "block";
+    document.getElementById("modal-gerenciar-item").style.display = "flex";
+}
+
+function fecharModalGerenciarItem() {
+    document.getElementById("modal-gerenciar-item").style.display = "none";
+}
+
+async function salvarAlteracoesItemAdmin() {
+    const id = document.getElementById("edit-item-id").value;
+    const tipo = document.getElementById("edit-item-tipo").value;
+    const nome = document.getElementById("edit-item-nome").value.trim();
+    const foto = document.getElementById("edit-item-foto").value.trim();
+    const categoria = document.getElementById("edit-item-categoria").value.trim();
+    const requisitos = document.getElementById("edit-item-requisitos").value.split("\n").filter(r => r.trim() !== "");
+
+    if (!nome) return alert("O nome é obrigatório.");
+
+    try {
+        const db = window.ClubeDB.textoDB;
+        const dados = {
+            nome,
+            urlImagem: foto,
+            categoria,
+            requisitos,
+            atualizadoEm: new Date()
+        };
+
+        if (id) {
+            // EDITAR
+            await db.collection(tipo).doc(id).update(dados);
+            alert("Item atualizado com sucesso!");
+        } else {
+            // CRIAR NOVO
+            await db.collection(tipo).add(dados);
+            alert("Item criado com sucesso!");
+        }
+
+        fecharModalGerenciarItem();
+        // Recarrega o catálogo para mostrar as mudanças
+        window.cacheEspecialidades = []; 
+        window.cacheMestrados = [];
+        window.cacheClasses = [];
+        carregarEspecialidades(); 
+        
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao salvar: " + e.message);
+    }
+}
+
+async function excluirItemAdmin() {
+    const id = document.getElementById("edit-item-id").value;
+    const tipo = document.getElementById("edit-item-tipo").value;
+    if (!id || !confirm("Tem certeza que deseja excluir este item permanentemente?")) return;
+
+    try {
+        await window.ClubeDB.textoDB.collection(tipo).doc(id).delete();
+        alert("Item excluído.");
+        fecharModalGerenciarItem();
+        window.cacheEspecialidades = []; 
+        carregarEspecialidades();
+    } catch (e) {
+        alert("Erro ao excluir.");
+    }
+}
