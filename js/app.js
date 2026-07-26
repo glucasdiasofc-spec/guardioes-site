@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.80 - versão de teste";
+const VERSAO_ATUAL = "v0.0.81 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1417,7 +1417,7 @@ async function carregarEspecialidadesEmAndamento() {
                             <div style="color:#0095f6; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="abrirChecklistEspecialidade('${doc.id}', '${dados.nomeItem}')" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Enviar</button>
+                    <button onclick="solicitarInicioEspecialidade('${dados.itemId}', '${dados.nomeItem}')" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Continuar</button>
                 </div>
             `;
         }).join("");
@@ -1426,9 +1426,6 @@ async function carregarEspecialidadesEmAndamento() {
         container.innerHTML = "<p style='color:#ff4d4d; font-size:11px;'>Erro ao carregar.</p>";
     }
 }
-
-
-
 
 async function carregarMestradosEmAndamento() {
     const username = localStorage.getItem("usernameLogado");
@@ -1469,45 +1466,31 @@ async function carregarMestradosEmAndamento() {
 }
 
 async function carregarClassesEmAndamento() {
-    const username = localStorage.getItem("usernameLogado");
     const container = document.getElementById("lista-classes-progresso-container");
     if (!container) return;
-
+    const username = localStorage.getItem("usernameLogado");
     try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_classes")
-            .where("usuario", "==", username)
-            .where("status", "==", "em_andamento").get();
-
+        const snap = await window.ClubeDB.textoDB.collection("progresso_classes").where("usuario", "==", username).where("status", "==", "em_andamento").get();
         container.innerHTML = ""; // Limpa o "Carregando..."
-
-        if (snap.empty) {
-            container.innerHTML = "<p style='color:#8e8e8e; font-size:12px; text-align:center; padding:10px;'>Nenhuma classe em andamento.</p>";
-            return;
-        }
-
-        container.innerHTML = snap.docs.map(doc => {
-            const dados = doc.data();
+        if (snap.empty) { container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px; padding:10px;">Nenhuma classe em andamento.</p>`; return; }
+        const itens = snap.docs.map(doc => doc.data());
+        container.innerHTML = itens.map(item => {
+            const original = window.cacheClasses.find(x => String(x.id) === String(item.itemId)) || {};
             return `
                 <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
                     <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                         <div style="width:40px; height:40px; background:#000; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🎒</div>
                         <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dados.nome}</div>
+                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nome}</div>
                             <div style="color:#ffc107; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarAprovacao('progresso_classes', '${dados.itemId}', '${dados.nome}', carregarClassesEmAndamento)" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Enviar</button>
+                    <button onclick="solicitarInicioClasse('${item.itemId}', '${item.nome}')" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Continuar</button>
                 </div>
             `;
         }).join("");
-    } catch (e) { 
-        console.error(e);
-        container.innerHTML = "<p style='color:#ff4d4d; font-size:11px;'>Erro ao carregar.</p>";
-    }
+    } catch (e) { container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro ao carregar.</p>`; }
 }
-
-
-
 
 
 function renderizarCatalogoMestrados(lista) {
