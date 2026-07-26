@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.78 - versão de teste";
+const VERSAO_ATUAL = "v0.0.77 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1982,19 +1982,3 @@ async function excluirItemAdmin() {
     } catch (e) { alert("Erro ao excluir."); }
 }
 
-async function abrirChecklistEspecialidade(docId, nome) {
-    const username = localStorage.getItem("usernameLogado");
-    if (!username) return;
-
-    try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(docId).get();
-        if (!snap.exists) return alert("Erro ao carregar progresso.");
-        
-        const dadosProgresso = snap.data();
-        // O itemId original está salvo no documento de progresso
-        solicitarInicioEspecialidade(dadosProgresso.itemId, nome);
-    } catch(e) {
-        console.error(e);
-        alert("Erro ao abrir checklist.");
-    }
-}
