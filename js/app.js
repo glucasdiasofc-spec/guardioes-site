@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.76 - versão de teste";
+const VERSAO_ATUAL = "v0.0.77 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1236,58 +1236,85 @@ async function solicitarInicioEspecialidade(id, nome) {
     const username = localStorage.getItem("usernameLogado");
     if (!username) return alert("Por favor, faça login para iniciar.");
 
-    // Busca a especialidade no cache para pegar os requisitos
-    const especialidade = window.cacheEspecialidades.find(e => String(e.id) === String(id));
-    const requisitos = especialidade?.requisitos || ["Requisito 1 (Padrão)", "Requisito 2 (Padrão)"];
-
-    // Cria o modal de checklist dinamicamente
-    const modalChecklist = document.createElement("div");
-    modalChecklist.id = "modal-checklist";
-    modalChecklist.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; padding:20px; box-sizing:border-box; overflow-y:auto; color:#fff;";
+    const item = window.cacheEspecialidades.find(e => String(e.id) === String(id));
+    const requisitos = item?.requisitos || [];
     
-    modalChecklist.innerHTML = `
-        <h3>Checklist: ${nome}</h3>
-        <div id="lista-requisitos" style="margin: 20px 0;">
-            ${requisitos.map((req, i) => `
-                <label style="display:flex; align-items:center; gap:10px; margin-bottom:10px; cursor:pointer;">
-                    <input type="checkbox" class="req-check" style="width:20px; height:20px;"> ${req}
-                </label>
-            `).join("")}
+    // Tenta carregar progresso existente se houver
+    let progressoSalvo = [];
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).get();
+        if (snap.exists) progressoSalvo = snap.data().requisitosConcluidos || [];
+    } catch(e) {}
+
+    const modal = document.createElement("div");
+    modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
+    
+    modal.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #262626;">
+            <h3 style="margin:0; font-size:16px;">${nome}</h3>
+            <button onclick="this.closest('div').parentElement.remove(); carregarEspecialidades();" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
         </div>
-        <button id="btn-finalizar-checklist" disabled style="width:100%; padding:12px; background:#444; color:#fff; border:none; border-radius:8px; font-weight:bold;">Enviar para Avaliação</button>
-        <button onclick="this.parentElement.remove()" style="width:100%; padding:10px; background:none; border:1px solid #444; color:#8e8e8e; margin-top:10px;">Cancelar</button>
+        <div style="flex:1; overflow-y:auto; padding:20px;">
+            <p style="color:#8e8e8e; font-size:13px; margin-bottom:20px;">Marque os requisitos concluídos. Seu progresso é salvo automaticamente.</p>
+            <div id="lista-checks">
+                ${requisitos.map((req, i) => `
+                    <label style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:pointer; background:#121212; padding:12px; border-radius:8px; border:1px solid #262626;">
+                        <input type="checkbox" class="req-check" data-idx="${i}" ${progressoSalvo.includes(i) ? 'checked' : ''} style="width:20px; height:20px; margin-top:2px; accent-color:#0095f6;">
+                        <span style="font-size:14px; line-height:1.4;">${req}</span>
+                    </label>
+                `).join("")}
+            </div>
+        </div>
+        <div style="padding:15px; border-top:1px solid #262626;">
+            <button id="btn-enviar-aval" disabled style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">Enviar para Avaliação</button>
+        </div>
     `;
 
-    document.body.appendChild(modalChecklist);
+    document.body.appendChild(modal);
 
-    // Lógica do botão ativado
-    const checks = modalChecklist.querySelectorAll(".req-check");
-    const btnFinal = modalChecklist.querySelector("#btn-finalizar-checklist");
-    
-    checks.forEach(c => c.onchange = () => {
-        const todosMarcados = Array.from(checks).every(i => i.checked);
-        btnFinal.disabled = !todosMarcados;
-        btnFinal.style.background = todosMarcados ? "#28a745" : "#444";
+    const checks = modal.querySelectorAll(".req-check");
+    const btnEnv = modal.querySelector("#btn-enviar-aval");
+
+    const atualizarEstadoBotao = () => {
+        const todos = Array.from(checks).every(c => c.checked);
+        btnEnv.disabled = !todos;
+        btnEnv.style.background = todos ? "#28a745" : "#333";
+    };
+    atualizarEstadoBotao();
+
+    checks.forEach(c => c.onchange = async () => {
+        atualizarEstadoBotao();
+        const concluidos = Array.from(checks).filter(i => i.checked).map(i => parseInt(i.dataset.idx));
+        await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).set({
+            usuario: username,
+            itemId: id,
+            nomeItem: nome,
+            requisitosConcluidos: concluidos,
+            status: "em_andamento",
+            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
     });
 
-    btnFinal.onclick = async () => {
+    btnEnv.onclick = async () => {
+        if (!confirm("Deseja enviar para avaliação?")) return;
+        btnEnv.disabled = true;
+        btnEnv.textContent = "Enviando...";
         try {
-            await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).set({
+            await window.ClubeDB.textoDB.collection("pendencias_aprovacao").add({
                 usuario: username,
                 itemId: id,
-                nome: nome,
-                status: "em_andamento",
-                requisitosConcluidos: true
+                nomeItem: nome,
+                colecaoOrigem: "progresso_especialidades",
+                status: "pendente",
+                enviadoEm: firebase.firestore.FieldValue.serverTimestamp()
             });
-            alert(`Checklist de "${nome}" concluída! Enviando para avaliação...`);
-            solicitarAprovacao('progresso_especialidades', id, nome, carregarEspecialidadesEmAndamento);
-            modalChecklist.remove();
-            fecharCatalogoEspecialidades();
-        } catch (e) {
-            alert("Erro ao salvar progresso.");
-        }
+            alert("Enviado com sucesso!");
+            modal.remove();
+            carregarEspecialidades();
+        } catch(e) { alert("Erro ao enviar."); btnEnv.disabled = false; }
     };
 }
+
 
 async function solicitarInicioMestrado(id, nome) {
     const username = localStorage.getItem("usernameLogado");
@@ -1334,9 +1361,9 @@ async function solicitarInicioClasse(id, nome) {
 // LEITURA DO FIRESTORE (CARREGAR "EM ANDAMENTO")
 // ==========================================
 async function carregarEspecialidadesEmAndamento() {
-    const container = document.getElementById("lista-especialidades-progresso-container");
-    if (!container) return;
     const username = localStorage.getItem("usernameLogado");
+    const container = document.getElementById("lista-especialidades-andamento-render");
+    if (!container) return;
 
     try {
         const snap = await window.ClubeDB.textoDB.collection("progresso_especialidades")
@@ -1344,57 +1371,63 @@ async function carregarEspecialidadesEmAndamento() {
             .where("status", "==", "em_andamento").get();
 
         if (snap.empty) {
-            container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px;">Você não tem especialidades ativas.</p>`;
+            container.innerHTML = "<p style='color:#8e8e8e; font-size:12px; text-align:center; padding:10px;'>Nenhuma especialidade em andamento.</p>";
             return;
         }
 
-        const itens = snap.docs.map(doc => doc.data());
-        container.innerHTML = itens.map(item => {
-            const original = window.cacheEspecialidades.find(x => x.id === item.itemId) || {};
+        container.innerHTML = snap.docs.map(doc => {
+            const dados = doc.data();
             return `
-                <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                        <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+                        <div style="width:40px; height:40px; background:#000; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🎯</div>
                         <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nome}</div>
-                            <div style="font-size:11px; color:#007bff; font-weight:bold;">Em Andamento</div>
+                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dados.nomeItem}</div>
+                            <div style="color:#0095f6; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarAprovacao('progresso_especialidades', '${item.itemId}', '${item.nome}', carregarEspecialidadesEmAndamento )" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
+                    <button onclick="abrirChecklistEspecialidade('${doc.id}', '${dados.nomeItem}')" style="flex-shrink:0; padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">Enviar</button>
                 </div>
             `;
         }).join("");
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro de carregamento.</p>`;
-    }
+    } catch (e) { console.error(e); }
 }
 
-async function carregarMestradosEmAndamento() {
-    const container = document.getElementById("lista-mestrados-progresso-container");
-    if (!container) return;
+
+async function carregarClassesEmAndamento() {
     const username = localStorage.getItem("usernameLogado");
+    const container = document.getElementById("lista-classes-andamento-render");
+    if (!container) return;
+
     try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_mestrados").where("usuario", "==", username).where("status", "==", "em_andamento").get();
-        if (snap.empty) { container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px;">Nenhum mestrado ativo.</p>`; return; }
-        const itens = snap.docs.map(doc => doc.data());
-        container.innerHTML = itens.map(item => {
-            const original = window.cacheMestrados.find(x => x.id === item.itemId) || {};
+        const snap = await window.ClubeDB.textoDB.collection("progresso_classes")
+            .where("usuario", "==", username)
+            .where("status", "==", "em_andamento").get();
+
+        if (snap.empty) {
+            container.innerHTML = "<p style='color:#8e8e8e; font-size:12px; text-align:center; padding:10px;'>Nenhuma classe em andamento.</p>";
+            return;
+        }
+
+        container.innerHTML = snap.docs.map(doc => {
+            const dados = doc.data();
             return `
-                <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                        <img src="${original.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+                        <div style="width:40px; height:40px; background:#000; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🎒</div>
                         <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:13px;">${item.nome}</div>
-                            <div style="font-size:11px; color:#28a745; font-weight:bold;">Em Andamento</div>
+                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dados.nomeItem}</div>
+                            <div style="color:#ffc107; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarAprovacao('progresso_mestrados', '${item.itemId}', '${item.nome}', carregarMestradosEmAndamento )" style="padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Avaliar</button>
+                    <button onclick="abrirChecklistClasse('${doc.id}', '${dados.nomeItem}')" style="flex-shrink:0; padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">Enviar</button>
                 </div>
             `;
         }).join("");
-    } catch (e) { container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro.</p>`; }
+    } catch (e) { console.error(e); }
 }
+
+
 
 async function carregarClassesEmAndamento() {
     const container = document.getElementById("lista-classes-progresso-container");
