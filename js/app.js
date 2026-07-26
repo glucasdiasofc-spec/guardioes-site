@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.81 - versão de teste";
+const VERSAO_ATUAL = "v0.0.82 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1349,40 +1349,215 @@ async function solicitarInicioMestrado(id, nome) {
     const username = localStorage.getItem("usernameLogado");
     if (!username) return alert("Por favor, faça login para iniciar.");
 
+    const item = window.cacheMestrados.find(m => String(m.id) === String(id));
+    const requisitos = item?.requisitos || [];
+    
+    let progressoSalvo = [];
     try {
+        const snap = await window.ClubeDB.textoDB.collection("progresso_mestrados").doc(`${username}_${id}`).get();
+        if (snap.exists) progressoSalvo = snap.data().requisitosConcluidos || [];
+    } catch(e) {}
+
+    if (progressoSalvo.length === 0 && requisitos.length === 0) {
+        try {
+            await window.ClubeDB.textoDB.collection("progresso_mestrados").doc(`${username}_${id}`).set({
+                usuario: username,
+                itemId: id,
+                nomeItem: nome,
+                requisitosConcluidos: [],
+                status: "em_andamento",
+                atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch(e) {
+            alert("Erro ao iniciar mestrado.");
+            return;
+        }
+    }
+
+    const modal = document.createElement("div");
+    modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
+    
+    modal.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #262626;">
+            <h3 style="margin:0; font-size:16px;">${nome}</h3>
+            <button id="btn-fechar-checklist-mest" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
+        </div>
+        <div style="flex:1; overflow-y:auto; padding:20px;">
+            <p style="color:#8e8e8e; font-size:13px; margin-bottom:20px;">Marque os requisitos concluídos. Seu progresso é salvo automaticamente.</p>
+            <div id="lista-checks">
+                ${requisitos.map((req, i) => `
+                    <label style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:pointer; background:#121212; padding:12px; border-radius:8px; border:1px solid #262626;">
+                        <input type="checkbox" class="req-check" data-idx="${i}" ${progressoSalvo.includes(i) ? 'checked' : ''} style="width:20px; height:20px; margin-top:2px; accent-color:#28a745;">
+                        <span style="font-size:14px; line-height:1.4;">${req}</span>
+                    </label>
+                `).join("")}
+            </div>
+        </div>
+        <div style="padding:15px; border-top:1px solid #262626;">
+            <button id="btn-enviar-aval-mest" disabled style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">Enviar para Avaliação</button>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const checks = modal.querySelectorAll(".req-check");
+    const btnEnv = modal.querySelector("#btn-enviar-aval-mest");
+    const btnFechar = modal.querySelector("#btn-fechar-checklist-mest");
+
+    btnFechar.onclick = () => {
+        modal.remove();
+        carregarEspecialidades(); 
+    };
+
+    const atualizarEstadoBotao = () => {
+        if (!btnEnv) return;
+        const todos = Array.from(checks).every(c => c.checked);
+        btnEnv.disabled = !todos;
+        btnEnv.style.background = todos ? "#28a745" : "#333";
+    };
+
+    atualizarEstadoBotao();
+
+    checks.forEach(c => c.onchange = async () => {
+        atualizarEstadoBotao();
+        const concluidos = Array.from(checks).filter(i => i.checked).map(i => parseInt(i.dataset.idx));
         await window.ClubeDB.textoDB.collection("progresso_mestrados").doc(`${username}_${id}`).set({
             usuario: username,
             itemId: id,
-            nome: nome,
-            status: "em_andamento"
-        });
-        alert(`Mestrado "${nome}" iniciado com sucesso!`);
-        fecharCatalogoMestrados();
-        carregarMestradosEmAndamento();
-    } catch (e) {
-        console.error("Erro ao iniciar mestrado:", e);
-        alert("Ocorreu um erro ao salvar o progresso.");
-    }
+            nomeItem: nome,
+            requisitosConcluidos: concluidos,
+            status: "em_andamento",
+            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    });
+
+    btnEnv.onclick = async () => {
+        if (!confirm("Deseja enviar para avaliação?")) return;
+        btnEnv.disabled = true;
+        btnEnv.textContent = "Enviando...";
+        try {
+            await window.ClubeDB.textoDB.collection("pendencias_aprovacao").add({
+                usuario: username,
+                itemId: id,
+                nomeItem: nome,
+                colecaoOrigem: "progresso_mestrados",
+                status: "pendente",
+                enviadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            await window.ClubeDB.textoDB.collection("progresso_mestrados").doc(`${username}_${id}`).delete();
+            alert("Enviado com sucesso!");
+            modal.remove();
+            carregarEspecialidades();
+        } catch(e) { alert("Erro ao enviar."); btnEnv.disabled = false; }
+    };
 }
 
 async function solicitarInicioClasse(id, nome) {
     const username = localStorage.getItem("usernameLogado");
     if (!username) return alert("Por favor, faça login para iniciar.");
 
+    const item = window.cacheClasses.find(c => String(c.id) === String(id));
+    const requisitos = item?.requisitos || [];
+    
+    let progressoSalvo = [];
     try {
+        const snap = await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).get();
+        if (snap.exists) progressoSalvo = snap.data().requisitosConcluidos || [];
+    } catch(e) {}
+
+    if (progressoSalvo.length === 0 && requisitos.length === 0) {
+        try {
+            await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).set({
+                usuario: username,
+                itemId: id,
+                nomeItem: nome,
+                requisitosConcluidos: [],
+                status: "em_andamento",
+                atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch(e) {
+            alert("Erro ao iniciar classe.");
+            return;
+        }
+    }
+
+    const modal = document.createElement("div");
+    modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
+    
+    modal.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #262626;">
+            <h3 style="margin:0; font-size:16px;">${nome}</h3>
+            <button id="btn-fechar-checklist-class" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
+        </div>
+        <div style="flex:1; overflow-y:auto; padding:20px;">
+            <p style="color:#8e8e8e; font-size:13px; margin-bottom:20px;">Marque os requisitos concluídos. Seu progresso é salvo automaticamente.</p>
+            <div id="lista-checks">
+                ${requisitos.map((req, i) => `
+                    <label style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:pointer; background:#121212; padding:12px; border-radius:8px; border:1px solid #262626;">
+                        <input type="checkbox" class="req-check" data-idx="${i}" ${progressoSalvo.includes(i) ? 'checked' : ''} style="width:20px; height:20px; margin-top:2px; accent-color:#ffc107;">
+                        <span style="font-size:14px; line-height:1.4;">${req}</span>
+                    </label>
+                `).join("")}
+            </div>
+        </div>
+        <div style="padding:15px; border-top:1px solid #262626;">
+            <button id="btn-enviar-aval-class" disabled style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">Enviar para Avaliação</button>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const checks = modal.querySelectorAll(".req-check");
+    const btnEnv = modal.querySelector("#btn-enviar-aval-class");
+    const btnFechar = modal.querySelector("#btn-fechar-checklist-class");
+
+    btnFechar.onclick = () => {
+        modal.remove();
+        carregarEspecialidades(); 
+    };
+
+    const atualizarEstadoBotao = () => {
+        if (!btnEnv) return;
+        const todos = Array.from(checks).every(c => c.checked);
+        btnEnv.disabled = !todos;
+        btnEnv.style.background = todos ? "#ffc107" : "#333";
+        btnEnv.style.color = todos ? "#121212" : "#fff";
+    };
+
+    atualizarEstadoBotao();
+
+    checks.forEach(c => c.onchange = async () => {
+        atualizarEstadoBotao();
+        const concluidos = Array.from(checks).filter(i => i.checked).map(i => parseInt(i.dataset.idx));
         await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).set({
             usuario: username,
             itemId: id,
-            nome: nome,
-            status: "em_andamento"
-        });
-        alert(`Classe "${nome}" iniciada com sucesso!`);
-        fecharCatalogoClasses();
-        carregarClassesEmAndamento();
-    } catch (e) {
-        console.error("Erro ao iniciar classe:", e);
-        alert("Ocorreu um erro ao salvar o progresso.");
-    }
+            nomeItem: nome,
+            requisitosConcluidos: concluidos,
+            status: "em_andamento",
+            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    });
+
+    btnEnv.onclick = async () => {
+        if (!confirm("Deseja enviar para avaliação?")) return;
+        btnEnv.disabled = true;
+        btnEnv.textContent = "Enviando...";
+        try {
+            await window.ClubeDB.textoDB.collection("pendencias_aprovacao").add({
+                usuario: username,
+                itemId: id,
+                nomeItem: nome,
+                colecaoOrigem: "progresso_classes",
+                status: "pendente",
+                enviadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).delete();
+            alert("Enviado com sucesso!");
+            modal.remove();
+            carregarEspecialidades();
+        } catch(e) { alert("Erro ao enviar."); btnEnv.disabled = false; }
+    };
 }
 
 
@@ -1437,7 +1612,7 @@ async function carregarMestradosEmAndamento() {
             .where("usuario", "==", username)
             .where("status", "==", "em_andamento").get();
 
-        container.innerHTML = ""; // Limpa o "Carregando..."
+        container.innerHTML = ""; 
 
         if (snap.empty) {
             container.innerHTML = "<p style='color:#8e8e8e; font-size:12px; text-align:center; padding:10px;'>Nenhum mestrado em andamento.</p>";
@@ -1451,11 +1626,11 @@ async function carregarMestradosEmAndamento() {
                     <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                         <div style="width:40px; height:40px; background:#000; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🏆</div>
                         <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dados.nome}</div>
+                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dados.nomeItem || dados.nome}</div>
                             <div style="color:#28a745; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarAprovacao('progresso_mestrados', '${dados.itemId}', '${dados.nome}', carregarMestradosEmAndamento)" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Enviar</button>
+                    <button onclick="solicitarInicioMestrado('${dados.itemId}', '${dados.nomeItem || dados.nome}')" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Continuar</button>
                 </div>
             `;
         }).join("");
@@ -1471,21 +1646,20 @@ async function carregarClassesEmAndamento() {
     const username = localStorage.getItem("usernameLogado");
     try {
         const snap = await window.ClubeDB.textoDB.collection("progresso_classes").where("usuario", "==", username).where("status", "==", "em_andamento").get();
-        container.innerHTML = ""; // Limpa o "Carregando..."
+        container.innerHTML = ""; 
         if (snap.empty) { container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px; padding:10px;">Nenhuma classe em andamento.</p>`; return; }
         const itens = snap.docs.map(doc => doc.data());
         container.innerHTML = itens.map(item => {
-            const original = window.cacheClasses.find(x => String(x.id) === String(item.itemId)) || {};
             return `
                 <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
                     <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                         <div style="width:40px; height:40px; background:#000; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🎒</div>
                         <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nome}</div>
+                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nomeItem || item.nome}</div>
                             <div style="color:#ffc107; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarInicioClasse('${item.itemId}', '${item.nome}')" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Continuar</button>
+                    <button onclick="solicitarInicioClasse('${item.itemId}', '${item.nomeItem || item.nome}')" style="flex-shrink:0; padding: 8px 14px; background: #ffc107; color: #121212; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Continuar</button>
                 </div>
             `;
         }).join("");
