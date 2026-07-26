@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.79 - versão de teste";
+const VERSAO_ATUAL = "v0.0.80 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1246,13 +1246,30 @@ async function solicitarInicioEspecialidade(id, nome) {
         if (snap.exists) progressoSalvo = snap.data().requisitosConcluidos || [];
     } catch(e) {}
 
+    // Se não houver progresso salvo ainda, inicia automaticamente com status em_andamento
+    if (progressoSalvo.length === 0 && requisitos.length === 0) {
+        try {
+            await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).set({
+                usuario: username,
+                itemId: id,
+                nomeItem: nome,
+                requisitosConcluidos: [],
+                status: "em_andamento",
+                atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch(e) {
+            alert("Erro ao iniciar especialidade.");
+            return;
+        }
+    }
+
     const modal = document.createElement("div");
     modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
     
     modal.innerHTML = `
         <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #262626;">
             <h3 style="margin:0; font-size:16px;">${nome}</h3>
-            <button onclick="this.closest('div').parentElement.remove(); carregarEspecialidades();" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
+            <button id="btn-fechar-checklist-esp" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
         </div>
         <div style="flex:1; overflow-y:auto; padding:20px;">
             <p style="color:#8e8e8e; font-size:13px; margin-bottom:20px;">Marque os requisitos concluídos. Seu progresso é salvo automaticamente.</p>
@@ -1273,7 +1290,14 @@ async function solicitarInicioEspecialidade(id, nome) {
     document.body.appendChild(modal);
 
     const checks = modal.querySelectorAll(".req-check");
-    const btnEnv = modal.querySelector("#btn-enviar-aval"); // CORRIGIDO
+    const btnEnv = modal.querySelector("#btn-enviar-aval");
+    const btnFechar = modal.querySelector("#btn-fechar-checklist-esp");
+
+    // Botão X agora fecha o modal e recarrega a tela de andamento
+    btnFechar.onclick = () => {
+        modal.remove();
+        carregarEspecialidades();
+    };
 
     const atualizarEstadoBotao = () => {
         if (!btnEnv) return;
@@ -1310,12 +1334,15 @@ async function solicitarInicioEspecialidade(id, nome) {
                 status: "pendente",
                 enviadoEm: firebase.firestore.FieldValue.serverTimestamp()
             });
+            // Remove o progresso em andamento (foi enviado para aprovação)
+            await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).delete();
             alert("Enviado com sucesso!");
             modal.remove();
             carregarEspecialidades();
         } catch(e) { alert("Erro ao enviar."); btnEnv.disabled = false; }
     };
 }
+
 
 
 async function solicitarInicioMestrado(id, nome) {
