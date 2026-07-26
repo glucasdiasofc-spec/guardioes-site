@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.75 - versão de teste";
+const VERSAO_ATUAL = "v0.0.76 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1726,28 +1726,48 @@ function verificarNovaCategoria(valor) {
 
 function popularCategoriasNoModal(tipo, selecionada = "") {
     const select = document.getElementById("edit-item-categoria-select");
+    if (!select) return;
+
     let cache = [];
     if (tipo === 'especialidades') cache = window.cacheEspecialidades;
-    if (tipo === 'mestrados') cache = window.cacheMestrados;
-    if (tipo === 'classes') cache = window.cacheClasses;
+    else if (tipo === 'mestrados') cache = window.cacheMestrados;
+    else if (tipo === 'classes') cache = window.cacheClasses;
 
-    // Se o cache estiver vazio, tenta popular com fallbacks para o seletor não vir em branco
-    if (cache.length === 0) {
-        if (tipo === 'mestrados') cache = fallbackMestrados;
-        if (tipo === 'classes') cache = fallbackClasses;
+    // Obtém categorias únicas do cache atual
+    let categoriasUnicas = [...new Set(cache.map(i => i.categoria || i.area || "Geral"))].filter(c => c !== "").sort();
+    
+    // Se o cache estiver vazio, usa fallbacks apenas para popular o seletor inicial
+    if (categoriasUnicas.length === 0) {
+        if (tipo === 'mestrados') categoriasUnicas = [...new Set(fallbackMestrados.map(i => i.categoria))];
+        if (tipo === 'classes') categoriasUnicas = [...new Set(fallbackClasses.map(i => i.categoria))];
     }
 
-    const categoriasUnicas = [...new Set(cache.map(i => i.categoria || i.area || "Geral"))].sort();
+    select.innerHTML = ""; // Limpa o select
     
-    let html = `<option value="">Selecionar Categoria...</option>`;
+    const optDefault = document.createElement("option");
+    optDefault.value = "";
+    optDefault.textContent = "Selecionar Categoria...";
+    select.appendChild(optDefault);
+
     categoriasUnicas.forEach(cat => {
-        html += `<option value="${cat}" ${cat === selecionada ? 'selected' : ''}>${cat}</option>`;
+        const opt = document.createElement("option");
+        opt.value = cat;
+        opt.textContent = cat;
+        if (cat === selecionada) opt.selected = true;
+        select.appendChild(opt);
     });
-    html += `<option value="NOVA" style="color: #0095f6; font-weight: bold;">+ Criar Nova Categoria</option>`;
+
+    const optNova = document.createElement("option");
+    optNova.value = "NOVA";
+    optNova.textContent = "+ Criar Nova Categoria";
+    optNova.style.color = "#0095f6";
+    optNova.style.fontWeight = "bold";
+    if (selecionada === "NOVA") optNova.selected = true;
+    select.appendChild(optNova);
     
-    select.innerHTML = html;
-    verificarNovaCategoria(selecionada === "NOVA" ? "NOVA" : "");
+    verificarNovaCategoria(select.value);
 }
+
 
 async function gerenciarCategoriasAdmin() {
     const tipo = document.getElementById("edit-item-tipo").value;
