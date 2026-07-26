@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.78 - versão de teste";
+const VERSAO_ATUAL = "v0.0.79 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1390,7 +1390,7 @@ async function carregarEspecialidadesEmAndamento() {
                             <div style="color:#0095f6; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="abrirChecklistEspecialidade('${doc.id}', '${dados.nomeItem}')" style="flex-shrink:0; padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">Enviar</button>
+                    <button onclick="abrirChecklistEspecialidade('${doc.id}', '${dados.nomeItem}')" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Enviar</button>
                 </div>
             `;
         }).join("");
@@ -1431,7 +1431,7 @@ async function carregarMestradosEmAndamento() {
                             <div style="color:#28a745; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarAprovacao('progresso_mestrados', '${dados.itemId}', '${dados.nome}', carregarMestradosEmAndamento)" style="flex-shrink:0; padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">Enviar</button>
+                    <button onclick="solicitarAprovacao('progresso_mestrados', '${dados.itemId}', '${dados.nome}', carregarMestradosEmAndamento)" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Enviar</button>
                 </div>
             `;
         }).join("");
@@ -1469,7 +1469,7 @@ async function carregarClassesEmAndamento() {
                             <div style="color:#ffc107; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarAprovacao('progresso_classes', '${dados.itemId}', '${dados.nome}', carregarClassesEmAndamento)" style="flex-shrink:0; padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">Enviar</button>
+                    <button onclick="solicitarAprovacao('progresso_classes', '${dados.itemId}', '${dados.nome}', carregarClassesEmAndamento)" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Enviar</button>
                 </div>
             `;
         }).join("");
