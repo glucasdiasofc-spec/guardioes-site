@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.77 - versão de teste";
+const VERSAO_ATUAL = "v0.0.78 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1273,13 +1273,15 @@ async function solicitarInicioEspecialidade(id, nome) {
     document.body.appendChild(modal);
 
     const checks = modal.querySelectorAll(".req-check");
-    const btnEnv = modal.querySelector("#btn-enviar-aval");
+    const btnEnv = modal.querySelector("#btn-enviar-aval"); // CORRIGIDO
 
     const atualizarEstadoBotao = () => {
+        if (!btnEnv) return;
         const todos = Array.from(checks).every(c => c.checked);
         btnEnv.disabled = !todos;
         btnEnv.style.background = todos ? "#28a745" : "#333";
     };
+
     atualizarEstadoBotao();
 
     checks.forEach(c => c.onchange = async () => {
@@ -1370,6 +1372,8 @@ async function carregarEspecialidadesEmAndamento() {
             .where("usuario", "==", username)
             .where("status", "==", "em_andamento").get();
 
+        container.innerHTML = ""; // Limpa o "Carregando..."
+
         if (snap.empty) {
             container.innerHTML = "<p style='color:#8e8e8e; font-size:12px; text-align:center; padding:10px;'>Nenhuma especialidade em andamento.</p>";
             return;
@@ -1377,6 +1381,7 @@ async function carregarEspecialidadesEmAndamento() {
 
         container.innerHTML = snap.docs.map(doc => {
             const dados = doc.data();
+            // Garante que o ID usado para abrir o checklist seja o ID do documento no progresso
             return `
                 <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
                     <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
@@ -1390,8 +1395,12 @@ async function carregarEspecialidadesEmAndamento() {
                 </div>
             `;
         }).join("");
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error(e);
+        container.innerHTML = "<p style='color:#ff4d4d; font-size:11px;'>Erro ao carregar.</p>";
+    }
 }
+
 
 
 async function carregarClassesEmAndamento() {
@@ -1971,4 +1980,21 @@ async function excluirItemAdmin() {
         window.cacheEspecialidades = []; 
         carregarEspecialidades();
     } catch (e) { alert("Erro ao excluir."); }
+}
+
+async function abrirChecklistEspecialidade(docId, nome) {
+    const username = localStorage.getItem("usernameLogado");
+    if (!username) return;
+
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(docId).get();
+        if (!snap.exists) return alert("Erro ao carregar progresso.");
+        
+        const dadosProgresso = snap.data();
+        // O itemId original está salvo no documento de progresso
+        solicitarInicioEspecialidade(dadosProgresso.itemId, nome);
+    } catch(e) {
+        console.error(e);
+        alert("Erro ao abrir checklist.");
+    }
 }
