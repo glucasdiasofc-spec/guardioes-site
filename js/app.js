@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.95 - versão de teste";
+const VERSAO_ATUAL = "v0.0.96 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -114,25 +114,247 @@ function irParaPainel() {
 function mudarSubAbaSite(abaAlvo) {
     const feedAba = document.getElementById("sub-aba-feed");
     const perfilAba = document.getElementById("sub-aba-perfil");
-    const espAba = document.getElementById("sub-aba-especialidades"); // Nova aba
+    const espAba = document.getElementById("sub-aba-especialidades");
+    const msgAba = document.getElementById("sub-aba-mensagens"); // Aba de Chat
 
-    // Reseta todos
+    // Elementos dos botões da Navbar
+    const btnFeed = document.getElementById("btn-sub-feed");
+    const btnEsp = document.getElementById("btn-sub-especialidades");
+    const btnMsg = document.getElementById("btn-sub-mensagens");
+    const btnPerfil = document.getElementById("btn-sub-perfil");
+
+    // Reseta visibilidade de todas as abas
     if (feedAba) feedAba.style.display = "none";
     if (perfilAba) perfilAba.style.display = "none";
     if (espAba) espAba.style.display = "none";
+    if (msgAba) msgAba.style.display = "none";
 
-    // Mostra o selecionado
+    // Reseta opacidade dos ícones (inativos)
+    if (btnFeed) btnFeed.style.opacity = "0.5";
+    if (btnEsp) btnEsp.style.opacity = "0.5";
+    if (btnMsg) btnMsg.style.opacity = "0.5";
+    if (btnPerfil) btnPerfil.style.opacity = "0.5";
+
+    // Mostra a aba selecionada e destaca o respectivo ícone
     if (abaAlvo === "feed") {
-        feedAba.style.display = "block";
-        // ... (resto da lógica de opacidade dos botões)
+        if (feedAba) feedAba.style.display = "block";
+        if (btnFeed) btnFeed.style.opacity = "1";
     } else if (abaAlvo === "especialidades") {
-        espAba.style.display = "block";
+        if (espAba) espAba.style.display = "block";
+        if (btnEsp) btnEsp.style.opacity = "1";
         carregarEspecialidades(); 
-        carregarAprovacoesSite(); // Carrega as aprovações na aba de especialidades
+        if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite(); 
+    } else if (abaAlvo === "mensagens") {
+        if (msgAba) msgAba.style.display = "flex";
+        if (btnMsg) btnMsg.style.opacity = "1";
+        carregarListaDeContatosChat(); // Inicializa o chat
     } else if (abaAlvo === "perfil") {
-
-        perfilAba.style.display = "block";
+        if (perfilAba) perfilAba.style.display = "block";
+        if (btnPerfil) btnPerfil.style.opacity = "1";
         carregarPerfilDoUsuario();
+    }
+}
+
+// ==========================================
+// LÓGICA DE MENSAGENS / CHAT DIRECT
+// ==========================================
+let unsubscribeChatAtivo = null;
+let usuarioChatDestino = null;
+
+async function carregarListaDeContatosChat() {
+    const usernameLogado = localStorage.getItem("usernameLogado");
+    const tipoUsuarioLogado = localStorage.getItem("usuarioLogado");
+    
+    if (!usernameLogado) return;
+
+    let minhaUnidade = "";
+    
+    // Descobre a unidade do usuario logado (se não for admin)
+    if (tipoUsuarioLogado !== "admin") {
+        try {
+            const snapUser = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", usernameLogado).get();
+            if (!snapUser.empty) {
+                minhaUnidade = snapUser.docs[0].data().unidade || "";
+            }
+        } catch(e) { console.error("Erro ao buscar unidade", e); }
+    }
+
+    const divSuporte = document.getElementById("lista-msg-suporte");
+    const divLideranca = document.getElementById("lista-msg-lideranca");
+    const divMinhaUnidade = document.getElementById("lista-msg-unidade");
+    const divOutras = document.getElementById("lista-msg-outras");
+
+    // Limpa a tela
+    if(divSuporte) divSuporte.innerHTML = "";
+    if(divLideranca) divLideranca.innerHTML = "";
+    if(divMinhaUnidade) divMinhaUnidade.innerHTML = "";
+    if(divOutras) divOutras.innerHTML = "";
+
+    // Fixa o Admin (Suporte) no topo para todos os membros comuns
+    if (usernameLogado !== "admin" && divSuporte) {
+        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png");
+    }
+
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("usuarios").get();
+        snap.forEach(doc => {
+            const user = doc.data();
+            if (user.username === usernameLogado) return; // Não renderiza o próprio perfil logado
+
+            const card = criarCardContatoChat(user.username, user.nomeReal || user.username, user.cargo || user.tipo, user.fotoUrl);
+
+            // Regras de Distribuição de Categoria
+            if (user.tipo === "Liderança") {
+                if (divLideranca) divLideranca.innerHTML += card;
+            } else if (user.unidade === minhaUnidade && minhaUnidade !== "") {
+                if (divMinhaUnidade) divMinhaUnidade.innerHTML += card;
+            } else {
+                if (divOutras) divOutras.innerHTML += card;
+            }
+        });
+
+        // Oculta títulos de categorias que não têm membros
+        const sessoes = [
+            { div: divSuporte, titulo: document.getElementById("titulo-msg-suporte") },
+            { div: divLideranca, titulo: document.getElementById("titulo-msg-lideranca") },
+            { div: divMinhaUnidade, titulo: document.getElementById("titulo-msg-unidade") },
+            { div: divOutras, titulo: document.getElementById("titulo-msg-outras") }
+        ];
+
+        sessoes.forEach(s => {
+            if (s.div && s.titulo) {
+                s.titulo.style.display = s.div.innerHTML.trim() !== "" ? "block" : "none";
+            }
+        });
+
+    } catch (erro) {
+        console.error("Erro ao carregar contatos do chat:", erro);
+    }
+}
+
+function criarCardContatoChat(username, nome, cargo, fotoUrl) {
+    const img = fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+    return `
+        <div onclick="abrirSalaChat('${username}', '${nome}', '${cargo}', '${img}')" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer;">
+            <img src="${img}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
+            <div style="flex: 1;">
+                <div style="color: #fff; font-size: 14px; font-weight: 500;">${nome}</div>
+                <div style="color: #8e8e8e; font-size: 13px;">${cargo}</div>
+            </div>
+            <div style="color: #262626; font-size: 18px; padding-right: 5px;">📷</div>
+        </div>
+    `;
+}
+
+// Cria um Hash único para as mensagens independentemente de quem enviou primeiro (Garante o P2P da mesma sala)
+function gerarIdChat(user1, user2) {
+    return [user1, user2].sort().join("_");
+}
+
+function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
+    usuarioChatDestino = usernameAlvo;
+    
+    // Altera interface
+    document.getElementById("tela-lista-mensagens").style.display = "none";
+    document.getElementById("tela-sala-chat").style.display = "flex";
+    document.getElementById("chat-nome-atual").textContent = nomeAlvo;
+    document.getElementById("chat-cargo-atual").textContent = cargoAlvo;
+    document.getElementById("chat-avatar-atual").src = fotoAlvo;
+
+    const meuUsername = localStorage.getItem("usernameLogado");
+    const chatId = gerarIdChat(meuUsername, usernameAlvo);
+    const container = document.getElementById("chat-mensagens-container");
+    
+    container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando ao chat protegido...</p>";
+
+    // Desativa o listener da sala antiga caso estivesse aberta
+    if (unsubscribeChatAtivo) {
+        unsubscribeChatAtivo();
+    }
+
+    // Listener Real-time
+    unsubscribeChatAtivo = window.ClubeDB.textoDB.collection("chats")
+        .doc(chatId).collection("mensagens")
+        .orderBy("timestamp", "asc")
+        .onSnapshot(snapshot => {
+            container.innerHTML = ""; 
+            if (snapshot.empty) {
+                container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>O histórico está vazio. Envie a primeira mensagem para " + nomeAlvo + ".</p>";
+                return;
+            }
+
+            snapshot.forEach(doc => {
+                const msg = doc.data();
+                const isMinha = msg.remetente === meuUsername;
+                
+                const div = document.createElement("div");
+                div.style.display = "flex";
+                div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
+                
+                const balao = document.createElement("div");
+                balao.textContent = msg.texto;
+                balao.style.maxWidth = "75%";
+                balao.style.padding = "10px 14px";
+                balao.style.borderRadius = "18px";
+                balao.style.fontSize = "14px";
+                balao.style.lineHeight = "1.4";
+                balao.style.wordBreak = "break-word";
+                
+                // Formatação dos balões baseado em Remetente (Estilo Insta Dark)
+                if (isMinha) {
+                    balao.style.background = "#0095f6";
+                    balao.style.color = "#fff";
+                    balao.style.borderBottomRightRadius = "4px";
+                } else {
+                    balao.style.background = "#262626";
+                    balao.style.color = "#fff";
+                    balao.style.borderBottomLeftRadius = "4px";
+                }
+                
+                div.appendChild(balao);
+                container.appendChild(div);
+            });
+            
+            // Auto scroll para o final das mensagens sempre que houver novidades
+            container.scrollTop = container.scrollHeight;
+        });
+}
+
+function fecharSalaChat() {
+    document.getElementById("tela-sala-chat").style.display = "none";
+    document.getElementById("tela-lista-mensagens").style.display = "flex";
+    usuarioChatDestino = null;
+    if (unsubscribeChatAtivo) {
+        unsubscribeChatAtivo();
+        unsubscribeChatAtivo = null;
+    }
+}
+
+async function enviarMensagemChat() {
+    const input = document.getElementById("input-nova-mensagem");
+    const texto = input.value.trim();
+    const meuUsername = localStorage.getItem("usernameLogado");
+    
+    if (!texto || !usuarioChatDestino || !meuUsername) return;
+
+    input.value = ""; // Limpa Input Rápido
+    const chatId = gerarIdChat(meuUsername, usuarioChatDestino);
+
+    try {
+        await window.ClubeDB.textoDB.collection("chats")
+            .doc(chatId).collection("mensagens").add({
+                remetente: meuUsername,
+                texto: texto,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        
+        // Mantém um documento base para poder listar "conversas recentes" no futuro
+        await window.ClubeDB.textoDB.collection("chats").doc(chatId).set({
+            ultimoEnvio: firebase.firestore.FieldValue.serverTimestamp(),
+            usuarios: [meuUsername, usuarioChatDestino]
+        }, { merge: true });
+    } catch(e) {
+        console.error("Erro ao enviar mensagem", e);
     }
 }
 
