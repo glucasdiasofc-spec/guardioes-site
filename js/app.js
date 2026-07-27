@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.16.0 - versão de teste";
+const VERSAO_ATUAL = "v0.17.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -713,7 +713,6 @@ async function carregarLogoClubeConfig() {
         const logoImg = document.getElementById("site-logo-img");
         const logoTexto = document.getElementById("site-logo-texto");
         const sliderTamanho = document.getElementById("logo-tamanho-slider");
-        const sliderFavicon = document.getElementById("favicon-tamanho-slider");
         
         // Elemento da logo do App
         const logoAppImg = document.getElementById("app-logo-img");
@@ -763,7 +762,7 @@ async function carregarLogoClubeConfig() {
                 if (previaAppAdmin) previaAppAdmin.src = "";
             }
 
-            // 1.2 Aplica o Favicon (Miniatura da Aba) e seu tamanho
+            // 1.2 Aplica o Favicon (Miniatura da Aba)
             let faviconEl = document.getElementById("favicon-site");
             if (dados.faviconUrl) {
                 if (faviconEl && faviconEl.tagName === 'LINK') faviconEl.remove();
@@ -776,30 +775,18 @@ async function carregarLogoClubeConfig() {
                 }
                 novoFavicon.href = dados.faviconUrl;
 
-                const tamanhoFavicon = dados.faviconTamanho || 80;
-
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
                 if (previaFaviconAdmin) {
                     previaFaviconAdmin.src = dados.faviconUrl;
-                    previaFaviconAdmin.style.setProperty('height', tamanhoFavicon + 'px', 'important');
-                    previaFaviconAdmin.style.setProperty('max-height', tamanhoFavicon + 'px', 'important');
-                    previaFaviconAdmin.style.setProperty('width', 'auto', 'important');
                 }
 
                 ['site-favicon', 'favicon-img', 'site-favicon-img', 'site-miniatura', 'miniatura-img'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) {
                         el.src = dados.faviconUrl;
-                        el.style.setProperty('height', tamanhoFavicon + 'px', 'important');
-                        el.style.setProperty('max-height', tamanhoFavicon + 'px', 'important');
-                        el.style.setProperty('width', 'auto', 'important');
                         el.style.display = "inline-block";
                     }
                 });
-
-                if (sliderFavicon && dados.faviconTamanho) {
-                    sliderFavicon.value = dados.faviconTamanho;
-                }
             } else {
                 if (faviconEl && faviconEl.tagName === 'LINK') faviconEl.href = "";
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
@@ -841,38 +828,6 @@ async function carregarLogoClubeConfig() {
     }
 }
 
-function alterarTamanhoFaviconEmTempoReal(tamanho) {
-    const previaFaviconAdmin = document.getElementById("previa-favicon");
-    if (previaFaviconAdmin) {
-        previaFaviconAdmin.style.setProperty('height', tamanho + 'px', 'important');
-        previaFaviconAdmin.style.setProperty('max-height', tamanho + 'px', 'important');
-        previaFaviconAdmin.style.setProperty('width', 'auto', 'important');
-    }
-    ['site-favicon', 'favicon-img', 'site-favicon-img', 'site-miniatura', 'miniatura-img'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.style.setProperty('height', tamanho + 'px', 'important');
-            el.style.setProperty('max-height', tamanho + 'px', 'important');
-            el.style.setProperty('width', 'auto', 'important');
-        }
-    });
-}
-
-async function salvarTamanhoFaviconBD() {
-    const slider = document.getElementById("favicon-tamanho-slider");
-    if (!slider) return;
-    const tamanho = slider.value;
-
-    try {
-        const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
-        await docRef.set({
-            faviconTamanho: Number(tamanho)
-        }, { merge: true });
-        alert("Tamanho da miniatura (favicon) salvo com sucesso! 💾");
-    } catch (e) {
-        alert("Erro ao salvar tamanho do favicon: " + e.message);
-    }
-}
 
 function usarTextoPadraoLogo(tipo = 'site') {
     if (tipo === 'site') {
