@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.7.0 - versão de teste";
+const VERSAO_ATUAL = "v0.8.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -2203,20 +2203,22 @@ async function processarAprovacaoAdmin(idPendencia, statusAprovado) {
             await window.ClubeDB.textoDB.collection(dadosPendencia.colecaoOrigem).doc(`${dadosPendencia.usuario}_${dadosPendencia.itemId}`).set({
                 usuario: dadosPendencia.usuario,
                 itemId: dadosPendencia.itemId,
-                nome: dadosPendencia.nomeItem,
-                status: "em_andamento"
+                nomeItem: dadosPendencia.nomeItem,
+                requisitosConcluidos: [],
+                status: "em_andamento",
+                atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
             });
-            alert("Solicitação recusada. O item retornou ao progresso do desbravador.");
         }
         
-        // Deleta o registro de pendência
         await docRef.delete();
-        carregarAprovacoesSite();
-    } catch (error) {
-        console.error("Erro ao processar aprovação:", error);
-        alert("Falha ao processar a solicitação.");
+        carregarPendenciasAprovacaoAdmin();
+        if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite();
+    } catch (e) {
+        console.error("Erro ao processar aprovação:", e);
+        alert("Erro ao processar aprovação: " + e.message);
     }
 }
+            
 
 // Nova função para enviar para outra liderança
 // Variável global temporária para o ID da pendência sendo encaminhada
