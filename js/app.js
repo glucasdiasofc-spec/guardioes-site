@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.21.0 - versão de teste";
+const VERSAO_ATUAL = "v0.22.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -290,9 +290,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     
     const telaChat = document.getElementById("tela-sala-chat");
     if (telaChat) {
-        telaChat.style.display = "flex";
-        telaChat.style.flexDirection = "column";
-        telaChat.style.height = "100%"; // Ocupa a tela inteira para empurrar a escrita para baixo
+    telaChat.style.display = "flex";
+    telaChat.style.flexDirection = "column";
+    telaChat.style.height = "calc(100% + 80px)"; // Compensa o padding de 80px do main para colar a escrita nas abas
     }
 
     document.getElementById("chat-nome-atual").textContent = nomeAlvo;
