@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.94 - versão de teste";
+const VERSAO_ATUAL = "v0.0.95 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -2206,16 +2206,17 @@ function abrirModalGerenciarItem(tipo, id) {
     // Garante que o campo hidden tenha a URL (mesmo que vazia, nunca undefined)
     document.getElementById("edit-item-foto-url").value = fotoUrl || "";
     
-    const previa = document.getElementById("previa-item-img");
+    const previa = document.getElementById("previa-item-img" );
+    // Sempre mostra a prévia: com a foto real se existir, ou com o avatar padrão como placeholder
     if (fotoUrl) {
         previa.src = fotoUrl;
         previa.style.display = "block";
-        // Força recarregamento da imagem caso já estivesse carregada
         previa.onerror = function() { this.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"; };
     } else {
-        previa.src = "";
-        previa.style.display = "none";
+        previa.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        previa.style.display = "block";
     }
+
 
 
     popularCategoriasNoModal(tipo, item.categoria || item.area || "");
