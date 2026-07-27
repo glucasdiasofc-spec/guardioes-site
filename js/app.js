@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.10.0 - versão de teste";
+const VERSAO_ATUAL = "v0.11.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -778,17 +778,26 @@ async function carregarLogoClubeConfig() {
 
             // 1.2 Aplica o Favicon (Miniatura da Aba)
             const faviconEl = document.getElementById("favicon-site");
+            const sliderFavicon = document.getElementById("favicon-tamanho-slider");
             if (dados.faviconUrl) {
                 if (faviconEl) faviconEl.href = dados.faviconUrl;
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
                 if (previaFaviconAdmin) {
                     previaFaviconAdmin.src = dados.faviconUrl;
-                    previaFaviconAdmin.style.maxHeight = "80px";
+                    const tamanhoFavicon = dados.faviconTamanho || 80;
+                    previaFaviconAdmin.style.maxHeight = tamanhoFavicon + "px";
+                    previaFaviconAdmin.style.height = tamanhoFavicon + "px";
+                    previaFaviconAdmin.style.width = "auto";
+                }
+                if (sliderFavicon && dados.faviconTamanho) {
+                    sliderFavicon.value = dados.faviconTamanho;
                 }
             } else {
                 if (faviconEl) faviconEl.href = "";
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
-                if (previaFaviconAdmin) previaFaviconAdmin.src = "";
+                if (previaFaviconAdmin) {
+                    previaFaviconAdmin.src = "";
+                }
             }
 
             // 2. Aplica o Tamanho Responsivo (Se o admin tiver salvo)
@@ -1348,7 +1357,7 @@ async function deletarMembro(id, idFoto) {
 }
 
 // ==========================================
-// CONTROLE DE TAMANHO DA LOGO
+// CONTROLE DE TAMANHO DA LOGO E DO FAVICON
 // ==========================================
 
 // 1. Faz a logo crescer ou diminuir em tempo real ao arrastar a barra
@@ -1373,6 +1382,31 @@ window.salvarTamanhoLogoBD = async function() {
         alert("Tamanho da logo salvo com sucesso! 📐");
     } catch (e) {
         alert("Erro ao salvar tamanho da logo: " + e.message);
+    }
+};
+
+// 3. Faz a prévia do favicon crescer ou diminuir em tempo real ao arrastar a barra
+window.alterarTamanhoFaviconEmTempoReal = function(valor) {
+    const previaFaviconAdmin = document.getElementById("previa-favicon");
+    if (previaFaviconAdmin) {
+        previaFaviconAdmin.style.maxHeight = valor + "px";
+        previaFaviconAdmin.style.height = valor + "px";
+        previaFaviconAdmin.style.width = "auto";
+    }
+};
+
+// 4. Salva o tamanho do favicon no Firestore
+window.salvarTamanhoFaviconBD = async function() {
+    const slider = document.getElementById("favicon-tamanho-slider");
+    if (!slider) return;
+    
+    const tamanho = slider.value;
+    try {
+        const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
+        await docRef.set({ faviconTamanho: Number(tamanho) }, { merge: true });
+        alert("Tamanho da miniatura salvo com sucesso! 📐");
+    } catch (e) {
+        alert("Erro ao salvar tamanho da miniatura: " + e.message);
     }
 };
 // ==========================================
