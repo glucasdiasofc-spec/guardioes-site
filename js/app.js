@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.13.0 - versão de teste";
+const VERSAO_ATUAL = "v0.14.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -771,9 +771,9 @@ async function carregarLogoClubeConfig() {
                 if (previaFaviconAdmin) {
                     previaFaviconAdmin.src = dados.faviconUrl;
                     const tamanhoFavicon = dados.faviconTamanho || 80;
-                    previaFaviconAdmin.style.maxHeight = tamanhoFavicon + "px";
-                    previaFaviconAdmin.style.height = tamanhoFavicon + "px";
-                    previaFaviconAdmin.style.width = "auto";
+                    previaFaviconAdmin.style.setProperty('height', tamanhoFavicon + 'px', 'important');
+                    previaFaviconAdmin.style.setProperty('max-height', tamanhoFavicon + 'px', 'important');
+                    previaFaviconAdmin.style.setProperty('width', 'auto', 'important');
                 }
                 if (sliderFavicon && dados.faviconTamanho) {
                     sliderFavicon.value = dados.faviconTamanho;
@@ -815,9 +815,9 @@ async function carregarLogoClubeConfig() {
 function alterarTamanhoFaviconEmTempoReal(tamanho) {
     const previaFaviconAdmin = document.getElementById("previa-favicon");
     if (previaFaviconAdmin) {
-        previaFaviconAdmin.style.maxHeight = tamanho + "px";
-        previaFaviconAdmin.style.height = tamanho + "px";
-        previaFaviconAdmin.style.width = "auto";
+        previaFaviconAdmin.style.setProperty('height', tamanho + 'px', 'important');
+        previaFaviconAdmin.style.setProperty('max-height', tamanho + 'px', 'important');
+        previaFaviconAdmin.style.setProperty('width', 'auto', 'important');
     }
 }
 
@@ -1401,9 +1401,9 @@ window.salvarTamanhoLogoBD = async function() {
 window.alterarTamanhoFaviconEmTempoReal = function(valor) {
     const previaFaviconAdmin = document.getElementById("previa-favicon");
     if (previaFaviconAdmin) {
-        previaFaviconAdmin.style.maxHeight = valor + "px";
-        previaFaviconAdmin.style.height = valor + "px";
-        previaFaviconAdmin.style.width = "auto";
+        previaFaviconAdmin.style.setProperty('height', valor + 'px', 'important');
+        previaFaviconAdmin.style.setProperty('max-height', valor + 'px', 'important');
+        previaFaviconAdmin.style.setProperty('width', 'auto', 'important');
     }
 };
 
