@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.18.0 - versão de teste";
+const VERSAO_ATUAL = "v0.19.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -320,6 +320,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 
                 const div = document.createElement("div");
                 div.style.display = "flex";
+                div.style.width = "100%"; // Garante que a linha ocupe toda a largura
+                div.style.marginBottom = "8px"; // Espaçamento entre os balões
                 div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
                 
                 const balao = document.createElement("div");
@@ -330,6 +332,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 balao.style.fontSize = "14px";
                 balao.style.lineHeight = "1.4";
                 balao.style.wordBreak = "break-word";
+                balao.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.15)"; // Sombra sutil para destacar
                 
                 // Formatação dos balões baseado em Remetente (Estilo Insta Dark)
                 if (isMinha) {
