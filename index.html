@@ -68,8 +68,10 @@
             <nav class="abas-admin">
                 <button class="aba-item ativa" onclick="mudarAbaAdmin('aba-unidades')">Unidades</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-membros')">Membros (Usuários)</button>
+                <button class="aba-item" onclick="mudarAbaAdmin('aba-conquistas-gestao')">Gestão de Conquistas</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-customizacao')">Customização</button>
             </nav>
+
 
            <!-- Conteúdo: Gerenciamento de Unidades -->
             <div id="aba-unidades" class="conteudo-aba">
@@ -90,7 +92,7 @@
                 <div class="lista-itens-painel" id="lista-unidades-render"></div>
             </div>
 
-            <!-- Conteúdo: Gerenciamento de Membros -->
+             <!-- Conteúdo: Gerenciamento de Membros -->
             <div id="aba-membros" class="conteudo-aba" style="display: none;">
                 <h3>Cadastrar Novo Membro</h3>
                 <div class="formulario-admin">
@@ -100,7 +102,7 @@
                     </div>
 
                     <input type="text" id="membro-nome-real" placeholder="Nome Completo">
-                    <input type="text" id="membro-username" placeholder="Nome de Usuário (Login)">
+                    <input type="text" id="membro-username" placeholder="Nome de Usuário (Login )">
                     <input type="password" id="membro-senha" placeholder="Senha de Acesso">
                     
                     <select id="membro-tipo" onchange="controlarExibicaoSelecaoUnidade()">
@@ -122,6 +124,29 @@
                     <button type="button" onclick="salvarNovoMembroAdmin()">Cadastrar Membro</button>
                 </div>
             </div>
+
+            <!-- Conteúdo: Gestão de Conquistas (NOVO) -->
+            <div id="aba-conquistas-gestao" class="conteudo-aba" style="display: none;">
+                <h3>Gestão de Conquistas por Usuário</h3>
+                <p style="color: #8e8e8e; font-size: 13px; margin-bottom: 15px;">Selecione um usuário para gerenciar suas conquistas aprovadas.</p>
+                <div id="lista-usuarios-conquistas" style="display: grid; gap: 10px;">
+                    <!-- Lista de usuários carregada via JS -->
+                </div>
+            </div>
+
+            <!-- MODAL DE EDIÇÃO DE CONQUISTAS DO USUÁRIO -->
+            <div id="modal-gestao-conquistas-usuario" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; flex-direction: column; box-sizing: border-box;">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #262626;">
+                    <h3 id="gestao-conquistas-usuario-nome" style="margin: 0; font-size: 16px; color: #fff;">Conquistas de @usuario</h3>
+                    <button onclick="fecharModalGestaoConquistas()" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer;">✕</button>
+                </div>
+                <div style="flex: 1; overflow-y: auto; padding: 20px;">
+                    <div id="gestao-conquistas-lista-render" style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- Conteúdo dinâmico -->
+                    </div>
+                </div>
+            </div>
+
 
 
             <!-- Conteúdo: Customização -->

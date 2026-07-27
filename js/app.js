@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.87 - versão de teste";
+const VERSAO_ATUAL = "v0.0.88 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -647,7 +647,13 @@ function mudarAbaAdmin(idAbaDestino) {
     
     const botaoClicado = Array.from(botoes).find(btn => btn.getAttribute("onclick").includes(idAbaDestino));
     if (botaoClicado) botaoClicado.classList.add("ativa");
+
+    // Gatilho para carregar a gestão de conquistas
+    if (idAbaDestino === 'aba-conquistas-gestao') {
+        carregarUsuariosParaGestaoConquistas();
+    }
 }
+
 
 function controlarExibicaoSelecaoUnidade() {
     const tipoSelecionado = document.getElementById("membro-tipo").value;
@@ -2299,5 +2305,116 @@ async function excluirItemAdmin() {
         window.cacheEspecialidades = []; 
         carregarEspecialidades();
     } catch (e) { alert("Erro ao excluir."); }
+}
+
+// ==========================================
+// GESTÃO DE CONQUISTAS (ADMIN)
+// ==========================================
+
+async function carregarUsuariosParaGestaoConquistas() {
+    const container = document.getElementById("lista-usuarios-conquistas");
+    if (!container) return;
+    container.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Carregando usuários...</p>";
+
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("usuarios").orderBy("username").get();
+        if (snap.empty) {
+            container.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Nenhum usuário encontrado.</p>";
+            return;
+        }
+
+        container.innerHTML = snap.docs.map(doc => {
+            const u = doc.data();
+            return `
+                <div onclick="abrirModalGestaoConquistas('${u.username}')" style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.2s;">
+                    <img src="${u.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #333;">
+                    <div style="flex: 1;">
+                        <div style="color: #fff; font-weight: bold; font-size: 14px;">${u.nomeReal || u.username}</div>
+                        <div style="color: #8e8e8e; font-size: 12px;">@${u.username} • ${u.tipo}</div>
+                    </div>
+                    <div style="color: #0095f6; font-size: 18px;">›</div>
+                </div>
+            `;
+        } ).join("");
+    } catch (e) {
+        container.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao carregar usuários.</p>";
+    }
+}
+
+let usuarioSendoGerenciado = null;
+
+async function abrirModalGestaoConquistas(username) {
+    usuarioSendoGerenciado = username;
+    const modal = document.getElementById("modal-gestao-conquistas-usuario");
+    const nomeEl = document.getElementById("gestao-conquistas-usuario-nome");
+    const listaEl = document.getElementById("gestao-conquistas-lista-render");
+    
+    if (!modal || !listaEl) return;
+
+    modal.style.display = "flex";
+    nomeEl.textContent = `Conquistas de @${username}`;
+    listaEl.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Buscando conquistas...</p>";
+
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
+        if (snap.empty) return;
+        
+        const dados = snap.docs[0].data();
+        const userId = snap.docs[0].id;
+
+        const renderSecao = (titulo, lista, campoNoBanco, cor) => {
+            if (!lista || lista.length === 0) return "";
+            return `
+                <div>
+                    <h4 style="color: ${cor}; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; border-left: 3px solid ${cor}; padding-left: 8px;">${titulo}</h4>
+                    <div style="display: grid; gap: 8px;">
+                        ${lista.map(item => `
+                            <div style="background: #121212; border: 1px solid #262626; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: #fff; font-size: 13px;">${item}</span>
+                                <button onclick="removerConquistaUsuario('${userId}', '${campoNoBanco}', '${item}')" style="background: #ff4d4d; color: #fff; border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: bold; cursor: pointer;">Remover</button>
+                            </div>
+                        `).join("")}
+                    </div>
+                </div>
+            `;
+        };
+
+        const html = [
+            renderSecao("🎒 Classes Concluídas", dados.classesConcluidas, "classesConcluidas", "#ffc107"),
+            renderSecao("🏅 Especialidades", dados.especialidades, "especialidades", "#007bff"),
+            renderSecao("🏆 Mestrados", dados.mestrados, "mestrados", "#28a745")
+        ].join("");
+
+        listaEl.innerHTML = html || "<p style='color: #8e8e8e; text-align: center; padding: 20px;'>Este usuário ainda não possui conquistas aprovadas.</p>";
+
+    } catch (e) {
+        listaEl.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao carregar detalhes.</p>";
+    }
+}
+
+function fecharModalGestaoConquistas() {
+    document.getElementById("modal-gestao-conquistas-usuario").style.display = "none";
+    usuarioSendoGerenciado = null;
+}
+
+async function removerConquistaUsuario(userId, campo, itemNome) {
+    if (!confirm(`Tem certeza que deseja remover "${itemNome}" deste usuário? Esta ação não pode ser desfeita.`)) return;
+
+    try {
+        const docRef = window.ClubeDB.textoDB.collection("usuarios").doc(userId);
+        const docSnap = await docRef.get();
+        if (!docSnap.exists) return;
+
+        const listaAtual = docSnap.data()[campo] || [];
+        const novaLista = listaAtual.filter(i => i !== itemNome);
+
+        await docRef.update({ [campo]: novaLista });
+        
+        alert("Item removido com sucesso!");
+        // Recarrega o modal para atualizar a lista
+        abrirModalGestaoConquistas(usuarioSendoGerenciado);
+    } catch (e) {
+        alert("Erro ao remover item.");
+    }
 }
 
