@@ -9,6 +9,9 @@
     <!-- Manifesto PWA para Android e PC -->
     <link rel="manifest" href="../public/manifest.json">
 
+    <!-- Favicon / Miniatura da Aba do Site -->
+    <link rel="icon" id="favicon-site" href="">
+
     <!-- Configurações Visuais Exclusivas para iOS (iPhone) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -32,6 +35,9 @@
         <!-- Tela de Autenticação Inicial (Visível por padrão) -->
         <section id="tela-login" class="secao-app">
             <div class="card-login">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img id="app-logo-img" src="" style="display: none; max-height: 70px; max-width: 150px; margin: 0 auto; object-fit: contain;" alt="Logo do App">
+                </div>
                 <h2>Acesso ao Painel</h2>
                 <div class="grupo-campo">
                     <label for="login-username">Nome de Usuário</label>
@@ -196,6 +202,24 @@
                         <div style="display: flex; gap: 10px;">
                             <button id="btn-salvar-logo-app" onclick="salvarLogoClubeAdmin('app')" style="flex: 1; padding: 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Salvar Ícone App</button>
                             <button onclick="removerLogoClubeAdmin('app')" style="flex: 1; padding: 8px; background: #ff4d4d; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remover Ícone</button>
+                        </div>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid #333;">
+
+                    <!-- 3. MINIATURA DA ABA DO SITE (FAVICON) -->
+                    <div>
+                        <label style="font-weight: bold; margin-bottom: 5px; display: block; color: #ccc;">Miniatura da Aba do Site (Favicon)</label>
+                        <div class="container-avatar-previa" style="margin-bottom: 10px;">
+                            <img id="previa-favicon" src="" class="avatar-previa" style="border-radius: 8px; object-fit: contain; max-height: 50px; width: auto;" alt="Miniatura da Aba">
+                        </div>
+                        <label class="upload-customizado" style="display: inline-block; margin-bottom: 10px;">
+                            Escolher Miniatura (Favicon)
+                            <input type="file" id="favicon-file" accept="image/*" onchange="mostrarPreviaImagem(this, 'previa-favicon')">
+                        </label>
+                        <div style="display: flex; gap: 10px;">
+                            <button id="btn-salvar-favicon" onclick="salvarLogoClubeAdmin('favicon')" style="flex: 1; padding: 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Salvar Miniatura</button>
+                            <button onclick="removerLogoClubeAdmin('favicon')" style="flex: 1; padding: 8px; background: #ff4d4d; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remover Miniatura</button>
                         </div>
                     </div>
 

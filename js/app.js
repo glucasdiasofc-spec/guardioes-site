@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.8.0 - versão de teste";
+const VERSAO_ATUAL = "v0.9.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -754,6 +754,18 @@ async function carregarLogoClubeConfig() {
                 if (previaAppAdmin) previaAppAdmin.src = "";
             }
 
+            // 1.2 Aplica o Favicon (Miniatura da Aba)
+            const faviconEl = document.getElementById("favicon-site");
+            if (dados.faviconUrl) {
+                if (faviconEl) faviconEl.href = dados.faviconUrl;
+                const previaFaviconAdmin = document.getElementById("previa-favicon");
+                if (previaFaviconAdmin) previaFaviconAdmin.src = dados.faviconUrl;
+            } else {
+                if (faviconEl) faviconEl.href = "";
+                const previaFaviconAdmin = document.getElementById("previa-favicon");
+                if (previaFaviconAdmin) previaFaviconAdmin.src = "";
+            }
+
             // 2. Aplica o Tamanho Responsivo (Se o admin tiver salvo)
             if (dados.logoTamanho) {
                 if (logoImg) {
@@ -794,25 +806,30 @@ function usarTextoPadraoLogo(tipo = 'site') {
         const previaLogoApp = document.getElementById("previa-logo-app");
         if (appLogoImg) appLogoImg.style.display = "none";
         if (previaLogoApp) previaLogoApp.src = "";
+    } else if (tipo === 'favicon') {
+        const faviconEl = document.getElementById("favicon-site");
+        const previaFavicon = document.getElementById("previa-favicon");
+        if (faviconEl) faviconEl.href = "";
+        if (previaFavicon) previaFavicon.src = "";
     }
 }
 
 async function salvarLogoClubeAdmin(tipo = 'site') {
-    // Determina os IDs corretos baseados no tipo (Site ou App)
-    const inputId = tipo === 'site' ? "logo-site-file" : "logo-app-file";
+    // Determina os IDs corretos baseados no tipo (Site, App ou Favicon)
+    const inputId = tipo === 'site' ? "logo-site-file" : (tipo === 'app' ? "logo-app-file" : "favicon-file");
     let fileInput = document.getElementById(inputId);
     
     // Fallback de retrocompatibilidade para o ID antigo caso você ainda não tenha alterado no HTML
     if (!fileInput && tipo === 'site') fileInput = document.getElementById("logo-clube-file");
     
-    const btnId = tipo === 'site' ? "btn-salvar-logo-site" : "btn-salvar-logo-app";
+    const btnId = tipo === 'site' ? "btn-salvar-logo-site" : (tipo === 'app' ? "btn-salvar-logo-app" : "btn-salvar-favicon");
     let btn = document.getElementById(btnId);
     if (!btn && tipo === 'site') btn = document.getElementById("btn-salvar-logo");
 
     const arquivo = fileInput ? fileInput.files[0] : null;
 
     if (!arquivo) {
-        alert(`Selecione um arquivo de imagem para a logo do ${tipo}!`);
+        alert(`Selecione um arquivo de imagem para ${tipo === 'favicon' ? 'a miniatura' : `a logo do ${tipo}`}!`);
         return;
     }
 
@@ -856,18 +873,18 @@ async function salvarLogoClubeAdmin(tipo = 'site') {
             const doc = await docRef.get();
             
             // Define dinamicamente o campo do banco de dados que será salvo
-            const campoUrl = tipo === 'site' ? "logoUrl" : "logoAppUrl";
-            const campoId = tipo === 'site' ? "logoIdPublico" : "logoAppIdPublico";
+            const campoUrl = tipo === 'site' ? "logoUrl" : (tipo === 'app' ? "logoAppUrl" : "faviconUrl");
+            const campoId = tipo === 'site' ? "logoIdPublico" : (tipo === 'app' ? "logoAppIdPublico" : "faviconIdPublico");
 
             if (doc.exists) {
                 const dados = doc.data();
-                const idPublicoAntigo = dados[campoId]; // Apaga apenas a logo correta (site ou app)
+                const idPublicoAntigo = dados[campoId]; // Apaga apenas a logo correta
                 
                 if (idPublicoAntigo && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
                     try {
                         await window.ClubeDB.acoesAdmin.excluirFoto(idPublicoAntigo);
                     } catch (errExcluir) {
-                        console.warn(`Aviso ao limpar logo anterior do ${tipo}:`, errExcluir);
+                        console.warn(`Aviso ao limpar imagem anterior do ${tipo}:`, errExcluir);
                     }
                 }
             }
@@ -879,29 +896,29 @@ async function salvarLogoClubeAdmin(tipo = 'site') {
 
             await docRef.set(atualizacao, { merge: true });
 
-            alert(`Logo do ${tipo.toUpperCase()} cadastrada com sucesso! 🛡️`);
+            alert(`${tipo === 'favicon' ? 'Miniatura' : `Logo do ${tipo.toUpperCase()}`} cadastrada com sucesso! 🛡️`);
             carregarLogoClubeConfig();
             if (fileInput) fileInput.value = "";
         }
     } catch (e) {
-        alert(`Erro ao salvar logo do ${tipo}: ` + e.message);
+        alert(`Erro ao salvar ${tipo}: ` + e.message);
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = `Salvar Logo ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
+            btn.textContent = tipo === 'favicon' ? "Salvar Miniatura" : `Salvar Logo ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
         }
     }
 }
 
 async function removerLogoClubeAdmin(tipo = 'site') {
-    if (!confirm(`Tem certeza que deseja remover a logo do ${tipo}?`)) return;
+    if (!confirm(`Tem certeza que deseja remover ${tipo === 'favicon' ? 'a miniatura' : `a logo do ${tipo}`}?`)) return;
 
     try {
         const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
         const doc = await docRef.get();
         
-        const campoUrl = tipo === 'site' ? "logoUrl" : "logoAppUrl";
-        const campoId = tipo === 'site' ? "logoIdPublico" : "logoAppIdPublico";
+        const campoUrl = tipo === 'site' ? "logoUrl" : (tipo === 'app' ? "logoAppUrl" : "faviconUrl");
+        const campoId = tipo === 'site' ? "logoIdPublico" : (tipo === 'app' ? "logoAppIdPublico" : "faviconIdPublico");
 
         if (doc.exists) {
             const dados = doc.data();
@@ -917,10 +934,10 @@ async function removerLogoClubeAdmin(tipo = 'site') {
 
         await docRef.set(atualizacao, { merge: true });
 
-        alert(`Logo do ${tipo} removida.`);
+        alert(`${tipo === 'favicon' ? 'Miniatura' : `Logo do ${tipo}`} removida.`);
         usarTextoPadraoLogo(tipo);
     } catch (e) {
-        alert(`Erro ao remover logo do ${tipo}: ` + e.message);
+        alert(`Erro ao remover ${tipo}: ` + e.message);
     }
 }
 
