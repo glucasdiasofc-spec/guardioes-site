@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.22.0 - versão de teste";
+const VERSAO_ATUAL = "v0.23.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -290,9 +290,21 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     
     const telaChat = document.getElementById("tela-sala-chat");
     if (telaChat) {
-    telaChat.style.display = "flex";
-    telaChat.style.flexDirection = "column";
-    telaChat.style.height = "calc(100% + 80px)"; // Compensa o padding de 80px do main para colar a escrita nas abas
+        telaChat.style.display = "flex";
+        telaChat.style.flexDirection = "column";
+        
+        // ESTILO TELA CHEIA ABSOLUTA (Estilo Instagram Direct)
+        telaChat.style.position = "fixed";
+        telaChat.style.top = "0";
+        telaChat.style.left = "0";
+        telaChat.style.width = "100%";
+        telaChat.style.height = "100dvh"; // Prioriza viewports dinâmicas modernas
+        if (!CSS.supports('height', '100dvh')) {
+            telaChat.style.height = "100vh"; // Fallback caso 100dvh não funcione no navegador
+        }
+        telaChat.style.backgroundColor = "#000"; // Fundo idêntico ao Insta Dark mode
+        telaChat.style.zIndex = "99999"; // Força sobreposição de todos os menus/abas nativas
+        telaChat.style.boxSizing = "border-box";
     }
 
     document.getElementById("chat-nome-atual").textContent = nomeAlvo;
@@ -311,6 +323,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             cabecalhoChat.style.justifyContent = "space-between";
             cabecalhoChat.style.alignItems = "center";
             cabecalhoChat.style.width = "100%";
+            cabecalhoChat.style.padding = "15px"; // Evita que os ícones fiquem esmagados e desvia do notch
             
             // Alinha o bloco do perfil totalmente à direita
             infoUsuario.style.display = "flex";
@@ -328,6 +341,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.flex = "1"; // Ocupa todo o espaço e empurra a caixa de texto pra baixo
         container.style.overflowY = "auto";
         container.style.marginBottom = "5px";
+        container.style.padding = "0 15px"; // Alinhamento lateral responsivo
     }
 
     // 3. Área de escrever mensagem o mais baixo possível e botão menor ao lado
@@ -337,8 +351,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         areaDeEscrita.style.display = "flex";
         areaDeEscrita.style.alignItems = "center";
         areaDeEscrita.style.gap = "8px";
-        areaDeEscrita.style.marginTop = "auto"; // Cola a caixa acima das abas
-        areaDeEscrita.style.padding = "10px";
+        areaDeEscrita.style.marginTop = "auto"; // Cola a caixa acima da borda inferior
+        areaDeEscrita.style.padding = "10px 15px"; 
+        areaDeEscrita.style.paddingBottom = "20px"; // Descola do extremo bottom da tela em celulares touch
 
         inputMsg.style.flex = "1"; // Input cresce tomando o máximo de espaço sem amassar o botão
         
