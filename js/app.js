@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.84 - versão de teste";
+const VERSAO_ATUAL = "v0.0.85 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1741,98 +1741,69 @@ async function solicitarAprovacao(colecaoOrigem, itemId, nomeItem, callbackRecar
 // ==========================================
 
 async function carregarAprovacoesSite() {
-    const containerLider = document.getElementById("lista-aprovacoes-render-site");
-    const containerDesbravador = document.getElementById("lista-minhas-pendencias-render");
-    const secaoLider = document.getElementById("secao-lideranca-aprovacoes");
-    const secaoDesbravador = document.getElementById("secao-desbravador-pendentes");
+    const container = document.getElementById("lista-aprovacoes-render-site");
+    if (!container) return;
     
-    const username = localStorage.getItem("usernameLogado");
+    const usernameLogado = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado"); // 'admin' ou 'membro'
+
+    container.innerHTML = "<p style='color: #aaa; text-align: center; font-size: 13px;'>Buscando solicitações...</p>";
     
-    // Precisamos saber se o 'membro' é 'Liderança' ou 'Desbravador'
-    let subTipo = "Desbravador";
-    if (tipoUsuario === "admin") {
-        subTipo = "Liderança";
-    } else {
-        const userSnap = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
-        if (!userSnap.empty) subTipo = userSnap.docs[0].data().tipo;
-    }
-
-    // Controle de Visibilidade de Seções
-    if (subTipo === "Liderança") {
-        if (secaoLider) secaoLider.style.display = "block";
-        if (secaoDesbravador) secaoDesbravador.style.display = "none";
-    } else {
-        if (secaoLider) secaoLider.style.display = "none";
-        if (secaoDesbravador) secaoDesbravador.style.display = "block";
-    }
-
     try {
         let query = window.ClubeDB.textoDB.collection("pendencias_aprovacao").where("status", "==", "pendente");
         
-        // Se for desbravador, filtra apenas as DELE
-        if (subTipo !== "Liderança") {
-            query = query.where("usuario", "==", username);
+        // EXECUÇÃO DA LÓGICA SÊNIOR:
+        // Se NÃO for admin, filtra para mostrar APENAS o que foi destinado a este líder específico
+        if (tipoUsuario !== "admin") {
+            query = query.where("liderDestino", "==", usernameLogado);
         }
 
         const snapshot = await query.get();
-        const targetContainer = (subTipo === "Liderança") ? containerLider : containerDesbravador;
-        
-        if (!targetContainer) return;
-
         if (snapshot.empty) {
-            targetContainer.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:13px; padding:20px;">Nenhuma solicitação encontrada.</p>`;
+            container.innerHTML = `
+                <div style="text-align: center; padding: 30px 10px; color: #8e8e8e;">
+                    <div style="font-size: 28px; margin-bottom: 8px;">🎉</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 14px;">Tudo limpo!</div>
+                    Nenhuma solicitação aguardando sua aprovação.
+                </div>`;
             return;
         }
         
-        targetContainer.innerHTML = "";
+        container.innerHTML = "";
         snapshot.forEach(doc => {
             const p = doc.data();
             const id = doc.id;
-            const isMestrado = p.colecaoOrigem === "progresso_mestrados";
             const isClasse = p.colecaoOrigem === "progresso_classes";
-            const badgeCor = isMestrado ? "#28a745" : (isClasse ? "#ffc107" : "#007bff");
-            const icone = isMestrado ? "🏆" : (isClasse ? "🎒" : "🎯");
-            const rotulo = isMestrado ? "Mestrado" : (isClasse ? "Classe" : "Especialidade");
-
-            if (subTipo === "Liderança") {
-                targetContainer.innerHTML += `
-                    <div style="background: #121212; border: 1px solid #262626; padding: 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                            <div style="min-width: 0; flex: 1;">
-                                <div style="font-weight: bold; color: #fff; font-size: 14px; word-break: break-word;">${p.nomeItem}</div>
-                                <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Membro: <span style="color: #0095f6; font-weight: 600;">@${p.usuario}</span></div>
-                            </div>
-                            <span style="background: ${badgeCor}; color: ${isClasse ? '#121212' : '#fff'}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">
-                                ${icone} ${rotulo}
-                            </span>
+            const badgeCor = isClasse ? "#ffc107" : (p.colecaoOrigem === "progresso_mestrados" ? "#28a745" : "#007bff");
+            
+            container.innerHTML += `
+                <div style="background: #121212; border: 1px solid #262626; padding: 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="font-weight: bold; color: #fff; font-size: 14px; word-break: break-word;">${p.nomeItem}</div>
+                            <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Membro: <span style="color: #0095f6; font-weight: 600;">@${p.usuario}</span></div>
                         </div>
-                        <div style="display: flex; gap: 10px; margin-top: 4px;">
-                            <button onclick="processarAprovacaoAdmin('${id}', true)" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Conceder</button>
-                            <button onclick="processarAprovacaoAdmin('${id}', false)" style="flex: 1; padding: 10px; background: #ff4d4d; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Recusar</button>
-                        </div>
-                        ${tipoUsuario === 'admin' ? `
-                        <div style="display: flex; margin-top: 10px;">
-                            <button onclick="enviarParaLideranca('${id}')" style="flex: 1; padding: 10px; background: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Enviar para Liderança</button>
-                        </div>` : ''}
-                    </div>`;
-            } else {
-                targetContainer.innerHTML += `
-                    <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
-                            <div style="width: 40px; height: 40px; background: #000; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px;">${icone}</div>
-                            <div style="min-width: 0; flex: 1;">
-                                <div style="font-weight: bold; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.nomeItem}</div>
-                                <div style="color: #ffc107; font-size: 11px; font-weight: bold;">Aguardando Avaliação</div>
-                            </div>
-                        </div>
-                    </div>`;
-            }
+                        <span style="background: ${badgeCor}; color: ${isClasse ? '#121212' : '#fff'}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">
+                            ${p.colecaoOrigem === 'progresso_classes' ? '🎒 Classe' : (p.colecaoOrigem === 'progresso_mestrados' ? '🏆 Mestrado' : '🎯 Esp')}
+                        </span>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 4px;">
+                        <button onclick="processarAprovacaoAdmin('${id}', true)" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Conceder</button>
+                        <button onclick="processarAprovacaoAdmin('${id}', false)" style="flex: 1; padding: 10px; background: #ff4d4d; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Recusar</button>
+                    </div>
+                    ${tipoUsuario === 'admin' ? `
+                    <div style="display: flex; margin-top: 10px;">
+                        <button onclick="abrirSeletorLideranca('${id}')" style="flex: 1; padding: 10px; background: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Encaminhar para Líder</button>
+                    </div>` : ''}
+                </div>
+            `;
         });
     } catch (error) {
         console.error("Erro ao carregar aprovações:", error);
+        container.innerHTML = "<p style='color: #ff4d4d; text-align: center; font-size: 12px;'>Erro ao carregar dados.</p>";
     }
 }
+
 
 
 
@@ -1893,36 +1864,68 @@ async function processarAprovacaoAdmin(idPendencia, statusAprovado) {
 }
 
 // Nova função para enviar para outra liderança
-async function enviarParaLideranca(idPendencia) {
+// Variável global temporária para o ID da pendência sendo encaminhada
+let pendenciaSendoEncaminhada = null;
+
+async function abrirSeletorLideranca(idPendencia) {
+    pendenciaSendoEncaminhada = idPendencia;
+    const modal = document.getElementById("modal-seletor-lideranca");
+    const lista = document.getElementById("lista-lideres-selecao");
+    
+    if (!modal || !lista) return;
+
+    modal.style.display = "flex";
+    lista.innerHTML = "<p style='color: #8e8e8e; text-align: center; padding: 20px;'>Buscando líderes...</p>";
+
     try {
-        // Busca todos os membros do tipo Liderança
-        const lideresSnap = await window.ClubeDB.textoDB.collection("usuarios").where("tipo", "==", "Liderança").get();
-        
-        if (lideresSnap.empty) {
-            return alert("Nenhuma outra conta de liderança encontrada.");
+        const snap = await window.ClubeDB.textoDB.collection("usuarios").where("tipo", "==", "Liderança").get();
+        if (snap.empty) {
+            lista.innerHTML = "<p style='color: #ff4d4d; text-align: center; padding: 20px;'>Nenhum líder encontrado.</p>";
+            return;
         }
 
-        let opcoes = lideresSnap.docs.map(doc => doc.data().username);
-        let escolha = prompt("Para qual líder deseja enviar?\n\nOpções disponíveis:\n" + opcoes.join("\n"));
+        lista.innerHTML = snap.docs.map(doc => {
+            const lider = doc.data();
+            return `
+                <div onclick="confirmarEncaminhamento('${lider.username}')" style="padding: 12px; background: #262626; border-radius: 8px; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s;">
+                    <img src="${lider.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    <div style="flex: 1;">
+                        <div style="color: #fff; font-weight: bold; font-size: 14px;">${lider.nomeReal || lider.username}</div>
+                        <div style="color: #0095f6; font-size: 11px;">@${lider.username}</div>
+                    </div>
+                    <div style="color: #0095f6; font-size: 18px;">›</div>
+                </div>
+            `;
+        } ).join("");
 
-        if (!escolha || !opcoes.includes(escolha.toLowerCase())) {
-            return alert("Operação cancelada ou líder inválido.");
-        }
-
-        const docRef = window.ClubeDB.textoDB.collection("pendencias_aprovacao").doc(idPendencia);
-        await docRef.update({
-            status: "pendente", // Mantém pendente para aparecer para o outro líder
-            liderDestino: escolha.toLowerCase(),
-            enviadoPorAdmin: true
-        });
-
-        alert(`Solicitação enviada com sucesso para @${escolha}!`);
-        carregarAprovacoesSite();
-    } catch (error) {
-        console.error("Erro ao enviar para liderança:", error);
-        alert("Falha ao enviar solicitação.");
+    } catch (e) {
+        lista.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao carregar lista.</p>";
     }
 }
+
+function fecharSeletorLideranca() {
+    document.getElementById("modal-seletor-lideranca").style.display = "none";
+    pendenciaSendoEncaminhada = null;
+}
+
+async function confirmarEncaminhamento(usernameLider) {
+    if (!pendenciaSendoEncaminhada) return;
+    
+    try {
+        const docRef = window.ClubeDB.textoDB.collection("pendencias_aprovacao").doc(pendenciaSendoEncaminhada);
+        await docRef.update({
+            liderDestino: usernameLider.toLowerCase(),
+            status: "pendente" // Mantém como pendente, mas agora com o filtro de destino
+        });
+
+        alert(`Solicitação encaminhada com sucesso para @${usernameLider}!`);
+        fecharSeletorLideranca();
+        carregarAprovacoesSite();
+    } catch (e) {
+        alert("Erro ao encaminhar solicitação.");
+    }
+}
+
 
 
 
