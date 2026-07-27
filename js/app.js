@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.86 - versão de teste";
+const VERSAO_ATUAL = "v0.0.87 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1769,7 +1769,7 @@ async function carregarAprovacoesSite() {
         let query = window.ClubeDB.textoDB.collection("pendencias_aprovacao").where("status", "==", "pendente");
         
         if (tipoUsuario === "admin") {
-            // Admin vê TUDO (sem filtros extras)
+            // Admin vê TUDO
         } else if (subTipo === "Liderança") {
             // Liderança comum vê apenas o que foi destinado a ela
             query = query.where("liderDestino", "==", usernameLogado);
@@ -1798,14 +1798,18 @@ async function carregarAprovacoesSite() {
             const badgeCor = isClasse ? "#ffc107" : (isMestrado ? "#28a745" : "#007bff");
             const icone = isClasse ? "🎒" : (isMestrado ? "🏆" : "🎯");
             
+            // Texto indicando o líder responsável, se houver
+            const infoLider = p.liderDestino ? ` | <span style="color: #28a745; font-weight: bold;">Líder: @${p.liderDestino}</span>` : '';
+
             if (subTipo === "Liderança") {
-                // Renderização para ADMIN e LIDERANÇA (Com botões de ação)
                 container.innerHTML += `
                     <div style="background: #121212; border: 1px solid #262626; padding: 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                             <div style="min-width: 0; flex: 1;">
                                 <div style="font-weight: bold; color: #fff; font-size: 14px; word-break: break-word;">${p.nomeItem}</div>
-                                <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Membro: <span style="color: #0095f6; font-weight: 600;">@${p.usuario}</span></div>
+                                <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">
+                                    Membro: <span style="color: #0095f6; font-weight: 600;">@${p.usuario}</span>${infoLider}
+                                </div>
                             </div>
                             <span style="background: ${badgeCor}; color: ${isClasse ? '#121212' : '#fff'}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">
                                 ${icone} ${isClasse ? 'Classe' : (isMestrado ? 'Mestrado' : 'Esp')}
@@ -1821,14 +1825,15 @@ async function carregarAprovacoesSite() {
                         </div>` : ''}
                     </div>`;
             } else {
-                // Renderização para DESBRAVADOR (Apenas status)
                 container.innerHTML += `
                     <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
                             <div style="width: 40px; height: 40px; background: #000; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px;">${icone}</div>
                             <div style="min-width: 0; flex: 1;">
                                 <div style="font-weight: bold; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.nomeItem}</div>
-                                <div style="color: #ffc107; font-size: 11px; font-weight: bold;">Aguardando Avaliação</div>
+                                <div style="color: #ffc107; font-size: 11px; font-weight: bold;">
+                                    Aguardando Avaliação${p.liderDestino ? ` (@${p.liderDestino})` : ''}
+                                </div>
                             </div>
                         </div>
                     </div>`;
@@ -1839,6 +1844,7 @@ async function carregarAprovacoesSite() {
         container.innerHTML = "<p style='color: #ff4d4d; text-align: center; font-size: 12px;'>Erro ao carregar dados.</p>";
     }
 }
+
 
 
 
