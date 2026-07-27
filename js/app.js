@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.9.0 - versão de teste";
+const VERSAO_ATUAL = "v0.10.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -754,12 +754,37 @@ async function carregarLogoClubeConfig() {
                 if (previaAppAdmin) previaAppAdmin.src = "";
             }
 
+            // 1.1 Aplica a Imagem do App (Nova separação)
+            if (dados.logoAppUrl) {
+                if (logoAppImg) {
+                    logoAppImg.src = dados.logoAppUrl;
+                    logoAppImg.style.display = "block";
+                }
+                const previaAppAdmin = document.getElementById("previa-logo-app");
+                if (previaAppAdmin) previaAppAdmin.src = dados.logoAppUrl;
+                
+                let appleIcon = document.getElementById("app-touch-icon") || document.querySelector("link[rel='apple-touch-icon']");
+                if (!appleIcon) {
+                    appleIcon = document.createElement("link");
+                    appleIcon.rel = "apple-touch-icon";
+                    appleIcon.id = "app-touch-icon";
+                    document.head.appendChild(appleIcon);
+                }
+                appleIcon.href = dados.logoAppUrl;
+            } else {
+                const previaAppAdmin = document.getElementById("previa-logo-app");
+                if (previaAppAdmin) previaAppAdmin.src = "";
+            }
+
             // 1.2 Aplica o Favicon (Miniatura da Aba)
             const faviconEl = document.getElementById("favicon-site");
             if (dados.faviconUrl) {
                 if (faviconEl) faviconEl.href = dados.faviconUrl;
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
-                if (previaFaviconAdmin) previaFaviconAdmin.src = dados.faviconUrl;
+                if (previaFaviconAdmin) {
+                    previaFaviconAdmin.src = dados.faviconUrl;
+                    previaFaviconAdmin.style.maxHeight = "80px";
+                }
             } else {
                 if (faviconEl) faviconEl.href = "";
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
@@ -896,6 +921,8 @@ async function salvarLogoClubeAdmin(tipo = 'site') {
 
             await docRef.set(atualizacao, { merge: true });
 
+await docRef.set(atualizacao, { merge: true });
+
             alert(`${tipo === 'favicon' ? 'Miniatura' : `Logo do ${tipo.toUpperCase()}`} cadastrada com sucesso! 🛡️`);
             carregarLogoClubeConfig();
             if (fileInput) fileInput.value = "";
@@ -905,8 +932,34 @@ async function salvarLogoClubeAdmin(tipo = 'site') {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = tipo === 'favicon' ? "Salvar Miniatura" : `Salvar Logo ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
+            btn.textContent = tipo === 'favicon' ? "Salvar Miniatura" : `Salvar Logo ${tipo === 'site' ? 'Site' : 'App'}`;
         }
+    }
+}
+
+function alterarTamanhoLogoEmTempoReal(tamanho) {
+    const logoImg = document.getElementById("site-logo-img");
+    if (logoImg) {
+        logoImg.style.maxHeight = tamanho + "px";
+        logoImg.style.height = tamanho + "px";
+        logoImg.style.maxWidth = "250px";
+        logoImg.style.width = "auto";
+    }
+}
+
+async function salvarTamanhoLogoBD() {
+    const slider = document.getElementById("logo-tamanho-slider");
+    if (!slider) return;
+    const tamanho = slider.value;
+
+    try {
+        const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
+        await docRef.set({
+            logoTamanho: Number(tamanho)
+        }, { merge: true });
+        alert("Tamanho da logo salvo com sucesso! 💾");
+    } catch (e) {
+        alert("Erro ao salvar tamanho da logo: " + e.message);
     }
 }
 
