@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.11.0 - versão de teste";
+const VERSAO_ATUAL = "v0.12.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -749,19 +749,6 @@ async function carregarLogoClubeConfig() {
                 }
                 const previaAppAdmin = document.getElementById("previa-logo-app");
                 if (previaAppAdmin) previaAppAdmin.src = dados.logoAppUrl;
-            } else {
-                const previaAppAdmin = document.getElementById("previa-logo-app");
-                if (previaAppAdmin) previaAppAdmin.src = "";
-            }
-
-            // 1.1 Aplica a Imagem do App (Nova separação)
-            if (dados.logoAppUrl) {
-                if (logoAppImg) {
-                    logoAppImg.src = dados.logoAppUrl;
-                    logoAppImg.style.display = "block";
-                }
-                const previaAppAdmin = document.getElementById("previa-logo-app");
-                if (previaAppAdmin) previaAppAdmin.src = dados.logoAppUrl;
                 
                 let appleIcon = document.getElementById("app-touch-icon") || document.querySelector("link[rel='apple-touch-icon']");
                 if (!appleIcon) {
@@ -1357,20 +1344,18 @@ async function deletarMembro(id, idFoto) {
 }
 
 // ==========================================
-// CONTROLE DE TAMANHO DA LOGO E DO FAVICON
+// CONTROLE DE TAMANHO DA LOGO DO HEADER
 // ==========================================
 
-// 1. Faz a logo crescer ou diminuir em tempo real ao arrastar a barra
 window.alterarTamanhoLogoEmTempoReal = function(valor) {
     const logoImg = document.getElementById("site-logo-img");
     if (logoImg) {
         logoImg.style.maxHeight = valor + "px";
         logoImg.style.height = valor + "px";
-        logoImg.style.maxWidth = "250px"; // Remove o limite antigo de largura para não achatar
+        logoImg.style.maxWidth = "250px";
     }
 };
 
-// 2. Salva o tamanho ideal no Firestore
 window.salvarTamanhoLogoBD = async function() {
     const slider = document.getElementById("logo-tamanho-slider");
     if (!slider) return;
@@ -1385,7 +1370,10 @@ window.salvarTamanhoLogoBD = async function() {
     }
 };
 
-// 3. Faz a prévia do favicon crescer ou diminuir em tempo real ao arrastar a barra
+// ==========================================
+// CONTROLE DE TAMANHO DO FAVICON (MINIATURA)
+// ==========================================
+
 window.alterarTamanhoFaviconEmTempoReal = function(valor) {
     const previaFaviconAdmin = document.getElementById("previa-favicon");
     if (previaFaviconAdmin) {
@@ -1395,7 +1383,6 @@ window.alterarTamanhoFaviconEmTempoReal = function(valor) {
     }
 };
 
-// 4. Salva o tamanho do favicon no Firestore
 window.salvarTamanhoFaviconBD = async function() {
     const slider = document.getElementById("favicon-tamanho-slider");
     if (!slider) return;
