@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.91 - versão de teste";
+const VERSAO_ATUAL = "v0.0.92 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -2245,20 +2245,33 @@ async function salvarAlteracoesItemAdmin() {
 
         // Se houver novo arquivo, faz o upload para o Cloudinary (usando a lógica já existente no seu app)
         if (arquivoFoto) {
-            finalFotoUrl = await subirImagemParaNuvem(arquivoFoto);
+            const uploadResultado = await subirImagemParaNuvem(arquivoFoto);
+            if (uploadResultado) {
+                finalFotoUrl = uploadResultado;
+            } else {
+                alert("Falha no upload da imagem. Verifique a conexão e tente novamente.");
+                return;
+            }
         }
 
-        const db = window.ClubeDB.textoDB;
+        // Protege contra undefined ou valores inválidos antes de enviar ao Firestore
         const dados = {
             nome,
-            urlImagem: finalFotoUrl,
+            urlImagem: finalFotoUrl || "",
             categoria,
             requisitos,
             atualizadoEm: new Date()
         };
 
         if (id) {
-            await db.collection(tipo).doc(id).update(dados);
+            // Só atualiza urlImagem se tiver um valor válido ou string vazia (nunca undefined)
+            await db.collection(tipo).doc(id).update({
+                nome: nome,
+                urlImagem: finalFotoUrl || "",
+                categoria: categoria,
+                requisitos: requisitos,
+                atualizadoEm: new Date()
+            });
             alert("Item atualizado!");
         } else {
             await db.collection(tipo).add(dados);
@@ -2277,21 +2290,33 @@ async function salvarAlteracoesItemAdmin() {
         btn.disabled = false;
         btn.textContent = "Salvar";
     }
+
 }
 
 // Função auxiliar para upload (Reutilizando o padrão do seu app)
 async function subirImagemParaNuvem(arquivo) {
-    const formData = new FormData();
-    formData.append("file", arquivo);
-    formData.append("upload_preset", "ml_default"); // Substitua pelo seu preset se necessário
+    try {
+        const formData = new FormData();
+        formData.append("file", arquivo);
+        formData.append("upload_preset", "guardioes_preset");
 
-    const resp = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
-        method: "POST",
-        body: formData
-    } );
-    const data = await resp.json();
-    return data.secure_url;
+        const resp = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
+            method: "POST",
+            body: formData
+        } );
+
+        if (!resp.ok) {
+            throw new Error("Erro na conexão com o servidor de imagens.");
+        }
+
+        const data = await resp.json();
+        return data.secure_url || data.url || "";
+    } catch (e) {
+        console.error("Erro no upload Cloudinary:", e);
+        return "";
+    }
 }
+
 
 async function excluirItemAdmin() {
     const id = document.getElementById("edit-item-id").value;
