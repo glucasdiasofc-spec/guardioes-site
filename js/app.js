@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.4.0 - versão de teste";
+const VERSAO_ATUAL = "v0.5.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -721,7 +721,10 @@ async function carregarLogoClubeConfig() {
             if (dados.logoUrl) {
                 if (logoImg) {
                     logoImg.src = dados.logoUrl;
-                    logoImg.style.display = "block";
+                    // Correção: Mantém o alinhamento centralizado com inline-block e alinhamento vertical
+                    logoImg.style.display = "inline-block";
+                    logoImg.style.verticalAlign = "middle";
+                    logoImg.style.objectFit = "contain";
                 }
                 if (logoTexto) logoTexto.style.display = "none";
                 
@@ -741,9 +744,17 @@ async function carregarLogoClubeConfig() {
                     logoImg.style.maxHeight = dados.logoTamanho + "px";
                     logoImg.style.height = dados.logoTamanho + "px";
                     logoImg.style.maxWidth = "250px";
+                    // Correção: Adiciona width 'auto' para que a imagem não desapareça no PC por ter apenas height definida
+                    logoImg.style.width = "auto";
                 }
                 if (sliderTamanho) {
                     sliderTamanho.value = dados.logoTamanho;
+                }
+            } else {
+                // Correção: Fallback de segurança para garantir que a imagem não suma caso não haja um tamanho salvo inicialmente
+                if (logoImg) {
+                    logoImg.style.height = "50px";
+                    logoImg.style.width = "auto";
                 }
             }
         } else {
