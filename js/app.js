@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.88 - versão de teste";
+const VERSAO_ATUAL = "v0.0.89 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -2362,35 +2362,47 @@ async function abrirModalGestaoConquistas(username) {
         const dados = snap.docs[0].data();
         const userId = snap.docs[0].id;
 
-        const renderSecao = (titulo, lista, campoNoBanco, cor) => {
+        // Garante que os catálogos estejam carregados para pegar as imagens
+        if (window.cacheEspecialidades.length === 0) await carregarEspecialidades();
+
+        const renderSecao = (titulo, lista, campoNoBanco, cor, catalogo) => {
             if (!lista || lista.length === 0) return "";
             return `
                 <div>
                     <h4 style="color: ${cor}; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; border-left: 3px solid ${cor}; padding-left: 8px;">${titulo}</h4>
                     <div style="display: grid; gap: 8px;">
-                        ${lista.map(item => `
-                            <div style="background: #121212; border: 1px solid #262626; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                                <span style="color: #fff; font-size: 13px;">${item}</span>
-                                <button onclick="removerConquistaUsuario('${userId}', '${campoNoBanco}', '${item}')" style="background: #ff4d4d; color: #fff; border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: bold; cursor: pointer;">Remover</button>
-                            </div>
-                        `).join("")}
+                        ${lista.map(itemNome => {
+                            const info = catalogo.find(c => c.nome === itemNome) || {};
+                            const imgUrl = info.urlImagem || info.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
+                            return `
+                                <div style="background: #121212; border: 1px solid #262626; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                        <img src="${imgUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px; border: 1px solid #333; flex-shrink: 0;">
+                                        <span style="color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${itemNome}</span>
+                                    </div>
+                                    <button onclick="removerConquistaUsuario('${userId}', '${campoNoBanco}', '${itemNome}' )" style="background: rgba(255, 77, 77, 0.1); color: #ff4d4d; border: 1px solid #ff4d4d; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold; cursor: pointer; transition: 0.2s; white-space: nowrap;">Apagar</button>
+                                </div>
+                            `;
+                        }).join("")}
                     </div>
                 </div>
             `;
         };
 
         const html = [
-            renderSecao("🎒 Classes Concluídas", dados.classesConcluidas, "classesConcluidas", "#ffc107"),
-            renderSecao("🏅 Especialidades", dados.especialidades, "especialidades", "#007bff"),
-            renderSecao("🏆 Mestrados", dados.mestrados, "mestrados", "#28a745")
+            renderSecao("🎒 Classes Concluídas", dados.classesConcluidas, "classesConcluidas", "#ffc107", window.cacheClasses),
+            renderSecao("🏅 Especialidades", dados.especialidades, "especialidades", "#007bff", window.cacheEspecialidades),
+            renderSecao("🏆 Mestrados", dados.mestrados, "mestrados", "#28a745", window.cacheMestrados)
         ].join("");
 
         listaEl.innerHTML = html || "<p style='color: #8e8e8e; text-align: center; padding: 20px;'>Este usuário ainda não possui conquistas aprovadas.</p>";
 
     } catch (e) {
+        console.error(e);
         listaEl.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao carregar detalhes.</p>";
     }
 }
+
 
 function fecharModalGestaoConquistas() {
     document.getElementById("modal-gestao-conquistas-usuario").style.display = "none";
