@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.7.0 - versão de teste";
+const VERSAO_ATUAL = "v0.6.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1318,7 +1318,7 @@ window.salvarTamanhoLogoBD = async function() {
         console.error("Erro ao salvar tamanho:", error);
         alert("Erro ao salvar tamanho da logo no banco de dados.");
     }
-;
+};
 // ==========================================
 // === LÓGICA: PROGRESSO (ESP, MEST, CLAS) ===
 // ==========================================
