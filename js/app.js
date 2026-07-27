@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.14.0 - versão de teste";
+const VERSAO_ATUAL = "v0.15.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -764,9 +764,15 @@ async function carregarLogoClubeConfig() {
             }
 
             // 1.2 Aplica o Favicon (Miniatura da Aba) e seu tamanho
-            const faviconEl = document.getElementById("favicon-site");
+            let faviconEl = document.getElementById("favicon-site");
             if (dados.faviconUrl) {
-                if (faviconEl) faviconEl.href = dados.faviconUrl;
+                if (faviconEl) faviconEl.remove();
+                const novoFavicon = document.createElement("link");
+                novoFavicon.rel = "icon";
+                novoFavicon.id = "favicon-site";
+                novoFavicon.href = dados.faviconUrl;
+                document.head.appendChild(novoFavicon);
+
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
                 if (previaFaviconAdmin) {
                     previaFaviconAdmin.src = dados.faviconUrl;
@@ -941,8 +947,6 @@ async function salvarLogoClubeAdmin(tipo = 'site') {
 
             await docRef.set(atualizacao, { merge: true });
 
-await docRef.set(atualizacao, { merge: true });
-
             alert(`${tipo === 'favicon' ? 'Miniatura' : `Logo do ${tipo.toUpperCase()}`} cadastrada com sucesso! 🛡️`);
             carregarLogoClubeConfig();
             if (fileInput) fileInput.value = "";
@@ -962,7 +966,7 @@ function alterarTamanhoLogoEmTempoReal(tamanho) {
     if (logoImg) {
         logoImg.style.maxHeight = tamanho + "px";
         logoImg.style.height = tamanho + "px";
-        logoImg.style.maxWidth = "250px";
+        logoImg.style.maxWidth = "300px";
         logoImg.style.width = "auto";
     }
 }
