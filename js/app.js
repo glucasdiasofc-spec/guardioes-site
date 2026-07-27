@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.96 - versão de teste";
+const VERSAO_ATUAL = "v0.0.98 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -169,7 +169,7 @@ async function carregarListaDeContatosChat() {
 
     let minhaUnidade = "";
     
-    // Descobre a unidade do usuario logado (se não for admin)
+    // Descobre a unidade do usuário logado (se não for admin)
     if (tipoUsuarioLogado !== "admin") {
         try {
             const snapUser = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", usernameLogado).get();
@@ -184,7 +184,7 @@ async function carregarListaDeContatosChat() {
     const divMinhaUnidade = document.getElementById("lista-msg-unidade");
     const divOutras = document.getElementById("lista-msg-outras");
 
-    // Limpa a tela
+    // Limpa a tela antes de renderizar
     if(divSuporte) divSuporte.innerHTML = "";
     if(divLideranca) divLideranca.innerHTML = "";
     if(divMinhaUnidade) divMinhaUnidade.innerHTML = "";
@@ -197,23 +197,41 @@ async function carregarListaDeContatosChat() {
 
     try {
         const snap = await window.ClubeDB.textoDB.collection("usuarios").get();
+        
+        if (snap.empty) {
+            console.warn("Nenhum usuário encontrado na coleção 'usuarios' do Firestore.");
+        }
+
         snap.forEach(doc => {
             const user = doc.data();
-            if (user.username === usernameLogado) return; // Não renderiza o próprio perfil logado
+            const usernameUser = user.username ? user.username.toLowerCase() : "";
+            
+            // Ignora o próprio usuário logado ou registros sem username válido
+            if (!usernameUser || usernameUser === usernameLogado.toLowerCase()) return;
 
-            const card = criarCardContatoChat(user.username, user.nomeReal || user.username, user.cargo || user.tipo, user.fotoUrl);
+            const card = criarCardContatoChat(
+                user.username, 
+                user.nomeReal || user.username, 
+                user.cargo || user.tipo || "Membro", 
+                user.fotoUrl
+            );
 
-            // Regras de Distribuição de Categoria
+            // Distribuição robusta nas categorias do Direct
             if (user.tipo === "Liderança") {
                 if (divLideranca) divLideranca.innerHTML += card;
-            } else if (user.unidade === minhaUnidade && minhaUnidade !== "") {
+            } else if (minhaUnidade && user.unidade && user.unidade.trim().toLowerCase() === minhaUnidade.trim().toLowerCase()) {
                 if (divMinhaUnidade) divMinhaUnidade.innerHTML += card;
             } else {
                 if (divOutras) divOutras.innerHTML += card;
             }
         });
 
-        // Oculta títulos de categorias que não têm membros
+        // Garante que o Admin também apareça na lista caso o usuário logado seja o admin
+        if (usernameLogado === "admin" && divOutras) {
+            // Admin vê todos os outros usuários na aba geral
+        }
+
+        // Exibe ou oculta os títulos das seções com base na existência de elementos
         const sessoes = [
             { div: divSuporte, titulo: document.getElementById("titulo-msg-suporte") },
             { div: divLideranca, titulo: document.getElementById("titulo-msg-lideranca") },
@@ -1448,7 +1466,7 @@ function renderizarCatalogoClasses(lista) {
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
                         </div>
                         <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}'  )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}')" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
                             <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                         </div>
                     </div>
