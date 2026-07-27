@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.85 - versão de teste";
+const VERSAO_ATUAL = "v0.0.86 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1742,29 +1742,49 @@ async function solicitarAprovacao(colecaoOrigem, itemId, nomeItem, callbackRecar
 
 async function carregarAprovacoesSite() {
     const container = document.getElementById("lista-aprovacoes-render-site");
+    const titulo = document.getElementById("titulo-aprovacoes-dinamico");
     if (!container) return;
     
     const usernameLogado = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado"); // 'admin' ou 'membro'
 
-    container.innerHTML = "<p style='color: #aaa; text-align: center; font-size: 13px;'>Buscando solicitações...</p>";
+    container.innerHTML = "<p style='color: #aaa; text-align: center; font-size: 13px;'>Buscando informações...</p>";
     
     try {
+        // 1. Identifica o perfil real do usuário (Desbravador ou Liderança)
+        let subTipo = "Desbravador";
+        if (tipoUsuario === "admin") {
+            subTipo = "Liderança";
+        } else {
+            const userSnap = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", usernameLogado).get();
+            if (!userSnap.empty) subTipo = userSnap.docs[0].data().tipo;
+        }
+
+        // 2. Ajusta o título da seção conforme o perfil
+        if (titulo) {
+            titulo.textContent = (subTipo === "Liderança") ? "Aprovações Pendentes" : "Minhas Avaliações";
+        }
+
+        // 3. Monta a Query de busca com base no nível de acesso
         let query = window.ClubeDB.textoDB.collection("pendencias_aprovacao").where("status", "==", "pendente");
         
-        // EXECUÇÃO DA LÓGICA SÊNIOR:
-        // Se NÃO for admin, filtra para mostrar APENAS o que foi destinado a este líder específico
-        if (tipoUsuario !== "admin") {
+        if (tipoUsuario === "admin") {
+            // Admin vê TUDO (sem filtros extras)
+        } else if (subTipo === "Liderança") {
+            // Liderança comum vê apenas o que foi destinado a ela
             query = query.where("liderDestino", "==", usernameLogado);
+        } else {
+            // Desbravador vê apenas as DELE
+            query = query.where("usuario", "==", usernameLogado);
         }
 
         const snapshot = await query.get();
         if (snapshot.empty) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 30px 10px; color: #8e8e8e;">
-                    <div style="font-size: 28px; margin-bottom: 8px;">🎉</div>
-                    <div style="font-weight: bold; color: #fff; font-size: 14px;">Tudo limpo!</div>
-                    Nenhuma solicitação aguardando sua aprovação.
+                    <div style="font-size: 28px; margin-bottom: 8px;">✨</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 14px;">Tudo em dia!</div>
+                    ${subTipo === "Liderança" ? "Nenhuma solicitação aguardando você." : "Você não tem especialidades em avaliação."}
                 </div>`;
             return;
         }
@@ -1774,35 +1794,52 @@ async function carregarAprovacoesSite() {
             const p = doc.data();
             const id = doc.id;
             const isClasse = p.colecaoOrigem === "progresso_classes";
-            const badgeCor = isClasse ? "#ffc107" : (p.colecaoOrigem === "progresso_mestrados" ? "#28a745" : "#007bff");
+            const isMestrado = p.colecaoOrigem === "progresso_mestrados";
+            const badgeCor = isClasse ? "#ffc107" : (isMestrado ? "#28a745" : "#007bff");
+            const icone = isClasse ? "🎒" : (isMestrado ? "🏆" : "🎯");
             
-            container.innerHTML += `
-                <div style="background: #121212; border: 1px solid #262626; padding: 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                        <div style="min-width: 0; flex: 1;">
-                            <div style="font-weight: bold; color: #fff; font-size: 14px; word-break: break-word;">${p.nomeItem}</div>
-                            <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Membro: <span style="color: #0095f6; font-weight: 600;">@${p.usuario}</span></div>
+            if (subTipo === "Liderança") {
+                // Renderização para ADMIN e LIDERANÇA (Com botões de ação)
+                container.innerHTML += `
+                    <div style="background: #121212; border: 1px solid #262626; padding: 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="font-weight: bold; color: #fff; font-size: 14px; word-break: break-word;">${p.nomeItem}</div>
+                                <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Membro: <span style="color: #0095f6; font-weight: 600;">@${p.usuario}</span></div>
+                            </div>
+                            <span style="background: ${badgeCor}; color: ${isClasse ? '#121212' : '#fff'}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">
+                                ${icone} ${isClasse ? 'Classe' : (isMestrado ? 'Mestrado' : 'Esp')}
+                            </span>
                         </div>
-                        <span style="background: ${badgeCor}; color: ${isClasse ? '#121212' : '#fff'}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">
-                            ${p.colecaoOrigem === 'progresso_classes' ? '🎒 Classe' : (p.colecaoOrigem === 'progresso_mestrados' ? '🏆 Mestrado' : '🎯 Esp')}
-                        </span>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 4px;">
-                        <button onclick="processarAprovacaoAdmin('${id}', true)" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Conceder</button>
-                        <button onclick="processarAprovacaoAdmin('${id}', false)" style="flex: 1; padding: 10px; background: #ff4d4d; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Recusar</button>
-                    </div>
-                    ${tipoUsuario === 'admin' ? `
-                    <div style="display: flex; margin-top: 10px;">
-                        <button onclick="abrirSeletorLideranca('${id}')" style="flex: 1; padding: 10px; background: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Encaminhar para Líder</button>
-                    </div>` : ''}
-                </div>
-            `;
+                        <div style="display: flex; gap: 10px; margin-top: 4px;">
+                            <button onclick="processarAprovacaoAdmin('${id}', true)" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Conceder</button>
+                            <button onclick="processarAprovacaoAdmin('${id}', false)" style="flex: 1; padding: 10px; background: #ff4d4d; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Recusar</button>
+                        </div>
+                        ${tipoUsuario === 'admin' ? `
+                        <div style="display: flex; margin-top: 10px;">
+                            <button onclick="abrirSeletorLideranca('${id}')" style="flex: 1; padding: 10px; background: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Encaminhar para Líder</button>
+                        </div>` : ''}
+                    </div>`;
+            } else {
+                // Renderização para DESBRAVADOR (Apenas status)
+                container.innerHTML += `
+                    <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                            <div style="width: 40px; height: 40px; background: #000; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px;">${icone}</div>
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="font-weight: bold; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.nomeItem}</div>
+                                <div style="color: #ffc107; font-size: 11px; font-weight: bold;">Aguardando Avaliação</div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
         });
     } catch (error) {
         console.error("Erro ao carregar aprovações:", error);
         container.innerHTML = "<p style='color: #ff4d4d; text-align: center; font-size: 12px;'>Erro ao carregar dados.</p>";
     }
 }
+
 
 
 
