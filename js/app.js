@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.6.0 - versão de teste";
+const VERSAO_ATUAL = "v0.7.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -1293,6 +1293,18 @@ window.alterarTamanhoLogoEmTempoReal = function(valor) {
 
 // 2. Salva o tamanho ideal no Firestore
 window.salvarTamanhoLogoBD = async function() {
+    const slider = document.getElementById("logo-tamanho-slider");
+    if (!slider) return;
+    
+    const tamanho = slider.value;
+    try {
+        const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
+        await docRef.set({ logoTamanho: Number(tamanho) }, { merge: true });
+        alert("Tamanho da logo salvo com sucesso! 📐");
+    } catch (e) {
+        alert("Erro ao salvar tamanho da logo: " + e.message);
+    }
+};
     try {
         const slider = document.getElementById("logo-tamanho-slider");
         const novoTamanho = slider.value;
@@ -1306,7 +1318,7 @@ window.salvarTamanhoLogoBD = async function() {
         console.error("Erro ao salvar tamanho:", error);
         alert("Erro ao salvar tamanho da logo no banco de dados.");
     }
-};
+;
 // ==========================================
 // === LÓGICA: PROGRESSO (ESP, MEST, CLAS) ===
 // ==========================================
