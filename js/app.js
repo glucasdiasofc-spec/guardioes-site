@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.24.0 - versão de teste";
+const VERSAO_ATUAL = "v0.25.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -330,13 +330,37 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             cabecalhoChat.style.width = "100%";
             cabecalhoChat.style.padding = "15px"; // Evita que os ícones fiquem esmagados e desvia do notch
             
-            // Alinha o bloco do perfil totalmente à direita
+            // Posiciona o botão de voltar na extrema esquerda
+            const btnVoltarChat = cabecalhoChat.querySelector("button") || cabecalhoChat.querySelector("[onclick*='fecharSalaChat']") || cabecalhoChat.firstElementChild;
+            if (btnVoltarChat) {
+                btnVoltarChat.style.order = "1";
+            }
+
+            // Alinha o bloco do perfil totalmente à direita e garante que nome/cargo não quebrem
+            infoUsuario.style.order = "2";
             infoUsuario.style.display = "flex";
             infoUsuario.style.alignItems = "center";
             infoUsuario.style.marginLeft = "auto"; 
             infoUsuario.style.textAlign = "right";
             infoUsuario.style.flexDirection = "row-reverse"; // Inverte para a foto ficar na extrema direita
             infoUsuario.style.gap = "10px";
+            infoUsuario.style.minWidth = "0";
+            infoUsuario.style.flexShrink = "1";
+
+            const nomeEl = document.getElementById("chat-nome-atual");
+            const cargoEl = document.getElementById("chat-cargo-atual");
+            if (nomeEl) {
+                nomeEl.style.whiteSpace = "nowrap";
+                nomeEl.style.overflow = "hidden";
+                nomeEl.style.textOverflow = "ellipsis";
+                nomeEl.style.maxWidth = "160px";
+            }
+            if (cargoEl) {
+                cargoEl.style.whiteSpace = "nowrap";
+                cargoEl.style.overflow = "hidden";
+                cargoEl.style.textOverflow = "ellipsis";
+                cargoEl.style.maxWidth = "160px";
+            }
         }
     }
 
