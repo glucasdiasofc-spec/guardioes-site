@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.92 - versão de teste";
+const VERSAO_ATUAL = "v0.0.93 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -2203,15 +2203,20 @@ function abrirModalGerenciarItem(tipo, id) {
 
     document.getElementById("edit-item-nome").value = item.nome;
     const fotoUrl = item.urlImagem || item.logo || "";
-    document.getElementById("edit-item-foto-url").value = fotoUrl;
+    // Garante que o campo hidden tenha a URL (mesmo que vazia, nunca undefined)
+    document.getElementById("edit-item-foto-url").value = fotoUrl || "";
     
     const previa = document.getElementById("previa-item-img");
     if (fotoUrl) {
         previa.src = fotoUrl;
         previa.style.display = "block";
+        // Força recarregamento da imagem caso já estivesse carregada
+        previa.onerror = function() { this.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"; };
     } else {
+        previa.src = "";
         previa.style.display = "none";
     }
+
 
     popularCategoriasNoModal(tipo, item.categoria || item.area || "");
     document.getElementById("edit-item-requisitos").value = (item.requisitos || []).join("\n");
@@ -2239,44 +2244,53 @@ async function salvarAlteracoesItemAdmin() {
     btn.disabled = true;
     btn.textContent = "Salvando...";
 
-    try {
-        let finalFotoUrl = document.getElementById("edit-item-foto-url").value;
+       try {
+        let finalFotoUrl = document.getElementById("edit-item-foto-url").value || "";
         const arquivoFoto = document.getElementById("edit-item-foto-file").files[0];
 
-        // Se houver novo arquivo, faz o upload para o Cloudinary (usando a lógica já existente no seu app)
+        // Se houver novo arquivo, faz o upload para o Cloudinary
         if (arquivoFoto) {
             const uploadResultado = await subirImagemParaNuvem(arquivoFoto);
             if (uploadResultado) {
                 finalFotoUrl = uploadResultado;
-            } else {
-                alert("Falha no upload da imagem. Verifique a conexão e tente novamente.");
-                return;
+                // Atualiza a prévia e o campo hidden com a nova URL
+                document.getElementById("edit-item-foto-url").value = finalFotoUrl;
+                const previa = document.getElementById("previa-item-img");
+                if (previa) {
+                    previa.src = finalFotoUrl;
+                    previa.style.display = "block";
+                }
             }
         }
 
-        // Protege contra undefined ou valores inválidos antes de enviar ao Firestore
-        const dados = {
-            nome,
+        // Proteção Máxima contra undefined usando o operador || ""
+        const db = window.ClubeDB.textoDB;
+        const dadosSeguros = {
+            nome: nome,
             urlImagem: finalFotoUrl || "",
-            categoria,
-            requisitos,
+            categoria: categoria,
+            requisitos: requisitos,
             atualizadoEm: new Date()
         };
 
         if (id) {
-            // Só atualiza urlImagem se tiver um valor válido ou string vazia (nunca undefined)
+            // .update() exige que NENHUM campo seja undefined
             await db.collection(tipo).doc(id).update({
-                nome: nome,
-                urlImagem: finalFotoUrl || "",
-                categoria: categoria,
-                requisitos: requisitos,
-                atualizadoEm: new Date()
+                nome: dadosSeguros.nome,
+                urlImagem: dadosSeguros.urlImagem,
+                categoria: dadosSeguros.categoria,
+                requisitos: dadosSeguros.requisitos,
+                atualizadoEm: dadosSeguros.atualizadoEm
             });
             alert("Item atualizado!");
         } else {
-            await db.collection(tipo).add(dados);
+            await db.collection(tipo).add(dadosSeguros);
             alert("Item criado!");
         }
+
+        // Limpa o input de arquivo para evitar re-upload acidental
+        const fileInput = document.getElementById("edit-item-foto-file");
+        if (fileInput) fileInput.value = "";
 
         fecharModalGerenciarItem();
         window.cacheEspecialidades = []; 
@@ -2291,26 +2305,39 @@ async function salvarAlteracoesItemAdmin() {
         btn.textContent = "Salvar";
     }
 
-}
 
 // Função auxiliar para upload (Reutilizando o padrão do seu app)
 async function subirImagemParaNuvem(arquivo) {
     try {
-        const formData = new FormData();
-        formData.append("file", arquivo);
-        formData.append("upload_preset", "guardioes_preset");
+        let urlUpload = "";
 
-        const resp = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
-            method: "POST",
-            body: formData
-        } );
+        // Tenta usar o método de upload do ClubeDB primeiro (que já funciona)
+        if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadFoto === "function") {
+            const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
+            urlUpload = res.url || res.secure_url || "";
+        } else if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadImagem === "function") {
+            const res = await window.ClubeDB.acoesAdmin.uploadImagem(arquivo);
+            urlUpload = res.url || res.secure_url || "";
+        } else {
+            // Fallback direto para o Cloudinary com o preset correto
+            const formData = new FormData();
+            formData.append("file", arquivo);
+            formData.append("upload_preset", "guardioes_preset");
 
-        if (!resp.ok) {
-            throw new Error("Erro na conexão com o servidor de imagens.");
+            const resp = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
+                method: "POST",
+                body: formData
+            } );
+
+            if (resp.ok) {
+                const data = await resp.json();
+                urlUpload = data.secure_url || data.url || "";
+            } else {
+                throw new Error("Não foi possível conectar ao servidor de imagens Cloudinary.");
+            }
         }
 
-        const data = await resp.json();
-        return data.secure_url || data.url || "";
+        return urlUpload;
     } catch (e) {
         console.error("Erro no upload Cloudinary:", e);
         return "";
