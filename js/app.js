@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.15.0 - versão de teste";
+const VERSAO_ATUAL = "v0.16.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -766,30 +766,53 @@ async function carregarLogoClubeConfig() {
             // 1.2 Aplica o Favicon (Miniatura da Aba) e seu tamanho
             let faviconEl = document.getElementById("favicon-site");
             if (dados.faviconUrl) {
-                if (faviconEl) faviconEl.remove();
-                const novoFavicon = document.createElement("link");
-                novoFavicon.rel = "icon";
-                novoFavicon.id = "favicon-site";
+                if (faviconEl && faviconEl.tagName === 'LINK') faviconEl.remove();
+                let novoFavicon = document.getElementById("favicon-site");
+                if (!novoFavicon) {
+                    novoFavicon = document.createElement("link");
+                    novoFavicon.rel = "icon";
+                    novoFavicon.id = "favicon-site";
+                    document.head.appendChild(novoFavicon);
+                }
                 novoFavicon.href = dados.faviconUrl;
-                document.head.appendChild(novoFavicon);
+
+                const tamanhoFavicon = dados.faviconTamanho || 80;
 
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
                 if (previaFaviconAdmin) {
                     previaFaviconAdmin.src = dados.faviconUrl;
-                    const tamanhoFavicon = dados.faviconTamanho || 80;
                     previaFaviconAdmin.style.setProperty('height', tamanhoFavicon + 'px', 'important');
                     previaFaviconAdmin.style.setProperty('max-height', tamanhoFavicon + 'px', 'important');
                     previaFaviconAdmin.style.setProperty('width', 'auto', 'important');
                 }
+
+                ['site-favicon', 'favicon-img', 'site-favicon-img', 'site-miniatura', 'miniatura-img'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.src = dados.faviconUrl;
+                        el.style.setProperty('height', tamanhoFavicon + 'px', 'important');
+                        el.style.setProperty('max-height', tamanhoFavicon + 'px', 'important');
+                        el.style.setProperty('width', 'auto', 'important');
+                        el.style.display = "inline-block";
+                    }
+                });
+
                 if (sliderFavicon && dados.faviconTamanho) {
                     sliderFavicon.value = dados.faviconTamanho;
                 }
             } else {
-                if (faviconEl) faviconEl.href = "";
+                if (faviconEl && faviconEl.tagName === 'LINK') faviconEl.href = "";
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
                 if (previaFaviconAdmin) {
                     previaFaviconAdmin.src = "";
                 }
+                ['site-favicon', 'favicon-img', 'site-favicon-img', 'site-miniatura', 'miniatura-img'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.src = "";
+                        el.style.display = "none";
+                    }
+                });
             }
 
             // 2. Aplica o Tamanho Responsivo da Logo (Se o admin tiver salvo)
@@ -825,6 +848,14 @@ function alterarTamanhoFaviconEmTempoReal(tamanho) {
         previaFaviconAdmin.style.setProperty('max-height', tamanho + 'px', 'important');
         previaFaviconAdmin.style.setProperty('width', 'auto', 'important');
     }
+    ['site-favicon', 'favicon-img', 'site-favicon-img', 'site-miniatura', 'miniatura-img'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.style.setProperty('height', tamanho + 'px', 'important');
+            el.style.setProperty('max-height', tamanho + 'px', 'important');
+            el.style.setProperty('width', 'auto', 'important');
+        }
+    });
 }
 
 async function salvarTamanhoFaviconBD() {
@@ -860,8 +891,12 @@ function usarTextoPadraoLogo(tipo = 'site') {
     } else if (tipo === 'favicon') {
         const faviconEl = document.getElementById("favicon-site");
         const previaFavicon = document.getElementById("previa-favicon");
-        if (faviconEl) faviconEl.href = "";
+        if (faviconEl && faviconEl.tagName === 'LINK') faviconEl.href = "";
         if (previaFavicon) previaFavicon.src = "";
+        ['site-favicon', 'favicon-img', 'site-favicon-img', 'site-miniatura', 'miniatura-img'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.src = "";
+        });
     }
 }
 
@@ -1409,6 +1444,14 @@ window.alterarTamanhoFaviconEmTempoReal = function(valor) {
         previaFaviconAdmin.style.setProperty('max-height', valor + 'px', 'important');
         previaFaviconAdmin.style.setProperty('width', 'auto', 'important');
     }
+    ['site-favicon', 'favicon-img', 'site-favicon-img', 'site-miniatura', 'miniatura-img'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.style.setProperty('height', valor + 'px', 'important');
+            el.style.setProperty('max-height', valor + 'px', 'important');
+            el.style.setProperty('width', 'auto', 'important');
+        }
+    });
 };
 
 window.salvarTamanhoFaviconBD = async function() {
