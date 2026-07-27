@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.5.0 - versão de teste";
+const VERSAO_ATUAL = "v0.6.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -713,29 +713,45 @@ async function carregarLogoClubeConfig() {
         const logoImg = document.getElementById("site-logo-img");
         const logoTexto = document.getElementById("site-logo-texto");
         const sliderTamanho = document.getElementById("logo-tamanho-slider");
+        
+        // Elemento da logo do App (adicione 'app-logo-img' na interface do app se necessário)
+        const logoAppImg = document.getElementById("app-logo-img");
 
         if (doc.exists) {
             const dados = doc.data();
             
-            // 1. Aplica a Imagem
+            // 1. Aplica a Imagem do Site
             if (dados.logoUrl) {
                 if (logoImg) {
                     logoImg.src = dados.logoUrl;
-                    // Correção: Mantém o alinhamento centralizado com inline-block e alinhamento vertical
                     logoImg.style.display = "inline-block";
                     logoImg.style.verticalAlign = "middle";
                     logoImg.style.objectFit = "contain";
                 }
                 if (logoTexto) logoTexto.style.display = "none";
                 
-                const previaAdmin = document.getElementById("previa-logo-clube");
+                // Atualiza a prévia do admin (usando id novo ou fallback para o id antigo)
+                const previaAdmin = document.getElementById("previa-logo-site") || document.getElementById("previa-logo-clube");
                 if (previaAdmin) previaAdmin.src = dados.logoUrl;
             } else {
                 if (logoImg) logoImg.style.display = "none";
                 if (logoTexto) logoTexto.style.display = "block";
                 
-                const previaAdmin = document.getElementById("previa-logo-clube");
+                const previaAdmin = document.getElementById("previa-logo-site") || document.getElementById("previa-logo-clube");
                 if (previaAdmin) previaAdmin.src = "";
+            }
+
+            // 1.1 Aplica a Imagem do App (Nova separação)
+            if (dados.logoAppUrl) {
+                if (logoAppImg) {
+                    logoAppImg.src = dados.logoAppUrl;
+                    logoAppImg.style.display = "block";
+                }
+                const previaAppAdmin = document.getElementById("previa-logo-app");
+                if (previaAppAdmin) previaAppAdmin.src = dados.logoAppUrl;
+            } else {
+                const previaAppAdmin = document.getElementById("previa-logo-app");
+                if (previaAppAdmin) previaAppAdmin.src = "";
             }
 
             // 2. Aplica o Tamanho Responsivo (Se o admin tiver salvo)
@@ -744,14 +760,12 @@ async function carregarLogoClubeConfig() {
                     logoImg.style.maxHeight = dados.logoTamanho + "px";
                     logoImg.style.height = dados.logoTamanho + "px";
                     logoImg.style.maxWidth = "250px";
-                    // Correção: Adiciona width 'auto' para que a imagem não desapareça no PC por ter apenas height definida
                     logoImg.style.width = "auto";
                 }
                 if (sliderTamanho) {
                     sliderTamanho.value = dados.logoTamanho;
                 }
             } else {
-                // Correção: Fallback de segurança para garantir que a imagem não suma caso não haja um tamanho salvo inicialmente
                 if (logoImg) {
                     logoImg.style.height = "50px";
                     logoImg.style.width = "auto";
@@ -766,23 +780,39 @@ async function carregarLogoClubeConfig() {
     }
 }
 
-function usarTextoPadraoLogo() {
-    const siteLogoImg = document.getElementById("site-logo-img");
-    const siteLogoTexto = document.getElementById("site-logo-texto");
-    const previaLogo = document.getElementById("previa-logo-clube");
+function usarTextoPadraoLogo(tipo = 'site') {
+    if (tipo === 'site') {
+        const siteLogoImg = document.getElementById("site-logo-img");
+        const siteLogoTexto = document.getElementById("site-logo-texto");
+        const previaLogo = document.getElementById("previa-logo-site") || document.getElementById("previa-logo-clube");
 
-    if (siteLogoImg) siteLogoImg.style.display = "none";
-    if (siteLogoTexto) siteLogoTexto.style.display = "block";
-    if (previaLogo) previaLogo.src = "";
+        if (siteLogoImg) siteLogoImg.style.display = "none";
+        if (siteLogoTexto) siteLogoTexto.style.display = "block";
+        if (previaLogo) previaLogo.src = "";
+    } else if (tipo === 'app') {
+        const appLogoImg = document.getElementById("app-logo-img");
+        const previaLogoApp = document.getElementById("previa-logo-app");
+        if (appLogoImg) appLogoImg.style.display = "none";
+        if (previaLogoApp) previaLogoApp.src = "";
+    }
 }
 
-async function salvarLogoClubeAdmin() {
-    const fileInput = document.getElementById("logo-clube-file");
-    const btn = document.getElementById("btn-salvar-logo");
+async function salvarLogoClubeAdmin(tipo = 'site') {
+    // Determina os IDs corretos baseados no tipo (Site ou App)
+    const inputId = tipo === 'site' ? "logo-site-file" : "logo-app-file";
+    let fileInput = document.getElementById(inputId);
+    
+    // Fallback de retrocompatibilidade para o ID antigo caso você ainda não tenha alterado no HTML
+    if (!fileInput && tipo === 'site') fileInput = document.getElementById("logo-clube-file");
+    
+    const btnId = tipo === 'site' ? "btn-salvar-logo-site" : "btn-salvar-logo-app";
+    let btn = document.getElementById(btnId);
+    if (!btn && tipo === 'site') btn = document.getElementById("btn-salvar-logo");
+
     const arquivo = fileInput ? fileInput.files[0] : null;
 
     if (!arquivo) {
-        alert("Selecione um arquivo de imagem para a logo!");
+        alert(`Selecione um arquivo de imagem para a logo do ${tipo}!`);
         return;
     }
 
@@ -797,12 +827,12 @@ async function salvarLogoClubeAdmin() {
 
         if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadFoto === "function") {
             const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
-            urlLogo = res.url;
-            idPublicoLogo = res.public_id;
+            urlLogo = res.url || res.secure_url || res;
+            idPublicoLogo = res.public_id || res.publicId || "";
         } else if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadImagem === "function") {
             const res = await window.ClubeDB.acoesAdmin.uploadImagem(arquivo);
-            urlLogo = res.url;
-            idPublicoLogo = res.public_id;
+            urlLogo = res.url || res.secure_url || res;
+            idPublicoLogo = res.public_id || res.publicId || "";
         } else {
             const formData = new FormData();
             formData.append("file", arquivo);
@@ -814,8 +844,8 @@ async function salvarLogoClubeAdmin() {
             });
             if (response.ok) {
                 const data = await response.json();
-                urlLogo = data.secure_url;
-                idPublicoLogo = data.public_id;
+                urlLogo = data.secure_url || data.url;
+                idPublicoLogo = data.public_id || "";
             } else {
                 throw new Error("Erro de conexão com o Cloudinary.");
             }
@@ -824,59 +854,73 @@ async function salvarLogoClubeAdmin() {
         if (urlLogo) {
             const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
             const doc = await docRef.get();
+            
+            // Define dinamicamente o campo do banco de dados que será salvo
+            const campoUrl = tipo === 'site' ? "logoUrl" : "logoAppUrl";
+            const campoId = tipo === 'site' ? "logoIdPublico" : "logoAppIdPublico";
+
             if (doc.exists) {
                 const dados = doc.data();
-                if (dados.logoIdPublico && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
+                const idPublicoAntigo = dados[campoId]; // Apaga apenas a logo correta (site ou app)
+                
+                if (idPublicoAntigo && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
                     try {
-                        await window.ClubeDB.acoesAdmin.excluirFoto(dados.logoIdPublico);
+                        await window.ClubeDB.acoesAdmin.excluirFoto(idPublicoAntigo);
                     } catch (errExcluir) {
-                        console.warn("Aviso ao limpar logo anterior:", errExcluir);
+                        console.warn(`Aviso ao limpar logo anterior do ${tipo}:`, errExcluir);
                     }
                 }
             }
 
-            // Proteção Máxima contra undefined usando o operador || ""
-            await docRef.set({
-                logoUrl: urlLogo || "",
-                logoIdPublico: idPublicoLogo || ""
-            }, { merge: true });
+            // Atualiza apenas os campos pertencentes ao tipo modificado
+            const atualizacao = {};
+            atualizacao[campoUrl] = urlLogo || "";
+            atualizacao[campoId] = idPublicoLogo || "";
 
-            alert("Logo do clube cadastrada com sucesso! 🛡️");
+            await docRef.set(atualizacao, { merge: true });
+
+            alert(`Logo do ${tipo.toUpperCase()} cadastrada com sucesso! 🛡️`);
             carregarLogoClubeConfig();
             if (fileInput) fileInput.value = "";
         }
     } catch (e) {
-        alert("Erro ao salvar logo: " + e.message);
+        alert(`Erro ao salvar logo do ${tipo}: ` + e.message);
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = "Salvar Logo";
+            btn.textContent = `Salvar Logo ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
         }
     }
 }
 
-async function removerLogoClubeAdmin() {
-    if (!confirm("Tem certeza que deseja usar o texto padrão ao invés de imagem?")) return;
+async function removerLogoClubeAdmin(tipo = 'site') {
+    if (!confirm(`Tem certeza que deseja remover a logo do ${tipo}?`)) return;
 
     try {
         const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
         const doc = await docRef.get();
+        
+        const campoUrl = tipo === 'site' ? "logoUrl" : "logoAppUrl";
+        const campoId = tipo === 'site' ? "logoIdPublico" : "logoAppIdPublico";
+
         if (doc.exists) {
             const dados = doc.data();
-            if (dados.logoIdPublico && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
-                await window.ClubeDB.acoesAdmin.excluirFoto(dados.logoIdPublico);
+            const idPublicoAntigo = dados[campoId];
+            if (idPublicoAntigo && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
+                await window.ClubeDB.acoesAdmin.excluirFoto(idPublicoAntigo);
             }
         }
 
-        await docRef.set({
-            logoUrl: "",
-            logoIdPublico: ""
-        }, { merge: true });
+        const atualizacao = {};
+        atualizacao[campoUrl] = "";
+        atualizacao[campoId] = "";
 
-        alert("Logo personalizada removida.");
-        usarTextoPadraoLogo();
+        await docRef.set(atualizacao, { merge: true });
+
+        alert(`Logo do ${tipo} removida.`);
+        usarTextoPadraoLogo(tipo);
     } catch (e) {
-        alert("Erro ao remover logo: " + e.message);
+        alert(`Erro ao remover logo do ${tipo}: ` + e.message);
     }
 }
 
