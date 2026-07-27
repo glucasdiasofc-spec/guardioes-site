@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.89 - versão de teste";
+const VERSAO_ATUAL = "v0.0.90 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -2362,25 +2362,25 @@ async function abrirModalGestaoConquistas(username) {
         const dados = snap.docs[0].data();
         const userId = snap.docs[0].id;
 
-        // Garante que os catálogos estejam carregados para pegar as imagens
+        // Garante que os catálogos estejam carregados para as imagens
         if (window.cacheEspecialidades.length === 0) await carregarEspecialidades();
 
         const renderSecao = (titulo, lista, campoNoBanco, cor, catalogo) => {
             if (!lista || lista.length === 0) return "";
             return `
-                <div>
-                    <h4 style="color: ${cor}; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; border-left: 3px solid ${cor}; padding-left: 8px;">${titulo}</h4>
-                    <div style="display: grid; gap: 8px;">
+                <div style="margin-bottom: 10px;">
+                    <h4 style="color: ${cor}; font-size: 12px; margin-bottom: 12px; text-transform: uppercase; border-left: 3px solid ${cor}; padding-left: 8px; font-weight: 800;">${titulo}</h4>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
                         ${lista.map(itemNome => {
                             const info = catalogo.find(c => c.nome === itemNome) || {};
                             const imgUrl = info.urlImagem || info.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
                             return `
-                                <div style="background: #121212; border: 1px solid #262626; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                                    <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
-                                        <img src="${imgUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px; border: 1px solid #333; flex-shrink: 0;">
-                                        <span style="color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${itemNome}</span>
+                                <div style="background: #121212; border: 1px solid #262626; padding: 10px; border-radius: 10px; display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box;">
+                                    <img src="${imgUrl}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid #333; flex-shrink: 0;">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="color: #fff; font-size: 13px; font-weight: 600; line-height: 1.3; word-break: break-word;">${itemNome}</div>
                                     </div>
-                                    <button onclick="removerConquistaUsuario('${userId}', '${campoNoBanco}', '${itemNome}' )" style="background: rgba(255, 77, 77, 0.1); color: #ff4d4d; border: 1px solid #ff4d4d; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold; cursor: pointer; transition: 0.2s; white-space: nowrap;">Apagar</button>
+                                    <button onclick="removerConquistaUsuario('${userId}', '${campoNoBanco}', '${itemNome}' )" style="background: #ff4d4d; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; flex-shrink: 0; height: 30px; line-height: 1;">Apagar</button>
                                 </div>
                             `;
                         }).join("")}
@@ -2402,6 +2402,7 @@ async function abrirModalGestaoConquistas(username) {
         listaEl.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao carregar detalhes.</p>";
     }
 }
+
 
 
 function fecharModalGestaoConquistas() {
