@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.25.0 - versão de teste";
+const VERSAO_ATUAL = "v0.26.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -317,7 +317,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     document.getElementById("chat-avatar-atual").src = fotoAlvo;
 
     // --- REORGANIZAÇÃO DE LAYOUT DO TOPO E BOTÕES VIA JS ---
-    // 1. Cabeçalho (Mover foto para a direita e botão voltar para a esquerda)
+    // 1. Cabeçalho (Perfil à esquerda e botão voltar à direita / canto oposto)
     const chatAvatar = document.getElementById("chat-avatar-atual");
     if (chatAvatar && chatAvatar.parentElement) {
         // Encontra o container dos textos do usuário
@@ -330,22 +330,22 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             cabecalhoChat.style.width = "100%";
             cabecalhoChat.style.padding = "15px"; // Evita que os ícones fiquem esmagados e desvia do notch
             
-            // Posiciona o botão de voltar na extrema esquerda
-            const btnVoltarChat = cabecalhoChat.querySelector("button") || cabecalhoChat.querySelector("[onclick*='fecharSalaChat']") || cabecalhoChat.firstElementChild;
-            if (btnVoltarChat) {
-                btnVoltarChat.style.order = "1";
-            }
-
-            // Alinha o bloco do perfil totalmente à direita e garante que nome/cargo não quebrem
-            infoUsuario.style.order = "2";
+            // Posiciona o bloco do perfil na extrema esquerda
+            infoUsuario.style.order = "1";
             infoUsuario.style.display = "flex";
             infoUsuario.style.alignItems = "center";
-            infoUsuario.style.marginLeft = "auto"; 
-            infoUsuario.style.textAlign = "right";
-            infoUsuario.style.flexDirection = "row-reverse"; // Inverte para a foto ficar na extrema direita
-            infoUsuario.style.gap = "10px";
+            infoUsuario.style.textAlign = "left";
+            infoUsuario.style.flexDirection = "row-reverse"; // Foto à esquerda, nome/cargo à direita
+            infoUsuario.style.gap = "12px";
             infoUsuario.style.minWidth = "0";
             infoUsuario.style.flexShrink = "1";
+
+            // Posiciona o botão de voltar na extrema direita (canto oposto ao perfil)
+            const btnVoltarChat = cabecalhoChat.querySelector("button") || cabecalhoChat.querySelector("[onclick*='fecharSalaChat']") || cabecalhoChat.firstElementChild;
+            if (btnVoltarChat) {
+                btnVoltarChat.style.order = "2";
+                btnVoltarChat.style.marginLeft = "auto";
+            }
 
             const nomeEl = document.getElementById("chat-nome-atual");
             const cargoEl = document.getElementById("chat-cargo-atual");
