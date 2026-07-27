@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.97 - versão de teste";
+const VERSAO_ATUAL = "v0.0.98 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -167,6 +167,14 @@ async function carregarListaDeContatosChat() {
     
     if (!usernameLogado) return;
 
+    const msgLoadingState = document.getElementById("msg-loading-state");
+    const msgEmptyState = document.getElementById("msg-empty-state");
+    const msgContatosContainer = document.getElementById("msg-contatos-container");
+
+    if (msgLoadingState) msgLoadingState.style.display = "block";
+    if (msgEmptyState) msgEmptyState.style.display = "none";
+    if (msgContatosContainer) msgContatosContainer.style.display = "none";
+
     let minhaUnidade = "";
     
     // Descobre a unidade do usuário logado (se não for admin)
@@ -190,48 +198,42 @@ async function carregarListaDeContatosChat() {
     if(divMinhaUnidade) divMinhaUnidade.innerHTML = "";
     if(divOutras) divOutras.innerHTML = "";
 
+    let contatosRenderizados = 0;
+
     // Fixa o Admin (Suporte) no topo para todos os membros comuns
     if (usernameLogado !== "admin" && divSuporte) {
-        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png");
+        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" );
+        contatosRenderizados++;
     }
 
     try {
         const snap = await window.ClubeDB.textoDB.collection("usuarios").get();
         
-        if (snap.empty) {
-            console.warn("Nenhum usuário encontrado na coleção 'usuarios' do Firestore.");
-        }
-
         snap.forEach(doc => {
             const user = doc.data();
             const usernameUser = user.username ? user.username.toLowerCase() : "";
             
-            // Ignora o próprio usuário logado ou registros sem username válido
             if (!usernameUser || usernameUser === usernameLogado.toLowerCase()) return;
 
             const card = criarCardContatoChat(
-                user.username, 
-                user.nomeReal || user.username, 
-                user.cargo || user.tipo || "Membro", 
+                user.username,
+                user.nomeReal || user.username,
+                user.cargo || user.tipo || "Membro",
                 user.fotoUrl
             );
 
-            // Distribuição robusta nas categorias do Direct
             if (user.tipo === "Liderança") {
                 if (divLideranca) divLideranca.innerHTML += card;
+                contatosRenderizados++;
             } else if (minhaUnidade && user.unidade && user.unidade.trim().toLowerCase() === minhaUnidade.trim().toLowerCase()) {
                 if (divMinhaUnidade) divMinhaUnidade.innerHTML += card;
+                contatosRenderizados++;
             } else {
                 if (divOutras) divOutras.innerHTML += card;
+                contatosRenderizados++;
             }
         });
 
-        // Garante que o Admin também apareça na lista caso o usuário logado seja o admin
-        if (usernameLogado === "admin" && divOutras) {
-            // Admin vê todos os outros usuários na aba geral
-        }
-
-        // Exibe ou oculta os títulos das seções com base na existência de elementos
         const sessoes = [
             { div: divSuporte, titulo: document.getElementById("titulo-msg-suporte") },
             { div: divLideranca, titulo: document.getElementById("titulo-msg-lideranca") },
@@ -245,24 +247,35 @@ async function carregarListaDeContatosChat() {
             }
         });
 
+        if (msgLoadingState) msgLoadingState.style.display = "none";
+        if (contatosRenderizados === 0) {
+            if (msgEmptyState) msgEmptyState.style.display = "block";
+        } else {
+            if (msgContatosContainer) msgContatosContainer.style.display = "block";
+        }
+
     } catch (erro) {
-        console.error("Erro ao carregar contatos do chat:", erro);
+        console.error("Erro ao carregar contatos:", erro);
+        if (msgLoadingState) msgLoadingState.style.display = "none";
+        if (msgEmptyState) msgEmptyState.style.display = "block";
     }
 }
+
 
 function criarCardContatoChat(username, nome, cargo, fotoUrl) {
     const img = fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
     return `
-        <div onclick="abrirSalaChat('${username}', '${nome}', '${cargo}', '${img}')" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer;">
+        <div onclick="abrirSalaChat('${username}', '${nome}', '${cargo}', '${img}' )" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; transition: background-color 0.2s ease;">
             <img src="${img}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
             <div style="flex: 1;">
-                <div style="color: #fff; font-size: 14px; font-weight: 500;">${nome}</div>
+                <div style="color: #fff; font-size: 15px; font-weight: 600;">${nome}</div>
                 <div style="color: #8e8e8e; font-size: 13px;">${cargo}</div>
             </div>
-            <div style="color: #262626; font-size: 18px; padding-right: 5px;">📷</div>
+            <div style="color: #8e8e8e; font-size: 20px; padding-right: 5px;">&gt;</div>
         </div>
     `;
 }
+
 
 // Cria um Hash único para as mensagens independentemente de quem enviou primeiro (Garante o P2P da mesma sala)
 function gerarIdChat(user1, user2) {
