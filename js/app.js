@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.90 - versão de teste";
+const VERSAO_ATUAL = "v0.0.91 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -2368,19 +2368,21 @@ async function abrirModalGestaoConquistas(username) {
         const renderSecao = (titulo, lista, campoNoBanco, cor, catalogo) => {
             if (!lista || lista.length === 0) return "";
             return `
-                <div style="margin-bottom: 10px;">
+                <div style="margin-bottom: 15px; width: 100%;">
                     <h4 style="color: ${cor}; font-size: 12px; margin-bottom: 12px; text-transform: uppercase; border-left: 3px solid ${cor}; padding-left: 8px; font-weight: 800;">${titulo}</h4>
-                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
                         ${lista.map(itemNome => {
                             const info = catalogo.find(c => c.nome === itemNome) || {};
                             const imgUrl = info.urlImagem || info.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
                             return `
-                                <div style="background: #121212; border: 1px solid #262626; padding: 10px; border-radius: 10px; display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box;">
-                                    <img src="${imgUrl}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid #333; flex-shrink: 0;">
-                                    <div style="flex: 1; min-width: 0;">
-                                        <div style="color: #fff; font-size: 13px; font-weight: 600; line-height: 1.3; word-break: break-word;">${itemNome}</div>
+                                <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box;">
+                                    <!-- Lado Esquerdo: Foto e Nome -->
+                                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                                        <img src="${imgUrl}" style="width: 38px; height: 38px; object-fit: cover; border-radius: 8px; border: 1px solid #333; flex-shrink: 0;">
+                                        <div style="color: #fff; font-size: 14px; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${itemNome}</div>
                                     </div>
-                                    <button onclick="removerConquistaUsuario('${userId}', '${campoNoBanco}', '${itemNome}' )" style="background: #ff4d4d; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; flex-shrink: 0; height: 30px; line-height: 1;">Apagar</button>
+                                    <!-- Lado Direito: Botão Fixo -->
+                                    <button onclick="removerConquistaUsuario('${userId}', '${campoNoBanco}', '${itemNome}' )" style="background: #ff4d4d; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 12px; font-weight: bold; cursor: pointer; flex-shrink: 0; margin-left: 10px; width: 80px; text-align: center;">Apagar</button>
                                 </div>
                             `;
                         }).join("")}
@@ -2402,6 +2404,7 @@ async function abrirModalGestaoConquistas(username) {
         listaEl.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao carregar detalhes.</p>";
     }
 }
+
 
 
 
