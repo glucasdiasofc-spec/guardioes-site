@@ -68,7 +68,6 @@
             <nav class="abas-admin">
                 <button class="aba-item ativa" onclick="mudarAbaAdmin('aba-unidades')">Unidades</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-membros')">Membros (Usuários)</button>
-                <button class="aba-item" onclick="mudarAbaAdmin('aba-aprovacoes')">Aprovações</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-customizacao')">Customização</button>
             </nav>
 
@@ -124,13 +123,6 @@
                 </div>
             </div>
 
-            <!-- Conteúdo: Aprovações Pendentes -->
-            <div id="aba-aprovacoes" class="conteudo-aba" style="display: none;">
-                <h3>Aprovações Pendentes</h3>
-                <div class="lista-itens-painel" id="lista-aprovacoes-render" style="width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 15px; box-sizing: border-box;">
-                    <p style="color: #8e8e8e; text-align: center;">Carregando solicitações...</p>
-                </div>
-            </div>
 
             <!-- Conteúdo: Customização -->
             <div id="aba-customizacao" class="conteudo-aba" style="display: none;">
@@ -340,6 +332,16 @@
                             + Iniciar Classe
                         </button>
                     </div>
+
+                    <!-- 4. SEÇÃO APROVAÇÕES PENDENTES (Movida do Painel Admin) -->
+                    <hr style="border: 0; border-top: 1px solid #262626; margin: 20px 0;">
+                    <div id="aba-aprovacoes-site" style="margin-bottom: 30px;">
+                        <h3 style="color: #fff; margin-bottom: 12px; font-size: 18px;">Aprovações Pendentes</h3>
+                        <div class="lista-itens-painel" id="lista-aprovacoes-render-site" style="width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 15px; box-sizing: border-box;">
+                            <p style="color: #8e8e8e; text-align: center;">Carregando solicitações...</p>
+                        </div>
+                    </div>
+
 
                 </div>
 

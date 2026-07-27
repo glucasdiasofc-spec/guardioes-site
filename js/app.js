@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.82 - versão de teste";
+const VERSAO_ATUAL = "v0.0.83 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -25,8 +25,9 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("tela-admin").style.display = "flex";
             carregarUnidadesCadastradas(); 
             carregarMembrosCadastrados();
-            carregarPendenciasAprovacaoAdmin();
+            // carregarPendenciasAprovacaoAdmin(); // Agora carregado na aba de especialidades do site
         } else {
+
             irParaSite();
         }
     }
@@ -126,8 +127,10 @@ function mudarSubAbaSite(abaAlvo) {
         // ... (resto da lógica de opacidade dos botões)
     } else if (abaAlvo === "especialidades") {
         espAba.style.display = "block";
-        carregarEspecialidades(); // Chama a função que criamos acima
+        carregarEspecialidades(); 
+        carregarAprovacoesSite(); // Carrega as aprovações na aba de especialidades
     } else if (abaAlvo === "perfil") {
+
         perfilAba.style.display = "block";
         carregarPerfilDoUsuario();
     }
@@ -1737,8 +1740,8 @@ async function solicitarAprovacao(colecaoOrigem, itemId, nomeItem, callbackRecar
 // CORE: LÓGICA DE APROVAÇÃO DE CONQUISTAS (ADMIN)
 // ==========================================
 
-async function carregarPendenciasAprovacaoAdmin() {
-    const container = document.getElementById("lista-aprovacoes-render");
+async function carregarAprovacoesSite() {
+    const container = document.getElementById("lista-aprovacoes-render-site");
     if (!container) return;
     
     container.innerHTML = "<p style='color: #aaa; text-align: center; font-size: 13px;'>Buscando solicitações...</p>";
@@ -1789,6 +1792,9 @@ async function carregarPendenciasAprovacaoAdmin() {
                         <button onclick="processarAprovacaoAdmin('${id}', true)" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: filter 0.2s;">Conceder</button>
                         <button onclick="processarAprovacaoAdmin('${id}', false)" style="flex: 1; padding: 10px; background: #ff4d4d; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: filter 0.2s;">Recusar</button>
                     </div>
+                    <div style="display: flex; margin-top: 10px;">
+                        <button onclick="enviarParaLideranca('${id}')" style="flex: 1; padding: 10px; background: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: filter 0.2s;">Enviar para Liderança</button>
+                    </div>
                 </div>
             `;
         });
@@ -1797,6 +1803,7 @@ async function carregarPendenciasAprovacaoAdmin() {
         container.innerHTML = "<p style='color: #ff4d4d; text-align: center; font-size: 12px;'>Falha ao carregar aprovações do banco.</p>";
     }
 }
+
 
 async function processarAprovacaoAdmin(idPendencia, statusAprovado) {
     try {
@@ -1847,13 +1854,28 @@ async function processarAprovacaoAdmin(idPendencia, statusAprovado) {
         
         // Deleta o registro de pendência
         await docRef.delete();
-        carregarPendenciasAprovacaoAdmin();
-        
-    } catch (e) {
-        console.error("Erro crítico ao processar ação:", e);
-        alert("Erro operacional ao atualizar registros: " + e.message);
+        carregarAprovacoesSite();
+    } catch (error) {
+        console.error("Erro ao processar aprovação:", error);
+        alert("Falha ao processar a solicitação.");
     }
 }
+
+// Nova função para enviar para outra liderança
+async function enviarParaLideranca(idPendencia) {
+    try {
+        const docRef = window.ClubeDB.textoDB.collection("pendencias_aprovacao").doc(idPendencia);
+        await docRef.update({
+            status: "aguardando_lideranca"
+        });
+        alert("Solicitação enviada para outra liderança aprovar.");
+        carregarAprovacoesSite(); // Recarrega a lista de aprovações
+    } catch (error) {
+        console.error("Erro ao enviar para liderança:", error);
+        alert("Falha ao enviar solicitação para outra liderança.");
+    }
+}
+
 
 // ==========================================
 // VISUALIZAÇÃO DE CONQUISTAS ADQUIRIDAS (TELA CHEIA)
