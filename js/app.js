@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.20.0 - versão de teste";
+const VERSAO_ATUAL = "v0.21.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -287,14 +287,78 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     
     // Altera interface
     document.getElementById("tela-lista-mensagens").style.display = "none";
-    document.getElementById("tela-sala-chat").style.display = "flex";
+    
+    const telaChat = document.getElementById("tela-sala-chat");
+    if (telaChat) {
+        telaChat.style.display = "flex";
+        telaChat.style.flexDirection = "column";
+        telaChat.style.height = "100%"; // Ocupa a tela inteira para empurrar a escrita para baixo
+    }
+
     document.getElementById("chat-nome-atual").textContent = nomeAlvo;
     document.getElementById("chat-cargo-atual").textContent = cargoAlvo;
     document.getElementById("chat-avatar-atual").src = fotoAlvo;
 
+    // --- REORGANIZAÇÃO DE LAYOUT DO TOPO E BOTÕES VIA JS ---
+    // 1. Cabeçalho (Mover foto para a direita e botão voltar para a esquerda)
+    const chatAvatar = document.getElementById("chat-avatar-atual");
+    if (chatAvatar && chatAvatar.parentElement) {
+        // Encontra o container dos textos do usuário
+        const infoUsuario = chatAvatar.parentElement; 
+        if (infoUsuario.parentElement) {
+            const cabecalhoChat = infoUsuario.parentElement; // A div principal do topo
+            cabecalhoChat.style.display = "flex";
+            cabecalhoChat.style.justifyContent = "space-between";
+            cabecalhoChat.style.alignItems = "center";
+            cabecalhoChat.style.width = "100%";
+            
+            // Alinha o bloco do perfil totalmente à direita
+            infoUsuario.style.display = "flex";
+            infoUsuario.style.alignItems = "center";
+            infoUsuario.style.marginLeft = "auto"; 
+            infoUsuario.style.textAlign = "right";
+            infoUsuario.style.flexDirection = "row-reverse"; // Inverte para a foto ficar na extrema direita
+            infoUsuario.style.gap = "10px";
+        }
+    }
+
+    // 2. Área de mensagens expandida
+    const container = document.getElementById("chat-mensagens-container");
+    if (container) {
+        container.style.flex = "1"; // Ocupa todo o espaço e empurra a caixa de texto pra baixo
+        container.style.overflowY = "auto";
+        container.style.marginBottom = "5px";
+    }
+
+    // 3. Área de escrever mensagem o mais baixo possível e botão menor ao lado
+    const inputMsg = document.getElementById("input-nova-mensagem");
+    if (inputMsg && inputMsg.parentElement) {
+        const areaDeEscrita = inputMsg.parentElement;
+        areaDeEscrita.style.display = "flex";
+        areaDeEscrita.style.alignItems = "center";
+        areaDeEscrita.style.gap = "8px";
+        areaDeEscrita.style.marginTop = "auto"; // Cola a caixa acima das abas
+        areaDeEscrita.style.padding = "10px";
+
+        inputMsg.style.flex = "1"; // Input cresce tomando o máximo de espaço sem amassar o botão
+        
+        // Puxa o botão de enviar (seja ele uma tag button ou o próximo elemento irmão)
+        const btnEnviar = areaDeEscrita.querySelector("button") || areaDeEscrita.nextElementSibling;
+        if (btnEnviar) {
+            btnEnviar.style.flexShrink = "0"; // Impede que o botão seja esmagado
+            btnEnviar.style.width = "40px"; // Toma muito menos espaço
+            btnEnviar.style.height = "40px";
+            btnEnviar.style.padding = "0";
+            btnEnviar.style.display = "flex";
+            btnEnviar.style.justifyContent = "center";
+            btnEnviar.style.alignItems = "center";
+            btnEnviar.style.borderRadius = "50%"; // Formato mais discreto ao lado
+        }
+    }
+    // --- FIM DA REORGANIZAÇÃO ---
+
     const meuUsername = localStorage.getItem("usernameLogado");
     const chatId = gerarIdChat(meuUsername, usernameAlvo);
-    const container = document.getElementById("chat-mensagens-container");
     
     container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando ao chat protegido...</p>";
 
