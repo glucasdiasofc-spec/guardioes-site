@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.23.0 - versão de teste";
+const VERSAO_ATUAL = "v0.24.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -288,6 +288,11 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     // Altera interface
     document.getElementById("tela-lista-mensagens").style.display = "none";
     
+    // Bloqueia o scroll do corpo da página para evitar conflitos e frestas ao rolar no celular
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.width = "100%";
+
     const telaChat = document.getElementById("tela-sala-chat");
     if (telaChat) {
         telaChat.style.display = "flex";
@@ -295,8 +300,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         
         // ESTILO TELA CHEIA ABSOLUTA (Estilo Instagram Direct)
         telaChat.style.position = "fixed";
-        telaChat.style.top = "0";
-        telaChat.style.left = "0";
+        telaChat.style.inset = "0";
         telaChat.style.width = "100%";
         telaChat.style.height = "100dvh"; // Prioriza viewports dinâmicas modernas
         if (!CSS.supports('height', '100dvh')) {
@@ -305,6 +309,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         telaChat.style.backgroundColor = "#000"; // Fundo idêntico ao Insta Dark mode
         telaChat.style.zIndex = "99999"; // Força sobreposição de todos os menus/abas nativas
         telaChat.style.boxSizing = "border-box";
+        telaChat.style.overflow = "hidden";
     }
 
     document.getElementById("chat-nome-atual").textContent = nomeAlvo;
@@ -436,6 +441,12 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 function fecharSalaChat() {
     document.getElementById("tela-sala-chat").style.display = "none";
     document.getElementById("tela-lista-mensagens").style.display = "flex";
+    
+    // Restaura o scroll do corpo da página ao fechar o chat
+    document.body.style.overflow = "";
+    document.body.style.position = "";
+    document.body.style.width = "";
+
     usuarioChatDestino = null;
     if (unsubscribeChatAtivo) {
         unsubscribeChatAtivo();
