@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.0.93 - versão de teste";
+const VERSAO_ATUAL = "v0.0.94 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -2304,10 +2304,11 @@ async function salvarAlteracoesItemAdmin() {
         btn.disabled = false;
         btn.textContent = "Salvar";
     }
-
+}
 
 // Função auxiliar para upload (Reutilizando o padrão do seu app)
 async function subirImagemParaNuvem(arquivo) {
+
     try {
         let urlUpload = "";
 
