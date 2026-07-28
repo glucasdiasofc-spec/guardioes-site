@@ -32,11 +32,33 @@ body {
 
 /* === TELA DE LOGIN === */
 .secao-app {
-    padding: 20px;
     width: 100%;
     flex: 1;
     display: flex;
     flex-direction: column;
+    padding: 20px;
+}
+
+/* Layout mais elegante para telas grandes */
+@media (min-width: 1024px) {
+    .secao-app {
+        padding-left: 7%;
+        padding-right: 7%;
+    }
+}
+
+@media (min-width: 1440px) {
+    .secao-app {
+        padding-left: 10%;
+        padding-right: 10%;
+    }
+}
+
+@media (min-width: 1920px) {
+    .secao-app {
+        padding-left: 14%;
+        padding-right: 14%;
+    }
 }
 
 .card-login {
