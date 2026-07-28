@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.32.0 - versão de teste";
+const VERSAO_ATUAL = "v0.33.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -335,70 +335,68 @@ if (chatAvatar && chatAvatar.parentElement) {
         cabecalhoChat.style.gap = "12px";
 
         // Botão voltar
-        const btnVoltarChat =
-            cabecalhoChat.querySelector("button") ||
-            cabecalhoChat.querySelector("[onclick*='fecharSalaChat']");
+const btnVoltarChat =
+    cabecalhoChat.querySelector("button") ||
+    cabecalhoChat.querySelector("[onclick*='fecharSalaChat']");
 
-        if (btnVoltarChat) {
-            btnVoltarChat.style.flex = "0 0 42px";
-            btnVoltarChat.style.width = "42px";
-            btnVoltarChat.style.height = "42px";
-            btnVoltarChat.style.display = "flex";
-            btnVoltarChat.style.alignItems = "center";
-            btnVoltarChat.style.justifyContent = "flex-start";
-            btnVoltarChat.style.padding = "0";
-            btnVoltarChat.style.margin = "0";
-            btnVoltarChat.style.order = "1";
-        }
+if (btnVoltarChat) {
+    btnVoltarChat.style.flex = "0 0 42px";
+    btnVoltarChat.style.width = "42px";
+    btnVoltarChat.style.height = "42px";
+    btnVoltarChat.style.display = "flex";
+    btnVoltarChat.style.alignItems = "center";
+    btnVoltarChat.style.justifyContent = "flex-end";
+    btnVoltarChat.style.padding = "0";
+    btnVoltarChat.style.margin = "0";
+    btnVoltarChat.style.order = "2";
+}
 
-        // Perfil
-        infoUsuario.style.order = "2";
-        infoUsuario.style.display = "flex";
-        infoUsuario.style.alignItems = "center";
-        infoUsuario.style.justifyContent = "flex-end";
-        infoUsuario.style.flex = "1";
-        infoUsuario.style.minWidth = "0";
-        infoUsuario.style.gap = "10px";
-        infoUsuario.style.overflow = "hidden";
+// Perfil
+infoUsuario.style.order = "1";
+infoUsuario.style.display = "flex";
+infoUsuario.style.alignItems = "center";
+infoUsuario.style.justifyContent = "flex-start";
+infoUsuario.style.flex = "1";
+infoUsuario.style.minWidth = "0";
+infoUsuario.style.gap = "10px";
+infoUsuario.style.overflow = "hidden";
 
-        const textoContainer = infoUsuario.querySelector("div");
-        if (textoContainer) {
-            textoContainer.style.order = "1";
-            textoContainer.style.flex = "1";
-            textoContainer.style.minWidth = "0";
-            textoContainer.style.textAlign = "right";
-            textoContainer.style.overflow = "hidden";
-        }
+const textoContainer = infoUsuario.querySelector("div");
+if (textoContainer) {
+    textoContainer.style.order = "2";
+    textoContainer.style.flex = "1";
+    textoContainer.style.minWidth = "0";
+    textoContainer.style.textAlign = "left";
+    textoContainer.style.overflow = "hidden";
+}
 
-        chatAvatar.style.order = "2";
-        chatAvatar.style.width = "38px";
-        chatAvatar.style.height = "38px";
-        chatAvatar.style.flex = "0 0 38px";
-        chatAvatar.style.borderRadius = "50%";
-        chatAvatar.style.objectFit = "cover";
+chatAvatar.style.order = "1";
+chatAvatar.style.width = "38px";
+chatAvatar.style.height = "38px";
+chatAvatar.style.flex = "0 0 38px";
+chatAvatar.style.borderRadius = "50%";
+chatAvatar.style.objectFit = "cover";
 
-        const nomeEl = document.getElementById("chat-nome-atual");
-        if (nomeEl) {
-            nomeEl.style.display = "block";
-            nomeEl.style.whiteSpace = "nowrap";
-            nomeEl.style.overflow = "hidden";
-            nomeEl.style.textOverflow = "ellipsis";
-            nomeEl.style.width = "100%";
-            nomeEl.style.maxWidth = "none";
-            nomeEl.style.textAlign = "right";
-        }
+const nomeEl = document.getElementById("chat-nome-atual");
+if (nomeEl) {
+    nomeEl.style.display = "block";
+    nomeEl.style.whiteSpace = "nowrap";
+    nomeEl.style.overflow = "hidden";
+    nomeEl.style.textOverflow = "ellipsis";
+    nomeEl.style.width = "100%";
+    nomeEl.style.maxWidth = "none";
+    nomeEl.style.textAlign = "left";
+}
 
-        const cargoEl = document.getElementById("chat-cargo-atual");
-        if (cargoEl) {
-            cargoEl.style.display = "block";
-            cargoEl.style.whiteSpace = "nowrap";
-            cargoEl.style.overflow = "hidden";
-            cargoEl.style.textOverflow = "ellipsis";
-            cargoEl.style.width = "100%";
-            cargoEl.style.maxWidth = "none";
-            cargoEl.style.textAlign = "right";
-        }
-    }
+const cargoEl = document.getElementById("chat-cargo-atual");
+if (cargoEl) {
+    cargoEl.style.display = "block";
+    cargoEl.style.whiteSpace = "nowrap";
+    cargoEl.style.overflow = "hidden";
+    cargoEl.style.textOverflow = "ellipsis";
+    cargoEl.style.width = "100%";
+    cargoEl.style.maxWidth = "none";
+    cargoEl.style.textAlign = "left";
 }
 // --- FIM DA REORGANIZAÇÃO ---
 
