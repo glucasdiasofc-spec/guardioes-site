@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.40.0 - versão alpha";
+const VERSAO_ATUAL = "v0.41.0 - versão alpha";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -55,7 +55,7 @@ async function executarLoginMembro() {
 
         carregarUnidadesCadastradas();
         carregarMembrosCadastrados();
-        carregarPendenciasAprovacaoAdmin();
+        if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite();
         return;
     }
 
@@ -107,7 +107,7 @@ function irParaPainel() {
     
     carregarUnidadesCadastradas();
     carregarMembrosCadastrados();
-    carregarPendenciasAprovacaoAdmin();
+    if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite();
 }
 
 // Alterna entre o Feed e o Perfil no App do Usuário
