@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.43.0 - versão alpha";
+const VERSAO_ATUAL = "v0.44.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1881,7 +1881,6 @@ async function solicitarInicioEspecialidade(id, nome) {
 
     const item = window.cacheEspecialidades.find(e => String(e.id) === String(id));
     const requisitos = item?.requisitos || [];
-    const urlFoto = item?.urlImagem || item?.logo || 'image_fc48ba.png';
     
     // Tenta carregar progresso existente se houver
     let progressoSalvo = [];
@@ -1912,10 +1911,7 @@ async function solicitarInicioEspecialidade(id, nome) {
     
     modal.innerHTML = `
         <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #262626;">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <img src="${urlFoto}" onerror="this.src='image_fc48ba.png'" style="width:36px; height:36px; object-fit:cover; border-radius:8px; flex-shrink:0;">
-                <h3 style="margin:0; font-size:16px;">${nome}</h3>
-            </div>
+            <h3 style="margin:0; font-size:16px;">${nome}</h3>
             <button id="btn-fechar-checklist-esp" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
         </div>
         <div style="flex:1; overflow-y:auto; padding:20px;">
@@ -1998,7 +1994,6 @@ async function solicitarInicioMestrado(id, nome) {
 
     const item = window.cacheMestrados.find(m => String(m.id) === String(id));
     const requisitos = item?.requisitos || [];
-    const urlFoto = item?.urlImagem || item?.logo || 'image_fc48ba.png';
     
     let progressoSalvo = [];
     try {
@@ -2027,10 +2022,7 @@ async function solicitarInicioMestrado(id, nome) {
     
     modal.innerHTML = `
         <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #262626;">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <img src="${urlFoto}" onerror="this.src='image_fc48ba.png'" style="width:36px; height:36px; object-fit:cover; border-radius:8px; flex-shrink:0;">
-                <h3 style="margin:0; font-size:16px;">${nome}</h3>
-            </div>
+            <h3 style="margin:0; font-size:16px;">${nome}</h3>
             <button id="btn-fechar-checklist-mest" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
         </div>
         <div style="flex:1; overflow-y:auto; padding:20px;">
@@ -2109,7 +2101,6 @@ async function solicitarInicioClasse(id, nome) {
 
     const item = window.cacheClasses.find(c => String(c.id) === String(id));
     const requisitos = item?.requisitos || [];
-    const urlFoto = item?.urlImagem || item?.logo || 'image_fc48ba.png';
     
     let progressoSalvo = [];
     try {
@@ -2138,10 +2129,7 @@ async function solicitarInicioClasse(id, nome) {
     
     modal.innerHTML = `
         <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #262626;">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <img src="${urlFoto}" onerror="this.src='image_fc48ba.png'" style="width:36px; height:36px; object-fit:cover; border-radius:8px; flex-shrink:0;">
-                <h3 style="margin:0; font-size:16px;">${nome}</h3>
-            </div>
+            <h3 style="margin:0; font-size:16px;">${nome}</h3>
             <button id="btn-fechar-checklist-class" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
         </div>
         <div style="flex:1; overflow-y:auto; padding:20px;">
