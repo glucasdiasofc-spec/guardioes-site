@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.27.0 - versão de teste";
+const VERSAO_ATUAL = "v0.28.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -317,7 +317,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     document.getElementById("chat-avatar-atual").src = fotoAlvo;
 
     // --- REORGANIZAÇÃO DE LAYOUT DO TOPO E BOTÕES VIA JS ---
-    // 1. Cabeçalho (Perfil à esquerda e botão voltar à direita / canto oposto)
+    // 1. Cabeçalho (Botão voltar na esquerda e Perfil ao lado no padrão Insta)
     const chatAvatar = document.getElementById("chat-avatar-atual");
     if (chatAvatar && chatAvatar.parentElement) {
         // Encontra o container dos textos do usuário
@@ -325,28 +325,35 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         if (infoUsuario.parentElement) {
             const cabecalhoChat = infoUsuario.parentElement; // A div principal do topo
             cabecalhoChat.style.display = "flex";
-            cabecalhoChat.style.justifyContent = "space-between";
+            cabecalhoChat.style.justifyContent = "flex-start";
             cabecalhoChat.style.alignItems = "center";
             cabecalhoChat.style.width = "100%";
-            cabecalhoChat.style.padding = "10px 15px"; // Evita cortes e ajusta o respiro lateral
+            cabecalhoChat.style.padding = "10px 15px";
+            cabecalhoChat.style.gap = "12px";
             
-            // Posiciona o bloco do perfil na extrema esquerda com flex-direction normal para manter a foto à esquerda
-            infoUsuario.style.order = "1";
+            // Botão de voltar na extrema esquerda (local correto no celular)
+            const btnVoltarChat = cabecalhoChat.querySelector("button") || cabecalhoChat.querySelector("[onclick*='fecharSalaChat']") || cabecalhoChat.firstElementChild;
+            if (btnVoltarChat) {
+                btnVoltarChat.style.order = "1";
+                btnVoltarChat.style.marginLeft = "0";
+                btnVoltarChat.style.marginRight = "0";
+                btnVoltarChat.style.flexShrink = "0";
+            }
+
+            // Bloco do perfil na ordem 2
+            infoUsuario.style.order = "2";
             infoUsuario.style.display = "flex";
             infoUsuario.style.alignItems = "center";
             infoUsuario.style.textAlign = "left";
-            infoUsuario.style.flexDirection = "row"; // Foto à esquerda, nome/cargo à direita sem cortes
+            infoUsuario.style.flexDirection = "row";
             infoUsuario.style.gap = "10px";
             infoUsuario.style.minWidth = "0";
-            infoUsuario.style.flexShrink = "0"; // Impede que o perfil seja comprimido ou cortado no celular
+            infoUsuario.style.flexShrink = "1";
 
-            // Posiciona o botão de voltar na extrema direita (canto oposto ao perfil)
-            const btnVoltarChat = cabecalhoChat.querySelector("button") || cabecalhoChat.querySelector("[onclick*='fecharSalaChat']") || cabecalhoChat.firstElementChild;
-            if (btnVoltarChat) {
-                btnVoltarChat.style.order = "2";
-                btnVoltarChat.style.marginLeft = "auto";
-                btnVoltarChat.style.marginRight = "0";
-                btnVoltarChat.style.flexShrink = "0";
+            // Garante que a foto venha primeiro do que o nome (Padrão Chat Instagram)
+            chatAvatar.style.order = "1";
+            if (infoUsuario.firstElementChild && infoUsuario.firstElementChild !== chatAvatar) {
+                infoUsuario.firstElementChild.style.order = "2";
             }
 
             const nomeEl = document.getElementById("chat-nome-atual");
@@ -356,12 +363,14 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 nomeEl.style.overflow = "hidden";
                 nomeEl.style.textOverflow = "ellipsis";
                 nomeEl.style.maxWidth = "140px";
+                nomeEl.style.textAlign = "left";
             }
             if (cargoEl) {
                 cargoEl.style.whiteSpace = "nowrap";
                 cargoEl.style.overflow = "hidden";
                 cargoEl.style.textOverflow = "ellipsis";
                 cargoEl.style.maxWidth = "140px";
+                cargoEl.style.textAlign = "left";
             }
         }
     }
