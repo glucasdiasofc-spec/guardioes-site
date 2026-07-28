@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.37.0 - versão de teste";
+const VERSAO_ATUAL = "v0.38.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -146,11 +146,11 @@ function mudarSubAbaSite(abaAlvo) {
                 elemento.style.transition = "transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)";
                 
                 if (moverParaEsquerda) {
-                    // Desloca de forma responsiva para a esquerda e reduz ligeiramente para maior elegância
-                    elemento.style.transform = "translateX(-35vw) scale(0.9)";
+                    // Desloca de forma responsiva usando translate3d para ativar a GPU e evitar "pulos" de renderização
+                    elemento.style.transform = "translate3d(-35vw, 0, 0) scale(0.9)";
                 } else {
-                    // Retorna a logo ao centro exato
-                    elemento.style.transform = "translateX(0) scale(1)";
+                    // Retorna a logo ao centro exato cravando as coordenadas na placa de vídeo
+                    elemento.style.transform = "translate3d(0, 0, 0) scale(1)";
                 }
             }
         });

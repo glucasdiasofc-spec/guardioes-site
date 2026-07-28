@@ -247,8 +247,25 @@
         </div>
 
 <!-- TELA DO SITE PRINCIPAL (ESTILO INSTAGRAM) -->
+        <style>
+            /* CORREÇÃO DO LAYOUT SHIFT (EVITA PULO DO CABEÇALHO) */
+            html, body {
+                scrollbar-gutter: stable; /* Reserva espaço nativo da scrollbar (Browsers Modernos) */
+            }
+            #tela-site {
+                /* Converte a tela em um App fixo: impede que o body crie barra de rolagem */
+                height: 100dvh !important; 
+                max-height: 100vh;
+                overflow: hidden !important; 
+            }
+            #conteudo-principal-site {
+                /* Força a rolagem a acontecer e impactar apenas internamente, sem empurrar o cabeçalho */
+                scrollbar-gutter: stable;
+                overflow-x: hidden;
+            }
+        </style>
 
-        <section id="tela-site" class="secao-app" style="display: none; flex-direction: column; background-color: #000; height: 100%; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <section id="tela-site" class="secao-app" style="display: none; flex-direction: column; background-color: #000; height: 100dvh; max-height: 100vh; overflow: hidden; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             
             <!-- Header Minimalista -->
             <header style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid #262626; background: #000; height: 50px; box-sizing: border-box; width: 100%; position: relative; z-index: 200;">
