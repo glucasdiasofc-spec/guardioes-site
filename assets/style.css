@@ -21,10 +21,10 @@ body {
 
 #app-core {
     width: 100%;
-    max-width: 480px; /* Mantém proporção de aplicativo de celular no PC */
+    max-width: 100%;
     min-height: 100vh;
     background-color: #1a1a1a;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    box-shadow: none;
     display: flex;
     flex-direction: column;
     position: relative;
