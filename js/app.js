@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.33.0 - versão de teste";
+const VERSAO_ATUAL = "v0.32.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -397,6 +397,8 @@ if (cargoEl) {
     cargoEl.style.width = "100%";
     cargoEl.style.maxWidth = "none";
     cargoEl.style.textAlign = "left";
+}
+    }
 }
 // --- FIM DA REORGANIZAÇÃO ---
 
