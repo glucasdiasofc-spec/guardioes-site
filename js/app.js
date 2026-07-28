@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.28.0 - versão de teste";
+const VERSAO_ATUAL = "v0.29.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -332,7 +332,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             cabecalhoChat.style.gap = "12px";
             
             // Botão de voltar na extrema esquerda (local correto no celular)
-            const btnVoltarChat = cabecalhoChat.querySelector("button") || cabecalhoChat.querySelector("[onclick*='fecharSalaChat']") || cabecalhoChat.firstElementChild;
+            const btnVoltarChat = cabecalhoChat.querySelector("button") || cabecalhoChat.querySelector("[onclick*='fecharSalaChat']");
             if (btnVoltarChat) {
                 btnVoltarChat.style.order = "1";
                 btnVoltarChat.style.marginLeft = "0";
@@ -352,8 +352,11 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
             // Garante que a foto venha primeiro do que o nome (Padrão Chat Instagram)
             chatAvatar.style.order = "1";
-            if (infoUsuario.firstElementChild && infoUsuario.firstElementChild !== chatAvatar) {
-                infoUsuario.firstElementChild.style.order = "2";
+            const textoContainer = chatAvatar.nextElementSibling || Array.from(infoUsuario.children).find(el => el !== chatAvatar);
+            if (textoContainer) {
+                textoContainer.style.order = "2";
+                textoContainer.style.minWidth = "0";
+                textoContainer.style.flex = "1";
             }
 
             const nomeEl = document.getElementById("chat-nome-atual");
