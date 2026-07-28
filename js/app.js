@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.39.0 - versão alpha";
+const VERSAO_ATUAL = "v0.40.0 - versão alpha";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -696,7 +696,7 @@ async function carregarPerfilDoUsuario() {
             if (especialidadesEl) {
                 if (qtdEspecialidades > 0) {
                     especialidadesEl.innerHTML = dados.especialidades.map(esp => `
-                        <span style="background: #262626; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: nowrap;">
+                        <span style="background: #262626; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word;">
                             🎖️ ${esp}
                         </span>
                     `).join("");
@@ -714,7 +714,7 @@ async function carregarPerfilDoUsuario() {
             if (mestradosEl) {
                 if (qtdMestrados > 0) {
                     mestradosEl.innerHTML = dados.mestrados.map(mest => `
-                        <span style="background: #1e3a1e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: nowrap; border: 1px solid #2e5a2e;">
+                        <span style="background: #1e3a1e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word; border: 1px solid #2e5a2e;">
                             🏆 ${mest}
                         </span>
                     `).join("");

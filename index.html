@@ -388,7 +388,56 @@
                     </div>
                 </div>
             <!-- ABA 3: PROGRESSO (ESPECIALIDADES, MESTRADOS E CLASSES) -->
-            <div id="sub-aba-especialidades" style="display: none; padding: 35px 16px 80px 16px;">
+            <div id="sub-aba-especialidades" style="display: none; padding: 35px 16px 80px 16px; box-sizing: border-box; width: 100%; overflow-x: hidden;">
+                <style>
+                    /* Trava protetiva responsiva para impedir vazamento de listas dinâmicas no mobile */
+                    #sub-aba-especialidades, #sub-aba-especialidades * {
+                        box-sizing: border-box !important;
+                    }
+                    #lista-especialidades-progresso-container,
+                    #lista-mestrados-progresso-container,
+                    #lista-classes-progresso-container {
+                        display: grid !important;
+                        grid-template-columns: minmax(0, 1fr) !important;
+                        gap: 10px !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                    }
+                    #lista-especialidades-container,
+                    #lista-mestrados-container,
+                    #lista-classes-container {
+                        display: flex !important;
+                        flex-direction: column !important;
+                        gap: 20px !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                    }
+                    /* Força os elementos internos e botões dinâmicos a quebrarem linha em telas menores */
+                    #lista-especialidades-progresso-container > div,
+                    #lista-mestrados-progresso-container > div,
+                    #lista-classes-progresso-container > div,
+                    #lista-especialidades-container > div,
+                    #lista-mestrados-container > div,
+                    #lista-classes-container > div {
+                        display: flex !important;
+                        flex-wrap: wrap !important;
+                        align-items: center !important;
+                        justify-content: space-between !important;
+                        gap: 12px !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        word-break: break-word !important;
+                    }
+                    /* Evita estouro por conta de títulos ou botões longos */
+                    #sub-aba-especialidades button,
+                    #sub-aba-especialidades p,
+                    #sub-aba-especialidades span,
+                    #sub-aba-especialidades h3,
+                    #sub-aba-especialidades h4 {
+                        white-space: normal !important;
+                        word-break: break-word !important;
+                    }
+                </style>
                 
                 <!-- TELA 1: EM ANDAMENTO (Principal) -->
                 <div id="tela-especialidades-andamento">
