@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.34.0 - versão de teste";
+const VERSAO_ATUAL = "v0.35.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -135,24 +135,103 @@ function mudarSubAbaSite(abaAlvo) {
     if (btnMsg) btnMsg.style.opacity = "0.5";
     if (btnPerfil) btnPerfil.style.opacity = "0.5";
 
-    // Mostra a aba selecionada e destaca o respectivo ícone
-    if (abaAlvo === "feed") {
-        if (feedAba) feedAba.style.display = "block";
-        if (btnFeed) btnFeed.style.opacity = "1";
-    } else if (abaAlvo === "especialidades") {
-        if (espAba) espAba.style.display = "block";
-        if (btnEsp) btnEsp.style.opacity = "1";
-        carregarEspecialidades(); 
-        if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite(); 
-    } else if (abaAlvo === "mensagens") {
-        if (msgAba) msgAba.style.display = "flex";
-        if (btnMsg) btnMsg.style.opacity = "1";
-        carregarListaDeContatosChat(); // Inicializa o chat
-    } else if (abaAlvo === "perfil") {
-        if (perfilAba) perfilAba.style.display = "block";
-        if (btnPerfil) btnPerfil.style.opacity = "1";
-        carregarPerfilDoUsuario();
+    // ===== CONTROLE DA ANIMAÇÃO DA LOGO DO HEADER =====
+const logoImg = document.getElementById("site-logo-img");
+const logoTexto = document.getElementById("site-logo-texto");
+
+if (logoImg) {
+    logoImg.style.transition = "all .45s cubic-bezier(.22,.61,.36,1)";
+}
+
+if (logoTexto) {
+    logoTexto.style.transition = "all .45s cubic-bezier(.22,.61,.36,1)";
+}
+
+// ===== Mostra a aba selecionada e destaca o respectivo ícone =====
+if (abaAlvo === "feed") {
+
+    if (feedAba) feedAba.style.display = "block";
+    if (btnFeed) btnFeed.style.opacity = "1";
+
+    // Logo centralizada
+    if (logoImg) {
+        logoImg.style.display = "block";
+        logoImg.style.margin = "0 auto";
+        logoImg.style.transform = "translateX(0)";
     }
+
+    if (logoTexto) {
+        logoTexto.style.display = "block";
+        logoTexto.style.margin = "0 auto";
+        logoTexto.style.transform = "translateX(0)";
+        logoTexto.style.textAlign = "center";
+    }
+
+} else if (abaAlvo === "especialidades") {
+
+    if (espAba) espAba.style.display = "block";
+    if (btnEsp) btnEsp.style.opacity = "1";
+
+    if (logoImg) {
+        logoImg.style.display = "block";
+        logoImg.style.margin = "0 auto";
+        logoImg.style.transform = "translateX(0)";
+    }
+
+    if (logoTexto) {
+        logoTexto.style.display = "block";
+        logoTexto.style.margin = "0 auto";
+        logoTexto.style.transform = "translateX(0)";
+        logoTexto.style.textAlign = "center";
+    }
+
+    carregarEspecialidades();
+
+    if (typeof carregarAprovacoesSite === "function") {
+        carregarAprovacoesSite();
+    }
+
+} else if (abaAlvo === "mensagens") {
+
+    if (msgAba) msgAba.style.display = "flex";
+    if (btnMsg) btnMsg.style.opacity = "1";
+
+    if (logoImg) {
+        logoImg.style.display = "block";
+        logoImg.style.margin = "0 auto";
+        logoImg.style.transform = "translateX(0)";
+    }
+
+    if (logoTexto) {
+        logoTexto.style.display = "block";
+        logoTexto.style.margin = "0 auto";
+        logoTexto.style.transform = "translateX(0)";
+        logoTexto.style.textAlign = "center";
+    }
+
+    carregarListaDeContatosChat();
+
+} else if (abaAlvo === "perfil") {
+
+    if (perfilAba) perfilAba.style.display = "block";
+    if (btnPerfil) btnPerfil.style.opacity = "1";
+
+    // ===== Anima a logo para o lado esquerdo =====
+    if (logoImg) {
+        logoImg.style.display = "block";
+        logoImg.style.margin = "0";
+        logoImg.style.transform = "translateX(-18px)";
+    }
+
+    if (logoTexto) {
+        logoTexto.style.display = "block";
+        logoTexto.style.margin = "0";
+        logoTexto.style.transform = "translateX(-18px)";
+        logoTexto.style.textAlign = "left";
+    }
+
+    carregarPerfilDoUsuario();
+}
 }
 
 // ==========================================
