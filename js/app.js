@@ -3,7 +3,14 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.41.0 - versão alpha";
+const VERSAO_ATUAL = "v0.42.0 - versão alpha";
+
+// Função de compatibilidade global para resolver o erro de processamento de aprovação
+function carregarPendenciasAprovacaoAdmin() {
+    if (typeof carregarAprovacoesSite === 'function') {
+        carregarAprovacoesSite();
+    }
+}
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
