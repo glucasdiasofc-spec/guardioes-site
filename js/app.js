@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.36.0 - versão de teste";
+const VERSAO_ATUAL = "v0.37.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -135,24 +135,48 @@ function mudarSubAbaSite(abaAlvo) {
     if (btnMsg) btnMsg.style.opacity = "0.5";
     if (btnPerfil) btnPerfil.style.opacity = "0.5";
 
+    // Lógica de Animação da Logo do Cabeçalho
+    const animarLogoParaEsquerda = (moverParaEsquerda) => {
+        const logoImg = document.getElementById("site-logo-img");
+        const logoTexto = document.getElementById("site-logo-texto");
+        
+        [logoImg, logoTexto].forEach(elemento => {
+            if (elemento && elemento.style.display !== "none") {
+                // Aplica a transição suave
+                elemento.style.transition = "transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)";
+                
+                if (moverParaEsquerda) {
+                    // Desloca de forma responsiva para a esquerda e reduz ligeiramente para maior elegância
+                    elemento.style.transform = "translateX(-35vw) scale(0.9)";
+                } else {
+                    // Retorna a logo ao centro exato
+                    elemento.style.transform = "translateX(0) scale(1)";
+                }
+            }
+        });
+    };
+
+    // Executa a animação dinamicamente com base na aba clicada
+    animarLogoParaEsquerda(abaAlvo === "perfil");
+
     // Mostra a aba selecionada e destaca o respectivo ícone
-if (abaAlvo === "feed") {
-    if (feedAba) feedAba.style.display = "block";
-    if (btnFeed) btnFeed.style.opacity = "1";
-} else if (abaAlvo === "especialidades") {
-    if (espAba) espAba.style.display = "block";
-    if (btnEsp) btnEsp.style.opacity = "1";
-    carregarEspecialidades(); 
-    if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite(); 
-} else if (abaAlvo === "mensagens") {
-    if (msgAba) msgAba.style.display = "flex";
-    if (btnMsg) btnMsg.style.opacity = "1";
-    carregarListaDeContatosChat(); // Inicializa o chat
-} else if (abaAlvo === "perfil") {
-    if (perfilAba) perfilAba.style.display = "block";
-    if (btnPerfil) btnPerfil.style.opacity = "1";
-    carregarPerfilDoUsuario();
-}
+    if (abaAlvo === "feed") {
+        if (feedAba) feedAba.style.display = "block";
+        if (btnFeed) btnFeed.style.opacity = "1";
+    } else if (abaAlvo === "especialidades") {
+        if (espAba) espAba.style.display = "block";
+        if (btnEsp) btnEsp.style.opacity = "1";
+        carregarEspecialidades(); 
+        if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite(); 
+    } else if (abaAlvo === "mensagens") {
+        if (msgAba) msgAba.style.display = "flex";
+        if (btnMsg) btnMsg.style.opacity = "1";
+        carregarListaDeContatosChat(); // Inicializa o chat
+    } else if (abaAlvo === "perfil") {
+        if (perfilAba) perfilAba.style.display = "block";
+        if (btnPerfil) btnPerfil.style.opacity = "1";
+        carregarPerfilDoUsuario();
+    }
 }
 
 // ==========================================
