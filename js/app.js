@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.31.0 - versão de teste";
+const VERSAO_ATUAL = "v0.32.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -317,67 +317,90 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     document.getElementById("chat-avatar-atual").src = fotoAlvo;
 
     // --- REORGANIZAÇÃO DE LAYOUT DO TOPO E BOTÕES VIA JS ---
-    // 1. Cabeçalho (Botão voltar na esquerda e Perfil na direita)
-    const chatAvatar = document.getElementById("chat-avatar-atual");
-    if (chatAvatar && chatAvatar.parentElement) {
-        const infoUsuario = chatAvatar.parentElement; 
-        if (infoUsuario.parentElement) {
-            const cabecalhoChat = infoUsuario.parentElement;
-            cabecalhoChat.style.display = "flex";
-            cabecalhoChat.style.justifyContent = "space-between";
-            cabecalhoChat.style.alignItems = "center";
-            cabecalhoChat.style.width = "100%";
-            cabecalhoChat.style.padding = "10px 16px";
-            cabecalhoChat.style.boxSizing = "border-box";
-            
-            const btnVoltarChat = cabecalhoChat.querySelector("button") || cabecalhoChat.querySelector("[onclick*='fecharSalaChat']");
-            if (btnVoltarChat) {
-                btnVoltarChat.style.order = "1";
-                btnVoltarChat.style.marginLeft = "0";
-                btnVoltarChat.style.marginRight = "0";
-                btnVoltarChat.style.flexShrink = "0";
-            }
+const chatAvatar = document.getElementById("chat-avatar-atual");
 
-            infoUsuario.style.order = "2";
-            infoUsuario.style.display = "flex";
-            infoUsuario.style.alignItems = "center";
-            infoUsuario.style.textAlign = "right";
-            infoUsuario.style.gap = "12px";
-            infoUsuario.style.minWidth = "0";
-            infoUsuario.style.flexShrink = "1";
+if (chatAvatar && chatAvatar.parentElement) {
+    const infoUsuario = chatAvatar.parentElement;
 
-            const textoContainer = infoUsuario.querySelector("div");
-            if (textoContainer) {
-                textoContainer.style.order = "1";
-                textoContainer.style.textAlign = "right";
-                textoContainer.style.minWidth = "0";
-            }
-            chatAvatar.style.order = "2";
-            chatAvatar.style.flexShrink = "0";
+    if (infoUsuario.parentElement) {
+        const cabecalhoChat = infoUsuario.parentElement;
 
-            const nomeEl = document.getElementById("chat-nome-atual");
-            const cargoEl = document.getElementById("chat-cargo-atual");
-            if (nomeEl) {
-                nomeEl.style.display = "block";
-                nomeEl.style.visibility = "visible";
-                nomeEl.style.whiteSpace = "nowrap";
-                nomeEl.style.overflow = "hidden";
-                nomeEl.style.textOverflow = "ellipsis";
-                nomeEl.style.maxWidth = "150px";
-                nomeEl.style.textAlign = "right";
-            }
-            if (cargoEl) {
-                cargoEl.style.display = "block";
-                cargoEl.style.visibility = "visible";
-                cargoEl.style.whiteSpace = "nowrap";
-                cargoEl.style.overflow = "hidden";
-                cargoEl.style.textOverflow = "ellipsis";
-                cargoEl.style.maxWidth = "150px";
-                cargoEl.style.textAlign = "right";
-            }
+        // Cabeçalho
+        cabecalhoChat.style.display = "flex";
+        cabecalhoChat.style.alignItems = "center";
+        cabecalhoChat.style.justifyContent = "space-between";
+        cabecalhoChat.style.width = "100%";
+        cabecalhoChat.style.padding = "10px 16px";
+        cabecalhoChat.style.boxSizing = "border-box";
+        cabecalhoChat.style.gap = "12px";
+
+        // Botão voltar
+        const btnVoltarChat =
+            cabecalhoChat.querySelector("button") ||
+            cabecalhoChat.querySelector("[onclick*='fecharSalaChat']");
+
+        if (btnVoltarChat) {
+            btnVoltarChat.style.flex = "0 0 42px";
+            btnVoltarChat.style.width = "42px";
+            btnVoltarChat.style.height = "42px";
+            btnVoltarChat.style.display = "flex";
+            btnVoltarChat.style.alignItems = "center";
+            btnVoltarChat.style.justifyContent = "flex-start";
+            btnVoltarChat.style.padding = "0";
+            btnVoltarChat.style.margin = "0";
+            btnVoltarChat.style.order = "1";
+        }
+
+        // Perfil
+        infoUsuario.style.order = "2";
+        infoUsuario.style.display = "flex";
+        infoUsuario.style.alignItems = "center";
+        infoUsuario.style.justifyContent = "flex-end";
+        infoUsuario.style.flex = "1";
+        infoUsuario.style.minWidth = "0";
+        infoUsuario.style.gap = "10px";
+        infoUsuario.style.overflow = "hidden";
+
+        const textoContainer = infoUsuario.querySelector("div");
+        if (textoContainer) {
+            textoContainer.style.order = "1";
+            textoContainer.style.flex = "1";
+            textoContainer.style.minWidth = "0";
+            textoContainer.style.textAlign = "right";
+            textoContainer.style.overflow = "hidden";
+        }
+
+        chatAvatar.style.order = "2";
+        chatAvatar.style.width = "38px";
+        chatAvatar.style.height = "38px";
+        chatAvatar.style.flex = "0 0 38px";
+        chatAvatar.style.borderRadius = "50%";
+        chatAvatar.style.objectFit = "cover";
+
+        const nomeEl = document.getElementById("chat-nome-atual");
+        if (nomeEl) {
+            nomeEl.style.display = "block";
+            nomeEl.style.whiteSpace = "nowrap";
+            nomeEl.style.overflow = "hidden";
+            nomeEl.style.textOverflow = "ellipsis";
+            nomeEl.style.width = "100%";
+            nomeEl.style.maxWidth = "none";
+            nomeEl.style.textAlign = "right";
+        }
+
+        const cargoEl = document.getElementById("chat-cargo-atual");
+        if (cargoEl) {
+            cargoEl.style.display = "block";
+            cargoEl.style.whiteSpace = "nowrap";
+            cargoEl.style.overflow = "hidden";
+            cargoEl.style.textOverflow = "ellipsis";
+            cargoEl.style.width = "100%";
+            cargoEl.style.maxWidth = "none";
+            cargoEl.style.textAlign = "right";
         }
     }
-    // --- FIM DA REORGANIZAÇÃO ---
+}
+// --- FIM DA REORGANIZAÇÃO ---
 
     // 2. Área de mensagens expandida
     const container = document.getElementById("chat-mensagens-container");
