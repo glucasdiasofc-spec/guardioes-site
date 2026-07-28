@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.30.0 - versão de teste";
+const VERSAO_ATUAL = "v0.31.0 - versão de teste";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -320,10 +320,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     // 1. Cabeçalho (Botão voltar na esquerda e Perfil na direita)
     const chatAvatar = document.getElementById("chat-avatar-atual");
     if (chatAvatar && chatAvatar.parentElement) {
-        // Encontra o container dos textos do usuário
         const infoUsuario = chatAvatar.parentElement; 
         if (infoUsuario.parentElement) {
-            const cabecalhoChat = infoUsuario.parentElement; // A div principal do topo
+            const cabecalhoChat = infoUsuario.parentElement;
             cabecalhoChat.style.display = "flex";
             cabecalhoChat.style.justifyContent = "space-between";
             cabecalhoChat.style.alignItems = "center";
@@ -331,7 +330,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             cabecalhoChat.style.padding = "10px 16px";
             cabecalhoChat.style.boxSizing = "border-box";
             
-            // Botão de voltar na extrema esquerda
             const btnVoltarChat = cabecalhoChat.querySelector("button") || cabecalhoChat.querySelector("[onclick*='fecharSalaChat']");
             if (btnVoltarChat) {
                 btnVoltarChat.style.order = "1";
@@ -340,7 +338,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 btnVoltarChat.style.flexShrink = "0";
             }
 
-            // Bloco do perfil na ordem 2 (direita)
             infoUsuario.style.order = "2";
             infoUsuario.style.display = "flex";
             infoUsuario.style.alignItems = "center";
@@ -361,6 +358,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             const nomeEl = document.getElementById("chat-nome-atual");
             const cargoEl = document.getElementById("chat-cargo-atual");
             if (nomeEl) {
+                nomeEl.style.display = "block";
+                nomeEl.style.visibility = "visible";
                 nomeEl.style.whiteSpace = "nowrap";
                 nomeEl.style.overflow = "hidden";
                 nomeEl.style.textOverflow = "ellipsis";
@@ -368,6 +367,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 nomeEl.style.textAlign = "right";
             }
             if (cargoEl) {
+                cargoEl.style.display = "block";
+                cargoEl.style.visibility = "visible";
                 cargoEl.style.whiteSpace = "nowrap";
                 cargoEl.style.overflow = "hidden";
                 cargoEl.style.textOverflow = "ellipsis";
