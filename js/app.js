@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.38.0 - versão alpha";
+const VERSAO_ATUAL = "v0.39.0 - versão alpha";
 
 // Executa assim que a página termina de carregar no navegador
 document.addEventListener("DOMContentLoaded", () => {
@@ -129,11 +129,42 @@ function mudarSubAbaSite(abaAlvo) {
     if (espAba) espAba.style.display = "none";
     if (msgAba) msgAba.style.display = "none";
 
-    // Reseta opacidade dos ícones (inativos)
-    if (btnFeed) btnFeed.style.opacity = "0.5";
-    if (btnEsp) btnEsp.style.opacity = "0.5";
-    if (btnMsg) btnMsg.style.opacity = "0.5";
-    if (btnPerfil) btnPerfil.style.opacity = "0.5";
+    // Configura eventos, transições de crescimento e efeito neon dourado
+    const configurarBotaoNavbar = (btn, isAtivo) => {
+        if (!btn) return;
+        btn.style.transition = "all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
+        
+        if (isAtivo) {
+            btn.style.opacity = "1";
+            btn.style.transform = "scale(1.2)";
+            btn.style.filter = "drop-shadow(0 0 12px rgba(255, 215, 0, 1))";
+        } else {
+            btn.style.opacity = "0.5";
+            btn.style.transform = "scale(1)";
+            btn.style.filter = "none";
+        }
+
+        // Efeito Hover (Mouse passar por cima) e Mobile
+        btn.onmouseenter = () => {
+            if (!isAtivo) {
+                btn.style.transform = "scale(1.15)";
+                btn.style.filter = "drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))";
+            }
+        };
+        // Remove efeito quando o mouse sai
+        btn.onmouseleave = () => {
+            if (!isAtivo) {
+                btn.style.transform = "scale(1)";
+                btn.style.filter = "none";
+            }
+        };
+    };
+
+    // Aplica o comportamento dinâmico aos ícones das abas
+    configurarBotaoNavbar(btnFeed, abaAlvo === "feed");
+    configurarBotaoNavbar(btnEsp, abaAlvo === "especialidades");
+    configurarBotaoNavbar(btnMsg, abaAlvo === "mensagens");
+    configurarBotaoNavbar(btnPerfil, abaAlvo === "perfil");
 
     // Lógica de Animação da Logo do Cabeçalho
     const animarLogoParaEsquerda = (moverParaEsquerda) => {
@@ -159,22 +190,18 @@ function mudarSubAbaSite(abaAlvo) {
     // Executa a animação dinamicamente com base na aba clicada
     animarLogoParaEsquerda(abaAlvo === "perfil");
 
-    // Mostra a aba selecionada e destaca o respectivo ícone
+    // Mostra a aba selecionada (a opacidade já foi cuidada acima)
     if (abaAlvo === "feed") {
         if (feedAba) feedAba.style.display = "block";
-        if (btnFeed) btnFeed.style.opacity = "1";
     } else if (abaAlvo === "especialidades") {
         if (espAba) espAba.style.display = "block";
-        if (btnEsp) btnEsp.style.opacity = "1";
         carregarEspecialidades(); 
         if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite(); 
     } else if (abaAlvo === "mensagens") {
         if (msgAba) msgAba.style.display = "flex";
-        if (btnMsg) btnMsg.style.opacity = "1";
         carregarListaDeContatosChat(); // Inicializa o chat
     } else if (abaAlvo === "perfil") {
         if (perfilAba) perfilAba.style.display = "block";
-        if (btnPerfil) btnPerfil.style.opacity = "1";
         carregarPerfilDoUsuario();
     }
 }
