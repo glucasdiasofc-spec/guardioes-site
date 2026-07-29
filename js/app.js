@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.52.0 - versão alpha";
+const VERSAO_ATUAL = "v0.53.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -2462,17 +2462,25 @@ async function carregarAprovacoesSite() {
             const infoLider = p.liderDestino ? ` | <span style="color: #28a745; font-weight: bold;">Líder: @${p.liderDestino}</span>` : '';
 
             if (subTipo === "Liderança") {
+                const cacheKey = isClasse ? 'cacheClasses' : (isMestrado ? 'cacheMestrados' : 'cacheEspecialidades');
+                const cachedList = window[cacheKey] || [];
+                const cachedItem = cachedList.find(c => String(c.id) === String(p.itemId));
+                const imgUrl = cachedItem?.urlImagem || cachedItem?.logo || '';
+                const itemImgHtml = imgUrl ? `<img src="${imgUrl}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : '';
                 container.innerHTML += `
                     <div style="background: #121212; border: 1px solid #262626; padding: 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                            <div style="min-width: 0; flex: 1;">
-                                <div style="font-weight: bold; color: #fff; font-size: 14px; word-break: break-word;">${p.nomeItem}</div>
-                                <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">
-                                    Membro: <span style="color: #0095f6; font-weight: 600;">@${p.usuario}</span>${infoLider}
+                            <div style="display:flex; align-items:flex-start; gap:12px; min-width: 0; flex: 1;">
+                                ${itemImgHtml}
+                                <div style="min-width: 0; flex: 1;">
+                                    <div style="font-weight: bold; color: #fff; font-size: 14px; word-break: break-word;">${p.nomeItem}</div>
+                                    <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">
+                                        Membro: <span style="color: #0095f6; font-weight: 600;">@${p.usuario}</span>${infoLider}
+                                    </div>
                                 </div>
                             </div>
                             <span style="background: ${badgeCor}; color: ${isClasse ? '#121212' : '#fff'}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">
-                                ${icone} ${isClasse ? 'Classe' : (isMestrado ? 'Mestrado' : 'Esp')}
+                                ${isClasse ? 'Classe' : (isMestrado ? 'Mestrado' : 'Esp' )}
                             </span>
                         </div>
                         <div style="display: flex; gap: 10px; margin-top: 4px;">
@@ -2484,19 +2492,25 @@ async function carregarAprovacoesSite() {
                             <button onclick="abrirSeletorLideranca('${id}')" style="flex: 1; padding: 10px; background: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">Encaminhar para Líder</button>
                         </div>` : ''}
                     </div>`;
+
             } else {
+                const cacheKey = isClasse ? 'cacheClasses' : (isMestrado ? 'cacheMestrados' : 'cacheEspecialidades');
+                const cachedList = window[cacheKey] || [];
+                const cachedItem = cachedList.find(c => String(c.id) === String(p.itemId));
+                const imgUrl = cachedItem?.urlImagem || cachedItem?.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
                 container.innerHTML += `
                     <div style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
-                            <div style="width: 40px; height: 40px; background: #000; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px;">${icone}</div>
+                            <img src="${imgUrl}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; flex-shrink: 0;">
                             <div style="min-width: 0; flex: 1;">
                                 <div style="font-weight: bold; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.nomeItem}</div>
                                 <div style="color: #ffc107; font-size: 11px; font-weight: bold;">
-                                    Aguardando Avaliação${p.liderDestino ? ` (@${p.liderDestino})` : ''}
+                                    Aguardando Avaliação${p.liderDestino ? ` (@${p.liderDestino} )` : ''}
                                 </div>
                             </div>
                         </div>
                     </div>`;
+
             }
         });
     } catch (error) {
