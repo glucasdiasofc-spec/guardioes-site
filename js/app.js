@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.65.0 - versão alpha";
+const VERSAO_ATUAL = "v0.66.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -3120,13 +3120,40 @@ async function solicitarInicioMestrado(id, nome, modo = "iniciar") {
      * Modo "iniciar":
      * usado pelo botão Começar do catálogo.
      */
-    if (
-        modo === "iniciar" &&
-        !mestradoJaAdquirido
-    ) {
-        const confirmouInicio = confirm(
-            "Tem certeza que você quer começar este mestrado?"
+    /*
+ * Modo "iniciar":
+ * usado pelo botão Começar do catálogo.
+ */
+if (
+    modo === "iniciar" &&
+    !mestradoJaAdquirido
+) {
+    const confirmouInicio = confirm(
+        "Tem certeza que você quer começar este mestrado?"
+    );
+
+    if (!confirmouInicio) {
+        return;
+    }
+
+    try {
+        await registrarInicioNoBanco();
+
+        alert("Mestrado iniciado com sucesso!");
+
+        fecharCatalogoMestrados();
+        await carregarMestradosEmAndamento();
+    } catch (erro) {
+        console.error(
+            "Erro ao iniciar o mestrado:",
+            erro
         );
+
+        alert("Erro ao iniciar mestrado.");
+    }
+
+    return;
+}
 
         if (!confirmouInicio) {
             return;
