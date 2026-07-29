@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.57.0 - versão alpha";
+const VERSAO_ATUAL = "v0.58.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1775,10 +1775,46 @@ window.cacheEspecialidades = [...mapaEspecialidades.values()];
 // ==========================================
 // CONTROLE DE VISIBILIDADE DOS CATÁLOGOS
 // ==========================================
-function abrirCatalogoEspecialidades() {
+async function abrirCatalogoEspecialidades() {
     document.getElementById("tela-especialidades-andamento").style.display = "none";
     document.getElementById("tela-especialidades-catalogo").style.display = "block";
     document.getElementById("busca-especialidade").value = "";
+
+    const container = document.getElementById("lista-especialidades-container");
+    const username = localStorage.getItem("usernameLogado");
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
+
+    window.especialidadesAdquiridasUsuario = new Set();
+
+    if (container) {
+        container.innerHTML = "<p style='color:#8e8e8e;text-align:center;padding:20px;'>Verificando suas especialidades...</p>";
+    }
+
+    if (username && tipoUsuario !== "admin") {
+        try {
+            const userSnap = await window.ClubeDB.textoDB
+                .collection("usuarios")
+                .where("username", "==", username)
+                .get();
+
+            if (!userSnap.empty) {
+                const dadosUsuario = userSnap.docs[0].data();
+
+                const especialidadesAdquiridas = Array.isArray(dadosUsuario.especialidades)
+                    ? dadosUsuario.especialidades
+                    : [];
+
+                window.especialidadesAdquiridasUsuario = new Set(
+                    especialidadesAdquiridas.map(nomeEspecialidade =>
+                        normalizarTextoBusca(nomeEspecialidade).trim()
+                    )
+                );
+            }
+        } catch (erro) {
+            console.error("Erro ao verificar especialidades já adquiridas:", erro);
+        }
+    }
+
     renderizarCatalogoEspecialidades(window.cacheEspecialidades);
 }
 function fecharCatalogoEspecialidades() {
@@ -1868,7 +1904,7 @@ function pesquisarClasseLocal() {
 function renderizarCatalogoEspecialidades(lista, manterEstado = false) {
     const container = document.getElementById("lista-especialidades-container");
     if (!container) return;
-    
+
     const inputBusca = document.getElementById("busca-especialidade");
     const termoBusca = inputBusca ? inputBusca.value.trim() : "";
 
@@ -1876,82 +1912,201 @@ function renderizarCatalogoEspecialidades(lista, manterEstado = false) {
         window.categoriaAtualEspecialidades = null;
     }
 
-    if (lista.length === 0) { 
-        container.innerHTML = `<div style="margin-bottom:15px;"><button onclick="window.categoriaAtualEspecialidades = null; document.getElementById('busca-especialidade').value = ''; renderizarCatalogoEspecialidades(window.cacheEspecialidades);" style="background:transparent; border:none; color:#007bff; cursor:pointer; font-size:13px; font-weight:bold; padding:0;">⬅ Voltar</button></div><p style='color:#8e8e8e;text-align:center;'>Nenhum resultado encontrado.</p>`; 
-        return; 
+    if (!lista || lista.length === 0) {
+        container.innerHTML = `
+            <div style="margin-bottom:15px;">
+                <button onclick="window.categoriaAtualEspecialidades = null; document.getElementById('busca-especialidade').value = ''; renderizarCatalogoEspecialidades(window.cacheEspecialidades);"
+                    style="background:transparent; border:none; color:#007bff; cursor:pointer; font-size:13px; font-weight:bold; padding:0;">
+                    ⬅ Voltar
+                </button>
+            </div>
+            <p style="color:#8e8e8e; text-align:center;">Nenhum resultado encontrado.</p>
+        `;
+        return;
     }
 
     const tipoUsuario = localStorage.getItem("usuarioLogado");
+
+    const especialidadesAdquiridas =
+        window.especialidadesAdquiridasUsuario instanceof Set
+            ? window.especialidadesAdquiridasUsuario
+            : new Set();
+
     const categorias = {};
-    
+
     lista.forEach(item => {
         const cat = item.categoria || item.area || "Geral";
-        if (!categorias[cat]) categorias[cat] = [];
+
+        if (!categorias[cat]) {
+            categorias[cat] = [];
+        }
+
         categorias[cat].push(item);
     });
 
     let visualizacaoAtiva = window.categoriaAtualEspecialidades;
+
     if (termoBusca && !visualizacaoAtiva) {
-        visualizacaoAtiva = 'Todas';
+        visualizacaoAtiva = "Todas";
     }
 
     if (!visualizacaoAtiva) {
         let htmlCategorias = `
-            <div onclick="window.categoriaAtualEspecialidades = 'Todas'; renderizarCatalogoEspecialidades(window.cacheEspecialidades, true);" style="background:#1e1e1e; border:1px solid #333; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:12px; transition: 0.2s;">
+            <div onclick="window.categoriaAtualEspecialidades = 'Todas'; renderizarCatalogoEspecialidades(window.cacheEspecialidades, true);"
+                style="background:#1e1e1e; border:1px solid #333; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:12px; transition:0.2s;">
                 <div style="display:flex; align-items:center; gap:12px;">
                     <span style="font-size:22px;">🌟</span>
-                    <span style="color:#fff; font-weight:bold; font-size:15px;">Todas as Especialidades</span>
+                    <span style="color:#fff; font-weight:bold; font-size:15px;">
+                        Todas as Especialidades
+                    </span>
                 </div>
-                <span style="color:#007bff; font-size:13px; font-weight:bold;">${lista.length} itens &gt;</span>
+
+                <span style="color:#007bff; font-size:13px; font-weight:bold;">
+                    ${lista.length} itens &gt;
+                </span>
             </div>
         `;
 
-        Object.entries(categorias).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, itens]) => {
-            htmlCategorias += `
-                <div onclick="window.categoriaAtualEspecialidades = '${cat}'; renderizarCatalogoEspecialidades(window.cacheEspecialidades, true);" style="background:#121212; border:1px solid #262626; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:8px; transition: 0.2s;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <span style="font-size:18px;">📁</span>
-                        <span style="color:#fff; font-weight:500; font-size:14px;">${cat}</span>
+        Object.entries(categorias)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .forEach(([cat, itens]) => {
+                htmlCategorias += `
+                    <div onclick="window.categoriaAtualEspecialidades = '${cat}'; renderizarCatalogoEspecialidades(window.cacheEspecialidades, true);"
+                        style="background:#121212; border:1px solid #262626; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:8px; transition:0.2s;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:18px;">📁</span>
+                            <span style="color:#fff; font-weight:500; font-size:14px;">
+                                ${cat}
+                            </span>
+                        </div>
+
+                        <span style="color:#8e8e8e; font-size:12px; font-weight:600;">
+                            ${itens.length} itens &gt;
+                        </span>
                     </div>
-                    <span style="color:#8e8e8e; font-size:12px; font-weight:600;">${itens.length} itens &gt;</span>
-                </div>
-            `;
-        });
+                `;
+            });
+
         container.innerHTML = htmlCategorias;
         return;
     }
 
-    let htmlFinal = `<div style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
-        <button onclick="window.categoriaAtualEspecialidades = null; document.getElementById('busca-especialidade').value = ''; renderizarCatalogoEspecialidades(window.cacheEspecialidades, false);" style="background:transparent; border:none; color:#007bff; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:5px; padding:0;">
-            ⬅ Voltar às Pastas
-        </button>
-        <span style="color:#8e8e8e; font-size:12px; max-width:50%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;">${visualizacaoAtiva}</span>
-    </div>`;
+    let htmlFinal = `
+        <div style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+            <button onclick="window.categoriaAtualEspecialidades = null; document.getElementById('busca-especialidade').value = ''; renderizarCatalogoEspecialidades(window.cacheEspecialidades, false);"
+                style="background:transparent; border:none; color:#007bff; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:5px; padding:0;">
+                ⬅ Voltar às Pastas
+            </button>
 
-    let categoriasParaRenderizar = visualizacaoAtiva === 'Todas' ? categorias : { [visualizacaoAtiva]: categorias[visualizacaoAtiva] || [] };
-
-    htmlFinal += Object.entries(categoriasParaRenderizar).map(([cat, itens]) => {
-        if(!itens || itens.length === 0) return '';
-        return `
-        <div>
-            <h4 style="color:#007bff; font-size:12px; margin-bottom:8px; border-left:3px solid #007bff; padding-left:6px; text-transform:uppercase;">${cat}</h4>
-            <div style="display:grid; gap:8px; width:100%; margin-bottom:15px;">
-                ${itens.map(e => `
-                    <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                            <img src="${e.urlImagem || e.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; word-break:break-word;">${e.nome}</div></div>
-                        </div>
-                        <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('especialidades', '${e.id}')" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
-                            <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
-                        </div>
-                    </div>
-                `).join("")}
-            </div>
+            <span style="color:#8e8e8e; font-size:12px; max-width:50%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;">
+                ${visualizacaoAtiva}
+            </span>
         </div>
-        `;
-    }).join("");
+    `;
+
+    const categoriasParaRenderizar =
+        visualizacaoAtiva === "Todas"
+            ? categorias
+            : {
+                [visualizacaoAtiva]:
+                    categorias[visualizacaoAtiva] || []
+            };
+
+    htmlFinal += Object.entries(categoriasParaRenderizar)
+        .map(([cat, itens]) => {
+            if (!itens || itens.length === 0) {
+                return "";
+            }
+
+            return `
+                <div>
+                    <h4 style="color:#007bff; font-size:12px; margin-bottom:8px; border-left:3px solid #007bff; padding-left:6px; text-transform:uppercase;">
+                        ${cat}
+                    </h4>
+
+                    <div style="display:grid; gap:8px; width:100%; margin-bottom:15px;">
+                        ${itens
+                            .map(e => {
+                                const especialidadeConcluida =
+                                    tipoUsuario !== "admin" &&
+                                    especialidadesAdquiridas.has(
+                                        normalizarTextoBusca(e.nome).trim()
+                                    );
+
+                                const fundoCard = especialidadeConcluida
+                                    ? "#102418"
+                                    : "#121212";
+
+                                const bordaCard = especialidadeConcluida
+                                    ? "#28a745"
+                                    : "#262626";
+
+                                const corNome = especialidadeConcluida
+                                    ? "#5ee27a"
+                                    : "#fff";
+
+                                const corBotao = especialidadeConcluida
+                                    ? "#28a745"
+                                    : "#007bff";
+
+                                const textoBotao = especialidadeConcluida
+                                    ? "✓ Rever checklist"
+                                    : "Começar";
+
+                                return `
+                                    <div style="background:${fundoCard}; border:1px solid ${bordaCard}; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+                                            <img
+                                                src="${e.urlImagem || e.logo || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"}"
+                                                onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
+                                                style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0; border:${especialidadeConcluida ? "1px solid #28a745" : "none"};"
+                                            >
+
+                                            <div style="min-width:0; flex:1;">
+                                                <div style="font-weight:bold; color:${corNome}; font-size:13px; word-break:break-word;">
+                                                    ${e.nome}
+                                                </div>
+
+                                                ${
+                                                    especialidadeConcluida
+                                                        ? `
+                                                            <div style="color:#28a745; font-size:10px; font-weight:bold; margin-top:3px;">
+                                                                ESPECIALIDADE CONCLUÍDA
+                                                            </div>
+                                                        `
+                                                        : ""
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div style="display:flex; gap:6px;">
+                                            ${
+                                                tipoUsuario === "admin"
+                                                    ? `
+                                                        <button
+                                                            onclick="abrirModalGerenciarItem('especialidades', '${e.id}')"
+                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">
+                                                            Editar
+                                                        </button>
+                                                    `
+                                                    : ""
+                                            }
+
+                                            <button
+                                                onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')"
+                                                style="flex-shrink:0; width:max-content; padding:6px 10px; background:${corBotao}; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                ${textoBotao}
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            })
+                            .join("")}
+                    </div>
+                </div>
+            `;
+        })
+        .join("");
 
     container.innerHTML = htmlFinal;
 }
@@ -2056,126 +2211,461 @@ function renderizarCatalogoClasses(lista, manterEstado = false) {
 // ==========================================
 async function solicitarInicioEspecialidade(id, nome) {
     const username = localStorage.getItem("usernameLogado");
-    if (!username) return alert("Por favor, faça login para iniciar.");
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
 
-    const item = window.cacheEspecialidades.find(e => String(e.id) === String(id));
-    const requisitos = item?.requisitos || [];
-    const fotoUrl = item?.urlImagem || item?.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
-    
-    // Tenta carregar progresso existente se houver
-    let progressoSalvo = [];
-    try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_especialidades" ).doc(`${username}_${id}`).get();
-        if (snap.exists) progressoSalvo = snap.data().requisitosConcluidos || [];
-    } catch(e) {}
+    if (!username) {
+        return alert("Por favor, faça login para iniciar.");
+    }
 
-    // Se não houver progresso salvo ainda, inicia automaticamente com status em_andamento
-    if (progressoSalvo.length === 0 && requisitos.length === 0) {
+    const item = window.cacheEspecialidades.find(
+        e => String(e.id) === String(id)
+    );
+
+    if (!item) {
+        alert("Especialidade não encontrada no catálogo.");
+        return;
+    }
+
+    const requisitos = Array.isArray(item.requisitos)
+        ? item.requisitos
+        : [];
+
+    const fotoUrl =
+        item.urlImagem ||
+        item.logo ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+    let especialidadeJaAdquirida = false;
+
+    /*
+     * Verificação principal no documento do usuário.
+     * Não confiamos apenas na cor ou no cache do catálogo.
+     */
+    if (tipoUsuario !== "admin") {
         try {
-            await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).set({
-                usuario: username,
-                itemId: id,
-                nomeItem: nome,
-                requisitosConcluidos: [],
-                status: "em_andamento",
-                atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        } catch(e) {
-            alert("Erro ao iniciar especialidade.");
+            const userSnap = await window.ClubeDB.textoDB
+                .collection("usuarios")
+                .where("username", "==", username)
+                .get();
+
+            if (userSnap.empty) {
+                alert("Não foi possível localizar seu perfil.");
+                return;
+            }
+
+            const dadosUsuario = userSnap.docs[0].data();
+
+            const especialidadesAdquiridas =
+                Array.isArray(dadosUsuario.especialidades)
+                    ? dadosUsuario.especialidades
+                    : [];
+
+            especialidadeJaAdquirida = especialidadesAdquiridas.some(
+                nomeAdquirido =>
+                    normalizarTextoBusca(nomeAdquirido).trim() ===
+                    normalizarTextoBusca(nome).trim()
+            );
+        } catch (erro) {
+            console.error(
+                "Erro ao verificar se a especialidade já foi adquirida:",
+                erro
+            );
+
+            alert(
+                "Não foi possível verificar suas especialidades. Tente novamente."
+            );
+
             return;
         }
     }
 
+    let progressoSalvo = [];
+
+    /*
+     * O progresso só é carregado ou criado quando a especialidade
+     * ainda não pertence ao usuário.
+     */
+    if (!especialidadeJaAdquirida) {
+        try {
+            const snap = await window.ClubeDB.textoDB
+                .collection("progresso_especialidades")
+                .doc(`${username}_${id}`)
+                .get();
+
+            if (snap.exists) {
+                progressoSalvo =
+                    snap.data().requisitosConcluidos || [];
+            }
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar progresso da especialidade:",
+                erro
+            );
+        }
+
+        if (
+            progressoSalvo.length === 0 &&
+            requisitos.length === 0
+        ) {
+            try {
+                await window.ClubeDB.textoDB
+                    .collection("progresso_especialidades")
+                    .doc(`${username}_${id}`)
+                    .set(
+                        {
+                            usuario: username,
+                            itemId: id,
+                            nomeItem: nome,
+                            requisitosConcluidos: [],
+                            status: "em_andamento",
+                            atualizadoEm:
+                                firebase.firestore.FieldValue.serverTimestamp()
+                        },
+                        {
+                            merge: true
+                        }
+                    );
+            } catch (erro) {
+                console.error(
+                    "Erro ao iniciar especialidade:",
+                    erro
+                );
+
+                alert("Erro ao iniciar especialidade.");
+                return;
+            }
+        }
+    }
+
     const modal = document.createElement("div");
-    modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
-    
+
+    modal.style =
+        "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
+
     modal.innerHTML = `
-        <button id="btn-fechar-checklist-esp" style="position:absolute; top:20px; right:20px; background:none; border:none; color:#fff; font-size:30px; cursor:pointer; z-index:10001; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">✕</button>
+        <button
+            id="btn-fechar-checklist-esp"
+            style="position:absolute; top:20px; right:20px; background:none; border:none; color:#fff; font-size:30px; cursor:pointer; z-index:10001; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
+            ✕
+        </button>
+
         <div style="display:flex; flex-direction:column; align-items:center; padding:50px 15px 10px 15px; gap:10px;">
-            <img src="${fotoUrl}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid #262626; flex-shrink:0;">
-            <h3 style="margin:0; font-size:16px; text-align:center; color:#fff; font-weight:bold;">${nome}</h3>
+            <img
+                src="${fotoUrl}"
+                onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
+                style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid ${especialidadeJaAdquirida ? "#28a745" : "#262626"}; flex-shrink:0;"
+            >
+
+            <h3 style="margin:0; font-size:16px; text-align:center; color:${especialidadeJaAdquirida ? "#5ee27a" : "#fff"}; font-weight:bold;">
+                ${nome}
+            </h3>
+
+            ${
+                especialidadeJaAdquirida
+                    ? `
+                        <div style="background:#102418; color:#5ee27a; border:1px solid #28a745; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:bold;">
+                            ✓ ESPECIALIDADE CONCLUÍDA
+                        </div>
+                    `
+                    : ""
+            }
         </div>
-        <div style="width:100%; border-bottom:1px solid #262626; margin-bottom:0;"></div>
+
+        <div style="width:100%; border-bottom:1px solid #262626;"></div>
 
         <div style="flex:1; overflow-y:auto; padding:20px;">
-            <p style="color:#8e8e8e; font-size:13px; margin-bottom:20px;">Marque os requisitos concluídos. Seu progresso é salvo automaticamente.</p>
+            <p style="color:${especialidadeJaAdquirida ? "#5ee27a" : "#8e8e8e"}; font-size:13px; margin-bottom:20px;">
+                ${
+                    especialidadeJaAdquirida
+                        ? "Checklist disponível somente para consulta. Esta especialidade não pode ser iniciada novamente."
+                        : "Marque os requisitos concluídos. Seu progresso é salvo automaticamente."
+                }
+            </p>
+
             <div id="lista-checks">
-                ${requisitos.map((req, i ) => `
-                    <label style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:pointer; background:#121212; padding:12px; border-radius:8px; border:1px solid #262626;">
-                        <input type="checkbox" class="req-check" data-idx="${i}" ${progressoSalvo.includes(i) ? 'checked' : ''} style="width:20px; height:20px; margin-top:2px; accent-color:#0095f6;">
-                        <span style="font-size:14px; line-height:1.4;">${req}</span>
-                    </label>
-                `).join("")}
+                ${
+                    requisitos.length > 0
+                        ? requisitos
+                            .map((req, i) => {
+                                const requisitoMarcado =
+                                    especialidadeJaAdquirida ||
+                                    progressoSalvo.includes(i);
+
+                                return `
+                                    <label style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:${especialidadeJaAdquirida ? "default" : "pointer"}; background:${especialidadeJaAdquirida ? "#102418" : "#121212"}; padding:12px; border-radius:8px; border:1px solid ${especialidadeJaAdquirida ? "#28a745" : "#262626"};">
+                                        <input
+                                            type="checkbox"
+                                            class="req-check"
+                                            data-idx="${i}"
+                                            ${requisitoMarcado ? "checked" : ""}
+                                            ${especialidadeJaAdquirida ? "disabled" : ""}
+                                            style="width:20px; height:20px; margin-top:2px; accent-color:${especialidadeJaAdquirida ? "#28a745" : "#0095f6"};"
+                                        >
+
+                                        <span style="font-size:14px; line-height:1.4; color:${especialidadeJaAdquirida ? "#d8f5df" : "#fff"};">
+                                            ${req}
+                                        </span>
+                                    </label>
+                                `;
+                            })
+                            .join("")
+                        : `
+                            <p style="color:#8e8e8e; text-align:center; padding:20px;">
+                                Nenhum requisito cadastrado para esta especialidade.
+                            </p>
+                        `
+                }
             </div>
         </div>
+
         <div style="padding:15px; border-top:1px solid #262626; display:flex; flex-direction:column; gap:10px;">
-            <button id="btn-enviar-aval" disabled style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">Enviar para Avaliação</button>
-            <button id="btn-cancelar-esp" style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">Cancelar Especialidade</button>
+            ${
+                especialidadeJaAdquirida
+                    ? `
+                        <button
+                            id="btn-fechar-revisao-esp"
+                            style="width:100%; padding:14px; background:#28a745; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer;">
+                            Fechar checklist
+                        </button>
+                    `
+                    : `
+                        <button
+                            id="btn-enviar-aval"
+                            disabled
+                            style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">
+                            Enviar para Avaliação
+                        </button>
+
+                        <button
+                            id="btn-cancelar-esp"
+                            style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">
+                            Cancelar Especialidade
+                        </button>
+                    `
+            }
         </div>
     `;
 
     document.body.appendChild(modal);
 
-    const checks = modal.querySelectorAll(".req-check");
-    const btnEnv = modal.querySelector("#btn-enviar-aval");
-    const btnFechar = modal.querySelector("#btn-fechar-checklist-esp");
-    const btnCancel = modal.querySelector("#btn-cancelar-esp");
+    const btnFechar = modal.querySelector(
+        "#btn-fechar-checklist-esp"
+    );
 
     btnFechar.onclick = () => {
         modal.remove();
-        carregarEspecialidades();
+        abrirCatalogoEspecialidades();
     };
 
+    /*
+     * Modo somente leitura.
+     * Não registra progresso, não permite desmarcar requisitos,
+     * não permite cancelar e não permite enviar novamente.
+     */
+    if (especialidadeJaAdquirida) {
+        const btnFecharRevisao = modal.querySelector(
+            "#btn-fechar-revisao-esp"
+        );
+
+        if (btnFecharRevisao) {
+            btnFecharRevisao.onclick = () => {
+                modal.remove();
+                abrirCatalogoEspecialidades();
+            };
+        }
+
+        return;
+    }
+
+    const checks = modal.querySelectorAll(".req-check");
+
+    const btnEnv = modal.querySelector(
+        "#btn-enviar-aval"
+    );
+
+    const btnCancel = modal.querySelector(
+        "#btn-cancelar-esp"
+    );
+
     btnCancel.onclick = async () => {
-        if (!confirm("Tem certeza que deseja cancelar? Todo o seu progresso nesta especialidade será excluído.")) return;
+        const confirmarCancelamento = confirm(
+            "Tem certeza que deseja cancelar? Todo o seu progresso nesta especialidade será excluído."
+        );
+
+        if (!confirmarCancelamento) {
+            return;
+        }
+
         try {
-            await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).delete();
+            await window.ClubeDB.textoDB
+                .collection("progresso_especialidades")
+                .doc(`${username}_${id}`)
+                .delete();
+
             alert("Especialidade cancelada.");
+
             modal.remove();
             carregarEspecialidades();
-        } catch(e) { alert("Erro ao cancelar."); }
+        } catch (erro) {
+            console.error(
+                "Erro ao cancelar especialidade:",
+                erro
+            );
+
+            alert("Erro ao cancelar.");
+        }
     };
 
     const atualizarEstadoBotao = () => {
-        if (!btnEnv) return;
-        const todos = Array.from(checks).every(c => c.checked);
-        btnEnv.disabled = !todos;
-        btnEnv.style.background = todos ? "#28a745" : "#333";
+        if (!btnEnv) {
+            return;
+        }
+
+        const todosMarcados =
+            requisitos.length > 0 &&
+            Array.from(checks).every(
+                checkbox => checkbox.checked
+            );
+
+        btnEnv.disabled = !todosMarcados;
+        btnEnv.style.background = todosMarcados
+            ? "#28a745"
+            : "#333";
     };
 
     atualizarEstadoBotao();
 
-    checks.forEach(c => c.onchange = async () => {
-        atualizarEstadoBotao();
-        const concluidos = Array.from(checks).filter(i => i.checked).map(i => parseInt(i.dataset.idx));
-        await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).set({
-            usuario: username,
-            itemId: id,
-            nomeItem: nome,
-            requisitosConcluidos: concluidos,
-            status: "em_andamento",
-            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+    checks.forEach(checkbox => {
+        checkbox.onchange = async () => {
+            atualizarEstadoBotao();
+
+            const requisitosConcluidos = Array.from(checks)
+                .filter(itemCheckbox => itemCheckbox.checked)
+                .map(itemCheckbox =>
+                    parseInt(itemCheckbox.dataset.idx)
+                );
+
+            try {
+                await window.ClubeDB.textoDB
+                    .collection("progresso_especialidades")
+                    .doc(`${username}_${id}`)
+                    .set(
+                        {
+                            usuario: username,
+                            itemId: id,
+                            nomeItem: nome,
+                            requisitosConcluidos:
+                                requisitosConcluidos,
+                            status: "em_andamento",
+                            atualizadoEm:
+                                firebase.firestore.FieldValue.serverTimestamp()
+                        },
+                        {
+                            merge: true
+                        }
+                    );
+            } catch (erro) {
+                console.error(
+                    "Erro ao salvar progresso:",
+                    erro
+                );
+            }
+        };
     });
 
     btnEnv.onclick = async () => {
-        if (!confirm("Deseja enviar para avaliação?")) return;
+        const confirmarEnvio = confirm(
+            "Deseja enviar para avaliação?"
+        );
+
+        if (!confirmarEnvio) {
+            return;
+        }
+
         btnEnv.disabled = true;
         btnEnv.textContent = "Enviando...";
+
         try {
-            await window.ClubeDB.textoDB.collection("pendencias_aprovacao").add({
-                usuario: username,
-                itemId: id,
-                nomeItem: nome,
-                colecaoOrigem: "progresso_especialidades",
-                status: "pendente",
-                enviadoEm: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).delete();
+            /*
+             * Segunda verificação de segurança imediatamente antes
+             * do envio. Impede duplicação mesmo com duas abas abertas
+             * ou com o catálogo desatualizado.
+             */
+            const userSnap = await window.ClubeDB.textoDB
+                .collection("usuarios")
+                .where("username", "==", username)
+                .get();
+
+            if (!userSnap.empty) {
+                const dadosUsuario =
+                    userSnap.docs[0].data();
+
+                const especialidadesAtuais =
+                    Array.isArray(dadosUsuario.especialidades)
+                        ? dadosUsuario.especialidades
+                        : [];
+
+                const jaPossuiAntesDoEnvio =
+                    especialidadesAtuais.some(
+                        nomeAdquirido =>
+                            normalizarTextoBusca(
+                                nomeAdquirido
+                            ).trim() ===
+                            normalizarTextoBusca(nome).trim()
+                    );
+
+                if (jaPossuiAntesDoEnvio) {
+                    await window.ClubeDB.textoDB
+                        .collection("progresso_especialidades")
+                        .doc(`${username}_${id}`)
+                        .delete();
+
+                    alert(
+                        "Esta especialidade já pertence ao seu perfil e não pode ser enviada novamente."
+                    );
+
+                    modal.remove();
+                    abrirCatalogoEspecialidades();
+                    return;
+                }
+            }
+
+            await window.ClubeDB.textoDB
+                .collection("pendencias_aprovacao")
+                .add({
+                    usuario: username,
+                    itemId: id,
+                    nomeItem: nome,
+                    colecaoOrigem:
+                        "progresso_especialidades",
+                    status: "pendente",
+                    enviadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+            await window.ClubeDB.textoDB
+                .collection("progresso_especialidades")
+                .doc(`${username}_${id}`)
+                .delete();
+
             alert("Enviado com sucesso!");
+
             modal.remove();
             carregarEspecialidades();
-        } catch(e) { alert("Erro ao enviar."); btnEnv.disabled = false; }
+        } catch (erro) {
+            console.error(
+                "Erro ao enviar especialidade:",
+                erro
+            );
+
+            alert("Erro ao enviar.");
+
+            btnEnv.disabled = false;
+            btnEnv.textContent =
+                "Enviar para Avaliação";
+
+            atualizarEstadoBotao();
+        }
     };
 }
 
