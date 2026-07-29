@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.49.0 - versão alpha";
+const VERSAO_ATUAL = "v0.50.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1815,7 +1815,7 @@ function renderizarCatalogoEspecialidades(lista) {
     });
 
     container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
-        <div>
+        <div style="width:100%; max-width:100%;">
             <h4 style="color:#007bff; font-size:12px; margin-bottom:8px; border-left:3px solid #007bff; padding-left:6px; text-transform:uppercase;">${cat}</h4>
             <div style="display:grid; gap:8px;">
                 ${itens.map(e => `
@@ -1825,7 +1825,7 @@ function renderizarCatalogoEspecialidades(lista) {
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; word-break:break-word;">${e.nome}</div></div>
                         </div>
                         <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('especialidades', '${e.id}' )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('especialidades', '${e.id}'  )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
                             <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                         </div>
                     </div>
@@ -1834,6 +1834,7 @@ function renderizarCatalogoEspecialidades(lista) {
         </div>
     `).join("");
 }
+
 
 
 function renderizarCatalogoClasses(lista) {
@@ -1850,7 +1851,7 @@ function renderizarCatalogoClasses(lista) {
     });
 
     container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
-        <div>
+        <div style="width:100%; max-width:100%;">
             <h4 style="color:#ffc107; font-size:12px; margin-bottom:8px; border-left:3px solid #ffc107; padding-left:6px; text-transform:uppercase;">${cat}</h4>
             <div style="display:grid; gap:8px;">
                 ${itens.map(c => `
@@ -1860,7 +1861,7 @@ function renderizarCatalogoClasses(lista) {
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
                         </div>
                         <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}')" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}' )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
                             <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                         </div>
                     </div>
@@ -1869,6 +1870,7 @@ function renderizarCatalogoClasses(lista) {
         </div>
     `).join("");
 }
+
 
 
 
