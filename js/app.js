@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.61.0 - versão alpha";
+const VERSAO_ATUAL = "v0.62.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -2170,24 +2170,32 @@ function renderizarCatalogoEspecialidades(lista, manterEstado = false) {
                                             </div>
                                         </div>
 
-                                        <div style="display:flex; gap:6px;">
+                                                                                <div style="display:flex; gap:6px; align-items:stretch;">
                                             ${
                                                 tipoUsuario === "admin"
                                                     ? `
                                                         <button
                                                             onclick="abrirModalGerenciarItem('especialidades', '${e.id}')"
-                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">
+                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer; flex-shrink:0;">
                                                             Editar
                                                         </button>
                                                     `
                                                     : ""
                                             }
 
-                                            <button
-                                                onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')"
-                                                style="flex-shrink:0; width:max-content; padding:6px 10px; background:${corBotao}; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                ${textoBotao}
-                                            </button>
+                                            <div style="display:flex; flex-direction:column; gap:6px; min-width:92px;">
+                                                <button
+                                                    onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}', 'iniciar')"
+                                                    style="width:100%; padding:6px 10px; background:${corBotao}; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                    ${textoBotao}
+                                                </button>
+
+                                                <button
+                                                    onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}', 'visualizar')"
+                                                    style="width:100%; padding:6px 10px; background:#262626; color:#fff; border:1px solid #444; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                    Ver
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 `;
@@ -2437,9 +2445,10 @@ function renderizarCatalogoClasses(lista, manterEstado = false) {
 // ==========================================
 // SALVAR NO FIRESTORE (AÇÃO "COMEÇAR")
 // ==========================================
-async function solicitarInicioEspecialidade(id, nome) {
+async function solicitarInicioEspecialidade(id, nome, modo = "editar") {
     const username = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado");
+    const modoNormalizado = modo === "visualizar" ? "visualizar" : "editar";
 
     if (!username) {
         return alert("Por favor, faça login para iniciar.");
@@ -2510,8 +2519,8 @@ async function solicitarInicioEspecialidade(id, nome) {
     let progressoSalvo = [];
 
     /*
-     * O progresso só é carregado ou criado quando a especialidade
-     * ainda não pertence ao usuário.
+     * Carrega o progresso salvo quando existir.
+     * Se for modo de visualização, não cria documento novo aqui.
      */
     if (!especialidadeJaAdquirida) {
         try {
@@ -2521,8 +2530,7 @@ async function solicitarInicioEspecialidade(id, nome) {
                 .get();
 
             if (snap.exists) {
-                progressoSalvo =
-                    snap.data().requisitosConcluidos || [];
+                progressoSalvo = snap.data().requisitosConcluidos || [];
             }
         } catch (erro) {
             console.error(
@@ -2530,40 +2538,56 @@ async function solicitarInicioEspecialidade(id, nome) {
                 erro
             );
         }
-
-        if (
-            progressoSalvo.length === 0 &&
-            requisitos.length === 0
-        ) {
-            try {
-                await window.ClubeDB.textoDB
-                    .collection("progresso_especialidades")
-                    .doc(`${username}_${id}`)
-                    .set(
-                        {
-                            usuario: username,
-                            itemId: id,
-                            nomeItem: nome,
-                            requisitosConcluidos: [],
-                            status: "em_andamento",
-                            atualizadoEm:
-                                firebase.firestore.FieldValue.serverTimestamp()
-                        },
-                        {
-                            merge: true
-                        }
-                    );
-            } catch (erro) {
-                console.error(
-                    "Erro ao iniciar especialidade:",
-                    erro
-                );
-
-                alert("Erro ao iniciar especialidade.");
-                return;
-            }
-        }
     }
+
+    const registrarInicioNoBanco = async () => {
+        await window.ClubeDB.textoDB
+            .collection("progresso_especialidades")
+            .doc(`${username}_${id}`)
+            .set(
+                {
+                    usuario: username,
+                    itemId: id,
+                    nomeItem: nome,
+                    requisitosConcluidos: Array.isArray(progressoSalvo) ? progressoSalvo : [],
+                    status: "em_andamento",
+                    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+                },
+                {
+                    merge: true
+                }
+            );
+    };
+
+    /*
+     * Ação direta de "Começar" no catálogo:
+     * confirma, grava o progresso e leva para "Em andamento".
+     */
+    if (modoNormalizado === "editar" && !especialidadeJaAdquirida) {
+        const confirmarInicio = confirm(
+            "Tem certeza que você quer começar esta especialidade?"
+        );
+
+        if (!confirmarInicio) {
+            return;
+        }
+
+        try {
+            await registrarInicioNoBanco();
+            alert("Especialidade iniciada com sucesso!");
+
+            fecharCatalogoEspecialidades();
+            await carregarEspecialidadesEmAndamento();
+        } catch (erro) {
+            console.error("Erro ao iniciar especialidade:", erro);
+            alert("Erro ao iniciar especialidade.");
+        }
+
+        return;
+    }
+
+    const somenteLeitura =
+        modoNormalizado === "visualizar" || especialidadeJaAdquirida;
 
     const modal = document.createElement("div");
 
@@ -2595,7 +2619,13 @@ async function solicitarInicioEspecialidade(id, nome) {
                             ✓ ESPECIALIDADE CONCLUÍDA
                         </div>
                     `
-                    : ""
+                    : modoNormalizado === "visualizar"
+                        ? `
+                            <div style="background:#121212; color:#0095f6; border:1px solid #262626; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:bold;">
+                                👁️ VISUALIZAÇÃO SOMENTE LEITURA
+                            </div>
+                        `
+                        : ""
             }
         </div>
 
@@ -2606,7 +2636,9 @@ async function solicitarInicioEspecialidade(id, nome) {
                 ${
                     especialidadeJaAdquirida
                         ? "Checklist disponível somente para consulta. Esta especialidade não pode ser iniciada novamente."
-                        : "Marque os requisitos concluídos. Seu progresso é salvo automaticamente."
+                        : modoNormalizado === "visualizar"
+                            ? "Você pode ver a checklist, mas não pode marcar nada aqui. Para iniciar, use o botão Começar."
+                            : "Marque os requisitos concluídos. Seu progresso é salvo automaticamente."
                 }
             </p>
 
@@ -2620,17 +2652,17 @@ async function solicitarInicioEspecialidade(id, nome) {
                                     progressoSalvo.includes(i);
 
                                 return `
-                                    <label style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:${especialidadeJaAdquirida ? "default" : "pointer"}; background:${especialidadeJaAdquirida ? "#102418" : "#121212"}; padding:12px; border-radius:8px; border:1px solid ${especialidadeJaAdquirida ? "#28a745" : "#262626"};">
+                                    <label style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:${somenteLeitura ? "default" : "pointer"}; background:${somenteLeitura ? "#102418" : "#121212"}; padding:12px; border-radius:8px; border:1px solid ${somenteLeitura ? "#28a745" : "#262626"};">
                                         <input
                                             type="checkbox"
                                             class="req-check"
                                             data-idx="${i}"
                                             ${requisitoMarcado ? "checked" : ""}
-                                            ${especialidadeJaAdquirida ? "disabled" : ""}
-                                            style="width:20px; height:20px; margin-top:2px; accent-color:${especialidadeJaAdquirida ? "#28a745" : "#0095f6"};"
+                                            ${somenteLeitura ? "disabled" : ""}
+                                            style="width:20px; height:20px; margin-top:2px; accent-color:${somenteLeitura ? "#28a745" : "#0095f6"};"
                                         >
 
-                                        <span style="font-size:14px; line-height:1.4; color:${especialidadeJaAdquirida ? "#d8f5df" : "#fff"};">
+                                        <span style="font-size:14px; line-height:1.4; color:${somenteLeitura ? "#d8f5df" : "#fff"};">
                                             ${req}
                                         </span>
                                     </label>
@@ -2656,44 +2688,43 @@ async function solicitarInicioEspecialidade(id, nome) {
                             Fechar checklist
                         </button>
                     `
-                    : `
-                        <button
-                            id="btn-enviar-aval"
-                            disabled
-                            style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">
-                            Enviar para Avaliação
-                        </button>
+                    : modoNormalizado === "visualizar"
+                        ? `
+                            <button
+                                id="btn-comecar-esp"
+                                style="width:100%; padding:14px; background:#28a745; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer;">
+                                Começar
+                            </button>
+                        `
+                        : `
+                            <button
+                                id="btn-enviar-aval"
+                                disabled
+                                style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">
+                                Enviar para Avaliação
+                            </button>
 
-                        <button
-                            id="btn-cancelar-esp"
-                            style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">
-                            Cancelar Especialidade
-                        </button>
-                    `
+                            <button
+                                id="btn-cancelar-esp"
+                                style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">
+                                Cancelar Especialidade
+                            </button>
+                        `
             }
         </div>
     `;
 
     document.body.appendChild(modal);
 
-    const btnFechar = modal.querySelector(
-        "#btn-fechar-checklist-esp"
-    );
+    const btnFechar = modal.querySelector("#btn-fechar-checklist-esp");
 
     btnFechar.onclick = () => {
         modal.remove();
         abrirCatalogoEspecialidades();
     };
 
-    /*
-     * Modo somente leitura.
-     * Não registra progresso, não permite desmarcar requisitos,
-     * não permite cancelar e não permite enviar novamente.
-     */
     if (especialidadeJaAdquirida) {
-        const btnFecharRevisao = modal.querySelector(
-            "#btn-fechar-revisao-esp"
-        );
+        const btnFecharRevisao = modal.querySelector("#btn-fechar-revisao-esp");
 
         if (btnFecharRevisao) {
             btnFecharRevisao.onclick = () => {
@@ -2705,15 +2736,40 @@ async function solicitarInicioEspecialidade(id, nome) {
         return;
     }
 
+    if (modoNormalizado === "visualizar") {
+        const btnComecar = modal.querySelector("#btn-comecar-esp");
+
+        if (btnComecar) {
+            btnComecar.onclick = async () => {
+                const confirmarInicio = confirm(
+                    "Tem certeza que você quer começar esta especialidade?"
+                );
+
+                if (!confirmarInicio) {
+                    return;
+                }
+
+                try {
+                    await registrarInicioNoBanco();
+                    alert("Especialidade iniciada com sucesso!");
+
+                    modal.remove();
+                    fecharCatalogoEspecialidades();
+                    await carregarEspecialidadesEmAndamento();
+                } catch (erro) {
+                    console.error("Erro ao iniciar especialidade:", erro);
+                    alert("Erro ao iniciar especialidade.");
+                }
+            };
+        }
+
+        return;
+    }
+
     const checks = modal.querySelectorAll(".req-check");
 
-    const btnEnv = modal.querySelector(
-        "#btn-enviar-aval"
-    );
-
-    const btnCancel = modal.querySelector(
-        "#btn-cancelar-esp"
-    );
+    const btnEnv = modal.querySelector("#btn-enviar-aval");
+    const btnCancel = modal.querySelector("#btn-cancelar-esp");
 
     btnCancel.onclick = async () => {
         const confirmarCancelamento = confirm(
