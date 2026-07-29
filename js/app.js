@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.69.0 - versão alpha";
+const VERSAO_ATUAL = "v0.70.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -2499,32 +2499,32 @@ function renderizarCatalogoClasses(lista, manterEstado = false) {
                                             </div>
                                         </div>
 
-                                                                                <div style="display:flex; gap:6px; align-items:stretch;">
+                                                                                <div style="display:flex; flex-direction:column; gap:6px; min-width:92px;">
+
+                                            <button
+                                                onclick="solicitarInicioClasse('${c.id}', '${c.nome}', 'iniciar')"
+                                                style="width:100%; padding:6px 10px; background:${corBotao}; color:${corTextoBotao}; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                ${textoBotao}
+                                            </button>
+
+                                            <button
+                                                onclick="solicitarInicioClasse('${c.id}', '${c.nome}', 'visualizar')"
+                                                style="width:100%; padding:6px 10px; background:#262626; color:#fff; border:1px solid #444; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                Ver
+                                            </button>
+
                                             ${
                                                 tipoUsuario === "admin"
                                                     ? `
                                                         <button
                                                             onclick="abrirModalGerenciarItem('classes', '${c.id}')"
-                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer; flex-shrink:0;">
+                                                            style="width:100%; background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">
                                                             Editar
                                                         </button>
                                                     `
                                                     : ""
                                             }
 
-                                            <div style="display:flex; flex-direction:column; gap:6px; min-width:92px;">
-                                                <button
-                                                    onclick="solicitarInicioClasse('${c.id}', '${c.nome}', 'iniciar')"
-                                                    style="width:100%; padding:6px 10px; background:${corBotao}; color:${corTextoBotao}; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                    ${textoBotao}
-                                                </button>
-
-                                                <button
-                                                    onclick="solicitarInicioClasse('${c.id}', '${c.nome}', 'visualizar')"
-                                                    style="width:100%; padding:6px 10px; background:#262626; color:#fff; border:1px solid #444; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                    Ver
-                                                </button>
-                                            </div>
                                         </div>
                                     </div>
                                 `;
@@ -5304,32 +5304,32 @@ function renderizarCatalogoMestrados(lista, manterEstado = false) {
                                             </div>
                                         </div>
 
-                                                                                <div style="display:flex; gap:6px; align-items:stretch;">
+                                                                                <div style="display:flex; flex-direction:column; gap:6px; min-width:92px;">
+
+                                            <button
+                                                onclick="solicitarInicioMestrado('${m.id}', '${m.nome}', 'iniciar')"
+                                                style="width:100%; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                ${textoBotao}
+                                            </button>
+
+                                            <button
+                                                onclick="solicitarInicioMestrado('${m.id}', '${m.nome}', 'visualizar')"
+                                                style="width:100%; padding:6px 10px; background:#262626; color:#fff; border:1px solid #444; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                Ver
+                                            </button>
+
                                             ${
                                                 tipoUsuario === "admin"
                                                     ? `
                                                         <button
                                                             onclick="abrirModalGerenciarItem('mestrados', '${m.id}')"
-                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer; flex-shrink:0;">
+                                                            style="width:100%; background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">
                                                             Editar
                                                         </button>
                                                     `
                                                     : ""
                                             }
 
-                                            <div style="display:flex; flex-direction:column; gap:6px; min-width:92px;">
-                                                <button
-                                                    onclick="solicitarInicioMestrado('${m.id}', '${m.nome}', 'iniciar')"
-                                                    style="width:100%; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                    ${textoBotao}
-                                                </button>
-
-                                                <button
-                                                    onclick="solicitarInicioMestrado('${m.id}', '${m.nome}', 'visualizar')"
-                                                    style="width:100%; padding:6px 10px; background:#262626; color:#fff; border:1px solid #444; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                    Ver
-                                                </button>
-                                            </div>
                                         </div>
                                     </div>
                                 `;
