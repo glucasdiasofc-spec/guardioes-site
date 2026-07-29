@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.65.0 - versão alpha";
+const VERSAO_ATUAL = "v0.66.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1661,112 +1661,204 @@ function normalizarTextoBusca(texto) {
 }
 
 // === FUNÇÃO DISPARADA AO CLICAR NA ABA PROGRESSO ===
+// === FUNÇÃO DISPARADA AO CLICAR NA ABA PROGRESSO ===
 async function carregarEspecialidades() {
     fecharCatalogoEspecialidades();
     fecharCatalogoMestrados();
     fecharCatalogoClasses();
 
     const username = localStorage.getItem("usernameLogado");
-    if (!username) return;
+
+    if (!username) {
+        return;
+    }
 
     try {
+        const db = window.ClubeDB.textoDB;
+
+        // =====================================================
         // 1. ESPECIALIDADES
-        if (window.cacheEspecialidades.length === 0) {
-            try {
-                const snap = await window.ClubeDB.textoDB.collection("especialidades").get();
-                if (!snap.empty) {
-                    const mapaEspecialidades = new Map();
+        // =====================================================
+        try {
+            const snapEspecialidades = await db
+                .collection("especialidades")
+                .get();
 
-snap.docs.forEach(doc => {
-    const dados = doc.data();
+            const mapaEspecialidades = new Map();
 
-    const item = {
-        id: String(doc.id),
-        ...dados,
-        categoria: dados.categoria || dados.area || "Geral",
-        urlImagem: dados.urlImagem || dados.logo
-    };
+            snapEspecialidades.docs.forEach(doc => {
+                const dados = doc.data() || {};
 
-    // Usa nome + categoria como chave para eliminar duplicatas
-    const chave = `${(item.nome || "").trim().toLowerCase()}|${(item.categoria || "").trim().toLowerCase()}`;
+                const item = {
+                    id: String(doc.id),
+                    ...dados,
+                    categoria:
+                        dados.categoria ||
+                        dados.area ||
+                        "Geral",
+                    urlImagem:
+                        dados.urlImagem ||
+                        dados.logo ||
+                        ""
+                };
 
-    // Mantém apenas a primeira ocorrência
-    if (!mapaEspecialidades.has(chave)) {
-        mapaEspecialidades.set(chave, item);
-    }
-});
+                /*
+                 * Remove duplicidades apenas dentro do catálogo
+                 * carregado do Firebase.
+                 *
+                 * O documento do Firebase continua sendo a
+                 * fonte oficial do item.
+                 */
+                const chave =
+                    `${(item.nome || "").trim().toLowerCase()}|` +
+                    `${(item.categoria || "").trim().toLowerCase()}`;
 
-window.cacheEspecialidades = [...mapaEspecialidades.values()];
-                } else { throw "vazio"; }
-            } catch {
-                if (typeof listaEspecialidadesParaImportar !== "undefined") {
+                if (!mapaEspecialidades.has(chave)) {
+                    mapaEspecialidades.set(chave, item);
+                }
+            });
 
-    const mapaEspecialidades = new Map();
+            /*
+             * IMPORTANTE:
+             * Se o Firebase estiver vazio, o cache também fica vazio.
+             *
+             * Não usamos listaEspecialidadesParaImportar como fallback
+             * aqui, porque um item apagado pelo administrador não pode
+             * reaparecer automaticamente.
+             */
+            window.cacheEspecialidades = [
+                ...mapaEspecialidades.values()
+            ];
+        } catch (erroEspecialidades) {
+            console.error(
+                "Erro ao carregar especialidades do Firebase:",
+                erroEspecialidades
+            );
 
-    listaEspecialidadesParaImportar.forEach(e => {
-        const item = {
-            ...e,
-            id: String(e.id || e.nome),
-            categoria: e.categoria || e.area || "Geral",
-            urlImagem: e.urlImagem || e.logo
-        };
-
-        const chave = `${(item.nome || "").trim().toLowerCase()}|${(item.categoria || "").trim().toLowerCase()}`;
-
-        if (!mapaEspecialidades.has(chave)) {
-            mapaEspecialidades.set(chave, item);
+            /*
+             * Em caso de erro real de leitura, limpamos o cache
+             * para evitar mostrar dados antigos que possam ter sido
+             * excluídos do banco.
+             */
+            window.cacheEspecialidades = [];
         }
-    });
 
-    window.cacheEspecialidades = [...mapaEspecialidades.values()];
+        renderizarCatalogoEspecialidades(
+            window.cacheEspecialidades
+        );
 
-} else {
-    window.cacheEspecialidades = [];
-}
-            }
-        }
-        renderizarCatalogoEspecialidades(window.cacheEspecialidades);
         await carregarEspecialidadesEmAndamento();
 
-        // 2. MESTRADOS (Correção de Fallback e Renderização)
-        if (window.cacheMestrados.length === 0) {
-            try {
-                const snap = await window.ClubeDB.textoDB.collection("mestrados").get();
-                if (!snap.empty) {
-                    window.cacheMestrados = snap.docs.map(doc => ({ 
-                        id: String(doc.id), ...doc.data(),
-                        categoria: doc.data().categoria || doc.data().area || "Mestrado",
-                        urlImagem: doc.data().urlImagem || doc.data().logo
-                    }));
-                } else { throw "vazio"; }
-            } catch {
-                // Se não houver dados no banco, USA O FALLBACK OBRIGATORIAMENTE para não ficar em branco
-                window.cacheMestrados = (typeof fallbackMestrados !== "undefined") ? fallbackMestrados : [];
-            }
+
+        // =====================================================
+        // 2. MESTRADOS
+        // =====================================================
+        try {
+            const snapMestrados = await db
+                .collection("mestrados")
+                .get();
+
+            /*
+             * O catálogo agora representa EXATAMENTE o Firebase.
+             *
+             * Se não houver nenhum documento na coleção,
+             * o resultado será [].
+             *
+             * NÃO usamos fallbackMestrados aqui.
+             */
+            window.cacheMestrados =
+                snapMestrados.docs.map(doc => {
+                    const dados = doc.data() || {};
+
+                    return {
+                        id: String(doc.id),
+                        ...dados,
+                        categoria:
+                            dados.categoria ||
+                            dados.area ||
+                            "Mestrado",
+                        urlImagem:
+                            dados.urlImagem ||
+                            dados.logo ||
+                            ""
+                    };
+                });
+        } catch (erroMestrados) {
+            console.error(
+                "Erro ao carregar mestrados do Firebase:",
+                erroMestrados
+            );
+
+            window.cacheMestrados = [];
         }
-        renderizarCatalogoMestrados(window.cacheMestrados);
+
+        renderizarCatalogoMestrados(
+            window.cacheMestrados
+        );
+
         await carregarMestradosEmAndamento();
 
-        // 3. CLASSES (Correção de Fallback e Renderização)
-        if (window.cacheClasses.length === 0) {
-            try {
-                const snap = await window.ClubeDB.textoDB.collection("classes").get();
-                if (!snap.empty) {
-                    window.cacheClasses = snap.docs.map(doc => ({ 
-                        id: String(doc.id), ...doc.data(),
-                        categoria: doc.data().categoria || "Classe",
-                        urlImagem: doc.data().urlImagem || doc.data().logo
-                    }));
-                } else { throw "vazio"; }
-            } catch {
-                window.cacheClasses = (typeof fallbackClasses !== "undefined") ? fallbackClasses : [];
-            }
+
+        // =====================================================
+        // 3. CLASSES
+        // =====================================================
+        try {
+            const snapClasses = await db
+                .collection("classes")
+                .get();
+
+            /*
+             * O catálogo agora representa EXATAMENTE o Firebase.
+             *
+             * Se a coleção estiver vazia, fica vazio.
+             *
+             * NÃO usamos fallbackClasses aqui.
+             */
+            window.cacheClasses =
+                snapClasses.docs.map(doc => {
+                    const dados = doc.data() || {};
+
+                    return {
+                        id: String(doc.id),
+                        ...dados,
+                        categoria:
+                            dados.categoria ||
+                            "Classe",
+                        urlImagem:
+                            dados.urlImagem ||
+                            dados.logo ||
+                            ""
+                    };
+                });
+        } catch (erroClasses) {
+            console.error(
+                "Erro ao carregar classes do Firebase:",
+                erroClasses
+            );
+
+            window.cacheClasses = [];
         }
-        renderizarCatalogoClasses(window.cacheClasses);
+
+        renderizarCatalogoClasses(
+            window.cacheClasses
+        );
+
         await carregarClassesEmAndamento();
 
     } catch (erro) {
-        console.error("Erro crítico no carregamento:", erro);
+        console.error(
+            "Erro crítico no carregamento dos catálogos:",
+            erro
+        );
+
+        /*
+         * Em uma falha geral, não mantemos caches antigos.
+         * Isso evita que itens já apagados continuem visualmente
+         * disponíveis por causa de dados antigos em memória.
+         */
+        window.cacheEspecialidades = [];
+        window.cacheMestrados = [];
+        window.cacheClasses = [];
     }
 }
 
@@ -5250,17 +5342,286 @@ async function subirImagemParaNuvem(arquivo) {
 
 
 async function excluirItemAdmin() {
-    const id = document.getElementById("edit-item-id").value;
-    const tipo = document.getElementById("edit-item-tipo").value;
-    if (!id || !confirm("Excluir permanentemente?")) return;
+    const id = String(
+        document.getElementById("edit-item-id").value || ""
+    ).trim();
+
+    const tipo =
+        document.getElementById("edit-item-tipo").value;
+
+    if (!id || !tipo) {
+        alert(
+            "Não foi possível identificar o item que será excluído."
+        );
+        return;
+    }
+
+    const configuracaoTipos = {
+        especialidades: {
+            progresso: "progresso_especialidades",
+            cache: "cacheEspecialidades",
+            nome: "especialidade"
+        },
+        mestrados: {
+            progresso: "progresso_mestrados",
+            cache: "cacheMestrados",
+            nome: "mestrado"
+        },
+        classes: {
+            progresso: "progresso_classes",
+            cache: "cacheClasses",
+            nome: "classe"
+        }
+    };
+
+    const config = configuracaoTipos[tipo];
+
+    if (!config) {
+        alert(
+            "Tipo de item inválido. Não foi possível excluir."
+        );
+        return;
+    }
+
+    const confirmou = confirm(
+        `Tem certeza que deseja excluir permanentemente este ${config.nome}?\n\n` +
+        `O item será removido do catálogo e os progressos/avaliações pendentes relacionados a ele também serão excluídos.`
+    );
+
+    if (!confirmou) {
+        return;
+    }
 
     try {
-        await window.ClubeDB.textoDB.collection(tipo).doc(id).delete();
-        alert("Excluído.");
+        const db = window.ClubeDB.textoDB;
+
+        /*
+         * =====================================================
+         * 1. VERIFICA SE O ITEM REALMENTE EXISTE NO CATÁLOGO
+         * =====================================================
+         */
+        const itemRef = db
+            .collection(tipo)
+            .doc(id);
+
+        const itemSnap = await itemRef.get();
+
+        if (!itemSnap.exists) {
+            /*
+             * Mesmo que o cache ainda mostre o item,
+             * o Firebase é a fonte oficial.
+             */
+            throw new Error(
+                "O item não existe mais no catálogo do Firebase."
+            );
+        }
+
+        /*
+         * =====================================================
+         * 2. EXCLUI O ITEM PRINCIPAL DO CATÁLOGO
+         * =====================================================
+         */
+        await itemRef.delete();
+
+
+        /*
+         * =====================================================
+         * 3. EXCLUI TODOS OS PROGRESSOS "EM ANDAMENTO"
+         * RELACIONADOS AO ITEM
+         *
+         * Procuramos pelo campo itemId em vez de depender
+         * somente do ID do documento.
+         *
+         * Isso é importante porque o progresso normalmente usa
+         * documentos no formato:
+         *
+         * usuario_itemId
+         *
+         * e podemos ter vários usuários com o mesmo item.
+         * =====================================================
+         */
+        const snapProgressos = await db
+            .collection(config.progresso)
+            .where("itemId", "==", id)
+            .get();
+
+        /*
+         * Firestore permite no máximo 500 operações por batch.
+         * Dividimos em grupos para evitar falha se houver muitos
+         * usuários com esse item salvo.
+         */
+        const documentosParaApagar = [
+            ...snapProgressos.docs
+        ];
+
+        for (
+            let inicio = 0;
+            inicio < documentosParaApagar.length;
+            inicio += 450
+        ) {
+            const lote = db.batch();
+
+            const grupo =
+                documentosParaApagar.slice(
+                    inicio,
+                    inicio + 450
+                );
+
+            grupo.forEach(doc => {
+                lote.delete(doc.ref);
+            });
+
+            if (grupo.length > 0) {
+                await lote.commit();
+            }
+        }
+
+
+        /*
+         * =====================================================
+         * 4. EXCLUI TODAS AS PENDÊNCIAS DE AVALIAÇÃO
+         * RELACIONADAS AO ITEM
+         *
+         * Caso alguém tenha enviado o item para avaliação,
+         * ele também não pode continuar aparecendo em
+         * "Aprovações Pendentes" depois de o catálogo ter
+         * sido excluído pelo administrador.
+         *
+         * Filtramos pelo itemId e pela coleção de origem correta.
+         * =====================================================
+         */
+        const snapPendencias = await db
+            .collection("pendencias_aprovacao")
+            .where("itemId", "==", id)
+            .where(
+                "colecaoOrigem",
+                "==",
+                config.progresso
+            )
+            .get();
+
+        const pendenciasParaApagar = [
+            ...snapPendencias.docs
+        ];
+
+        for (
+            let inicio = 0;
+            inicio < pendenciasParaApagar.length;
+            inicio += 450
+        ) {
+            const lote = db.batch();
+
+            const grupo =
+                pendenciasParaApagar.slice(
+                    inicio,
+                    inicio + 450
+                );
+
+            grupo.forEach(doc => {
+                lote.delete(doc.ref);
+            });
+
+            if (grupo.length > 0) {
+                await lote.commit();
+            }
+        }
+
+
+        /*
+         * =====================================================
+         * 5. LIMPA O CACHE CORRETO
+         * =====================================================
+         */
+        window[config.cache] = [];
+
+
+        /*
+         * =====================================================
+         * 6. LIMPA OS ESTADOS DE CATEGORIA
+         * PARA EVITAR QUE A INTERFACE FIQUE EM UMA PASTA
+         * ANTIGA DO ITEM EXCLUÍDO.
+         * =====================================================
+         */
+        if (tipo === "especialidades") {
+            window.categoriaAtualEspecialidades = null;
+
+            const busca =
+                document.getElementById(
+                    "busca-especialidade"
+                );
+
+            if (busca) {
+                busca.value = "";
+            }
+        }
+
+        if (tipo === "mestrados") {
+            window.categoriaAtualMestrados = null;
+
+            const busca =
+                document.getElementById(
+                    "busca-mestrado"
+                );
+
+            if (busca) {
+                busca.value = "";
+            }
+        }
+
+        if (tipo === "classes") {
+            window.categoriaAtualClasses = null;
+
+            const busca =
+                document.getElementById(
+                    "busca-classe"
+                );
+
+            if (busca) {
+                busca.value = "";
+            }
+        }
+
+
+        /*
+         * =====================================================
+         * 7. FECHA O MODAL ANTES DE RECARREGAR OS DADOS
+         * =====================================================
+         */
         fecharModalGerenciarItem();
-        window.cacheEspecialidades = []; 
-        carregarEspecialidades();
-    } catch (e) { alert("Erro ao excluir."); }
+
+
+        /*
+         * =====================================================
+         * 8. RECARREGA OS TRÊS CATÁLOGOS DIRETAMENTE DO FIREBASE
+         *
+         * Como todos os caches estão sendo atualizados pela
+         * função carregarEspecialidades(), usamos ela como
+         * ponto único de sincronização.
+         * =====================================================
+         */
+        await carregarEspecialidades();
+
+
+        /*
+         * =====================================================
+         * 9. FEEDBACK FINAL
+         * =====================================================
+         */
+        alert(
+            `${config.nome.charAt(0).toUpperCase() + config.nome.slice(1)} excluído com sucesso.`
+        );
+
+    } catch (erro) {
+        console.error(
+            `Erro ao excluir ${config.nome}:`,
+            erro
+        );
+
+        alert(
+            `Não foi possível excluir o ${config.nome}.\n\n` +
+            `${erro.message || "Erro desconhecido."}`
+        );
+    }
 }
 
 // ==========================================
