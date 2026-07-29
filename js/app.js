@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.67.0 - versão alpha";
+const VERSAO_ATUAL = "v0.68.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -4344,47 +4344,271 @@ async function solicitarInicioClasse(id, nome, modo = "iniciar") {
 async function carregarEspecialidadesEmAndamento() {
     const username = localStorage.getItem("usernameLogado");
     const container = document.getElementById("lista-especialidades-progresso-container");
+
     if (!container) return;
 
+    if (!username) {
+        container.innerHTML = `
+            <p style="color:#8e8e8e; font-size:12px; text-align:center; padding:10px;">
+                Nenhuma especialidade em andamento.
+            </p>
+        `;
+        return;
+    }
+
     try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_especialidades")
+        const db = window.ClubeDB.textoDB;
+
+        /*
+         * =====================================================
+         * 1. BUSCA O CATÁLOGO REAL DE ESPECIALIDADES
+         *
+         * Consultamos diretamente o Firebase.
+         * Não usamos somente window.cacheEspecialidades,
+         * pois o cache pode estar desatualizado.
+         * =====================================================
+         */
+        const snapCatalogoEspecialidades = await db
+            .collection("especialidades")
+            .get();
+
+        /*
+         * Guarda apenas os IDs que realmente continuam
+         * existindo no catálogo.
+         */
+        const idsEspecialidadesExistentes = new Set(
+            snapCatalogoEspecialidades.docs.map(doc =>
+                String(doc.id)
+            )
+        );
+
+        /*
+         * Atualiza o cache com os dados atuais do Firebase.
+         */
+        const mapaEspecialidades = new Map();
+
+        snapCatalogoEspecialidades.docs.forEach(doc => {
+            const dados = doc.data() || {};
+
+            const item = {
+                id: String(doc.id),
+                ...dados,
+                categoria:
+                    dados.categoria ||
+                    dados.area ||
+                    "Geral",
+                urlImagem:
+                    dados.urlImagem ||
+                    dados.logo ||
+                    ""
+            };
+
+            /*
+             * Mantém a mesma lógica de deduplicação
+             * por nome + categoria.
+             */
+            const chave =
+                `${(item.nome || "").trim().toLowerCase()}|` +
+                `${(item.categoria || "").trim().toLowerCase()}`;
+
+            if (!mapaEspecialidades.has(chave)) {
+                mapaEspecialidades.set(chave, item);
+            }
+        });
+
+        window.cacheEspecialidades = [
+            ...mapaEspecialidades.values()
+        ];
+
+
+        /*
+         * =====================================================
+         * 2. BUSCA O PROGRESSO DO USUÁRIO
+         * =====================================================
+         */
+        const snapProgresso = await db
+            .collection("progresso_especialidades")
             .where("usuario", "==", username)
-            .where("status", "==", "em_andamento").get();
+            .where("status", "==", "em_andamento")
+            .get();
 
-        container.innerHTML = ""; // Limpa o "Carregando."
 
-        if (snap.empty) {
-            container.innerHTML = "<p style='color:#8e8e8e; font-size:12px; text-align:center; padding:10px;'>Nenhuma especialidade em andamento.</p>";
+        /*
+         * =====================================================
+         * 3. SEPARA PROGRESSOS VÁLIDOS E ÓRFÃOS
+         * =====================================================
+         */
+        const progressosValidos = [];
+        const progressosOrfaos = [];
+
+        snapProgresso.docs.forEach(doc => {
+            const dados = doc.data() || {};
+            const itemId = String(dados.itemId || "");
+
+            if (
+                itemId &&
+                idsEspecialidadesExistentes.has(itemId)
+            ) {
+                progressosValidos.push({
+                    doc,
+                    dados
+                });
+            } else {
+                /*
+                 * O item foi apagado do catálogo ou o progresso
+                 * não possui mais um item válido associado.
+                 */
+                progressosOrfaos.push(doc);
+            }
+        });
+
+
+        /*
+         * =====================================================
+         * 4. EXCLUI OS PROGRESSOS ÓRFÃOS
+         *
+         * Isso remove automaticamente da conta do usuário
+         * as especialidades que foram apagadas do catálogo.
+         *
+         * Dividimos em lotes de 450 para manter margem segura
+         * abaixo do limite de operações por batch do Firestore.
+         * =====================================================
+         */
+        if (progressosOrfaos.length > 0) {
+            for (
+                let inicio = 0;
+                inicio < progressosOrfaos.length;
+                inicio += 450
+            ) {
+                const lote = db.batch();
+
+                const grupo =
+                    progressosOrfaos.slice(
+                        inicio,
+                        inicio + 450
+                    );
+
+                grupo.forEach(doc => {
+                    lote.delete(doc.ref);
+                });
+
+                await lote.commit();
+            }
+
+            console.log(
+                `Limpeza automática de especialidades concluída: ${progressosOrfaos.length} registro(s) órfão(s) removido(s) de "progresso_especialidades".`
+            );
+        }
+
+
+        /*
+         * =====================================================
+         * 5. LIMPA O CONTAINER
+         * =====================================================
+         */
+        container.innerHTML = "";
+
+
+        /*
+         * =====================================================
+         * 6. NENHUMA ESPECIALIDADE VÁLIDA EM ANDAMENTO
+         * =====================================================
+         */
+        if (progressosValidos.length === 0) {
+            container.innerHTML = `
+                <p style="color:#8e8e8e; font-size:12px; text-align:center; padding:10px;">
+                    Nenhuma especialidade em andamento.
+                </p>
+            `;
             return;
         }
 
-        container.innerHTML = snap.docs.map(doc => {
-            const dados = doc.data();
-            const espItem = window.cacheEspecialidades.find(e => String(e.id) === String(dados.itemId));
-            const imgUrl = espItem?.urlImagem || espItem?.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
 
-            return `
-                <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
-                        <img src="${imgUrl}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                        <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dados.nomeItem}</div>
-                            <div style="color:#0095f6; font-size:11px; font-weight:bold;">Em Andamento</div>
+        /*
+         * =====================================================
+         * 7. RENDERIZA SOMENTE ESPECIALIDADES EXISTENTES
+         * =====================================================
+         */
+        container.innerHTML = progressosValidos
+            .map(({ dados }) => {
+                const espItem =
+                    window.cacheEspecialidades.find(
+                        especialidade =>
+                            String(especialidade.id) ===
+                            String(dados.itemId)
+                    );
+
+                /*
+                 * Proteção extra: se por algum motivo o item
+                 * não estiver no cache, não renderiza.
+                 */
+                if (!espItem) {
+                    return "";
+                }
+
+                const imgUrl =
+                    espItem.urlImagem ||
+                    espItem.logo ||
+                    "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+                const nomeEspecialidade =
+                    dados.nomeItem ||
+                    dados.nome ||
+                    espItem.nome ||
+                    "Especialidade";
+
+                /*
+                 * Proteção para não quebrar o onclick
+                 * caso o nome contenha apóstrofos.
+                 */
+                const nomeSeguro =
+                    String(nomeEspecialidade)
+                        .replace(/\\/g, "\\\\")
+                        .replace(/'/g, "\\'");
+
+                return `
+                    <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
+                        
+                        <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+                            <img
+                                src="${imgUrl}"
+                                onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
+                                style="width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0;"
+                            >
+
+                            <div style="min-width:0; flex:1;">
+                                <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    ${nomeEspecialidade}
+                                </div>
+
+                                <div style="color:#0095f6; font-size:11px; font-weight:bold;">
+                                    Em Andamento
+                                </div>
+                            </div>
                         </div>
+
+                        <button
+                            onclick="solicitarInicioEspecialidade('${dados.itemId}', '${nomeSeguro}', 'continuar')"
+                            style="flex-shrink:0; padding:8px 14px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; width:max-content; white-space:nowrap;"
+                        >
+                            Continuar
+                        </button>
                     </div>
+                `;
+            })
+            .join("");
 
-                    <button
-                        onclick="solicitarInicioEspecialidade('${dados.itemId}', '${dados.nomeItem}', 'continuar')"
-                        style="flex-shrink:0; padding:8px 14px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; width:max-content; white-space:nowrap;">
-                        Continuar
-                    </button>
-                </div>
-            `;
-        }).join("");
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar e limpar especialidades em andamento:",
+            erro
+        );
 
-    } catch (e) { 
-        console.error(e);
-        container.innerHTML = "<p style='color:#ff4d4d; font-size:11px;'>Erro ao carregar.</p>";
+        container.innerHTML = `
+            <p style="color:#ff4d4d; font-size:11px; text-align:center; padding:10px;">
+                Erro ao carregar especialidades em andamento.
+            </p>
+        `;
     }
 }
 
@@ -4653,32 +4877,243 @@ async function carregarMestradosEmAndamento() {
 
 async function carregarClassesEmAndamento() {
     const container = document.getElementById("lista-classes-progresso-container");
+
     if (!container) return;
+
     const username = localStorage.getItem("usernameLogado");
+
+    if (!username) {
+        container.innerHTML = `
+            <p style="color:#8e8e8e; text-align:center; font-size:12px; padding:10px;">
+                Nenhuma classe em andamento.
+            </p>
+        `;
+        return;
+    }
+
     try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_classes").where("usuario", "==", username).where("status", "==", "em_andamento").get();
-        container.innerHTML = ""; 
-        if (snap.empty) { container.innerHTML = `<p style="color:#8e8e8e; text-align:center; font-size:12px; padding:10px;">Nenhuma classe em andamento.</p>`; return; }
-        const itens = snap.docs.map(doc => doc.data());
-        container.innerHTML = itens.map(item => {
-            const classItem = window.cacheClasses.find(c => String(c.id) === String(item.itemId));
-            const imgUrl = classItem?.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
-            return `
-                <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
-                        <img src="${imgUrl}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                        <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nomeItem || item.nome}</div>
-                            <div style="color:#ffc107; font-size:11px; font-weight:bold;">Em Andamento</div>
-                        </div>
-                    </div>
-                    <button onclick="solicitarInicioClasse('${item.itemId}', '${item.nomeItem || item.nome}', 'continuar')" style="flex-shrink:0; padding:8px 14px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; width:max-content; white-space:nowrap;">
-                        Continuar
-                    </button>
-                </div>
+        const db = window.ClubeDB.textoDB;
+
+        /*
+         * =====================================================
+         * 1. BUSCA O CATÁLOGO REAL DE CLASSES
+         * =====================================================
+         */
+        const snapCatalogoClasses = await db
+            .collection("classes")
+            .get();
+
+        /*
+         * Guarda os IDs de todas as classes que ainda existem.
+         */
+        const idsClassesExistentes = new Set(
+            snapCatalogoClasses.docs.map(doc =>
+                String(doc.id)
+            )
+        );
+
+        /*
+         * Atualiza o cache diretamente do Firebase.
+         */
+        window.cacheClasses =
+            snapCatalogoClasses.docs.map(doc => {
+                const dados = doc.data() || {};
+
+                return {
+                    id: String(doc.id),
+                    ...dados,
+                    categoria:
+                        dados.categoria ||
+                        "Classe",
+                    urlImagem:
+                        dados.urlImagem ||
+                        dados.logo ||
+                        ""
+                };
+            });
+
+
+        /*
+         * =====================================================
+         * 2. BUSCA O PROGRESSO DO USUÁRIO
+         * =====================================================
+         */
+        const snapProgresso = await db
+            .collection("progresso_classes")
+            .where("usuario", "==", username)
+            .where("status", "==", "em_andamento")
+            .get();
+
+
+        /*
+         * =====================================================
+         * 3. SEPARA CLASSES VÁLIDAS E ÓRFÃS
+         * =====================================================
+         */
+        const progressosValidos = [];
+        const progressosOrfaos = [];
+
+        snapProgresso.docs.forEach(doc => {
+            const dados = doc.data() || {};
+            const itemId = String(dados.itemId || "");
+
+            if (
+                itemId &&
+                idsClassesExistentes.has(itemId)
+            ) {
+                progressosValidos.push({
+                    doc,
+                    dados
+                });
+            } else {
+                /*
+                 * A classe foi excluída do catálogo ou seu
+                 * progresso ficou sem um item válido.
+                 */
+                progressosOrfaos.push(doc);
+            }
+        });
+
+
+        /*
+         * =====================================================
+         * 4. APAGA AUTOMATICAMENTE OS PROGRESSOS ÓRFÃOS
+         * =====================================================
+         */
+        if (progressosOrfaos.length > 0) {
+            for (
+                let inicio = 0;
+                inicio < progressosOrfaos.length;
+                inicio += 450
+            ) {
+                const lote = db.batch();
+
+                const grupo =
+                    progressosOrfaos.slice(
+                        inicio,
+                        inicio + 450
+                    );
+
+                grupo.forEach(doc => {
+                    lote.delete(doc.ref);
+                });
+
+                await lote.commit();
+            }
+
+            console.log(
+                `Limpeza automática de classes concluída: ${progressosOrfaos.length} registro(s) órfão(s) removido(s) de "progresso_classes".`
+            );
+        }
+
+
+        /*
+         * =====================================================
+         * 5. LIMPA O CONTAINER
+         * =====================================================
+         */
+        container.innerHTML = "";
+
+
+        /*
+         * =====================================================
+         * 6. NENHUMA CLASSE VÁLIDA EM ANDAMENTO
+         * =====================================================
+         */
+        if (progressosValidos.length === 0) {
+            container.innerHTML = `
+                <p style="color:#8e8e8e; text-align:center; font-size:12px; padding:10px;">
+                    Nenhuma classe em andamento.
+                </p>
             `;
-        }).join("");
-    } catch (e) { container.innerHTML = `<p style="color:#ff4d4d; text-align:center; font-size:11px;">Erro ao carregar.</p>`; }
+            return;
+        }
+
+
+        /*
+         * =====================================================
+         * 7. RENDERIZA SOMENTE CLASSES EXISTENTES
+         * =====================================================
+         */
+        container.innerHTML = progressosValidos
+            .map(({ dados }) => {
+                const classItem =
+                    window.cacheClasses.find(
+                        classe =>
+                            String(classe.id) ===
+                            String(dados.itemId)
+                    );
+
+                /*
+                 * Proteção extra contra inconsistência de cache.
+                 */
+                if (!classItem) {
+                    return "";
+                }
+
+                const imgUrl =
+                    classItem.urlImagem ||
+                    classItem.logo ||
+                    "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+                const nomeClasse =
+                    dados.nomeItem ||
+                    dados.nome ||
+                    classItem.nome ||
+                    "Classe";
+
+                /*
+                 * Proteção contra apóstrofos no nome.
+                 */
+                const nomeSeguro =
+                    String(nomeClasse)
+                        .replace(/\\/g, "\\\\")
+                        .replace(/'/g, "\\'");
+
+                return `
+                    <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
+                        
+                        <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+                            <img
+                                src="${imgUrl}"
+                                onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
+                                style="width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0;"
+                            >
+
+                            <div style="min-width:0; flex:1;">
+                                <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    ${nomeClasse}
+                                </div>
+
+                                <div style="color:#ffc107; font-size:11px; font-weight:bold;">
+                                    Em Andamento
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onclick="solicitarInicioClasse('${dados.itemId}', '${nomeSeguro}', 'continuar')"
+                            style="flex-shrink:0; padding:8px 14px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; width:max-content; white-space:nowrap;"
+                        >
+                            Continuar
+                        </button>
+                    </div>
+                `;
+            })
+            .join("");
+
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar e limpar classes em andamento:",
+            erro
+        );
+
+        container.innerHTML = `
+            <p style="color:#ff4d4d; text-align:center; font-size:11px; padding:10px;">
+                Erro ao carregar classes em andamento.
+            </p>
+        `;
+    }
 }
 
 
