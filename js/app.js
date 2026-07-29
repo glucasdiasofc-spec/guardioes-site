@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.50.0 - versão alpha";
+const VERSAO_ATUAL = "v0.51.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1815,9 +1815,10 @@ function renderizarCatalogoEspecialidades(lista) {
     });
 
     container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
-        <div style="width:100%; max-width:100%;">
+        <div>
             <h4 style="color:#007bff; font-size:12px; margin-bottom:8px; border-left:3px solid #007bff; padding-left:6px; text-transform:uppercase;">${cat}</h4>
-            <div style="display:grid; gap:8px;">
+            <div style="display:grid; gap:8px; width:100%;">
+
                 ${itens.map(e => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
@@ -1850,10 +1851,11 @@ function renderizarCatalogoClasses(lista) {
         categorias[cat].push(item);
     });
 
-    container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
-        <div style="width:100%; max-width:100%;">
+        container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
+        <div style="width:100%;">
             <h4 style="color:#ffc107; font-size:12px; margin-bottom:8px; border-left:3px solid #ffc107; padding-left:6px; text-transform:uppercase;">${cat}</h4>
-            <div style="display:grid; gap:8px;">
+            <div style="display:grid; gap:8px; width:100%;">
+
                 ${itens.map(c => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
@@ -2334,10 +2336,11 @@ function renderizarCatalogoMestrados(lista) {
         categorias[cat].push(item);
     });
 
-    container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
-        <div style="margin-bottom:15px;">
+        container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
+        <div style="margin-bottom:15px; width:100%;">
             <h4 style="color:#28a745; font-size:12px; margin-bottom:8px; border-left:3px solid #28a745; padding-left:6px; text-transform:uppercase;">${cat}</h4>
-            <div style="display:grid; gap:8px;">
+            <div style="display:grid; gap:8px; width:100%;">
+
                 ${itens.map(m => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">

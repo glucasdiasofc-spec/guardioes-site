@@ -410,17 +410,15 @@
                         flex-direction: column !important;
                         gap: 20px !important;
                         width: 100% !important;
-                        max-width: 600px !important;
-                        margin: 0 auto !important;
+                        max-width: 100% !important;
+                        align-items: stretch !important;
                     }
 
+
                     /* Força os elementos internos e botões dinâmicos a quebrarem linha em telas menores */
-                    #lista-especialidades-progresso-container > div,
+                                        #lista-especialidades-progresso-container > div,
                     #lista-mestrados-progresso-container > div,
-                    #lista-classes-progresso-container > div,
-                    #lista-especialidades-container > div,
-                    #lista-mestrados-container > div,
-                    #lista-classes-container > div {
+                    #lista-classes-progresso-container > div {
                         display: flex !important;
                         flex-wrap: wrap !important;
                         align-items: center !important;
@@ -430,6 +428,19 @@
                         max-width: 100% !important;
                         word-break: break-word !important;
                     }
+                    #lista-especialidades-container > div,
+                    #lista-mestrados-container > div,
+                    #lista-classes-container > div {
+                        display: flex !important;
+                        flex-direction: column !important;
+                        align-items: stretch !important;
+                        justify-content: flex-start !important;
+                        gap: 8px !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        word-break: break-word !important;
+                    }
+
                     /* Evita estouro por conta de títulos ou botões longos */
                     #sub-aba-especialidades button,
                     #sub-aba-especialidades p,
