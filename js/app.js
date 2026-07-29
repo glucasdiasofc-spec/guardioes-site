@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.63.0 - versão alpha";
+const VERSAO_ATUAL = "v0.64.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -2407,24 +2407,32 @@ function renderizarCatalogoClasses(lista, manterEstado = false) {
                                             </div>
                                         </div>
 
-                                        <div style="display:flex; gap:6px;">
+                                                                                <div style="display:flex; gap:6px; align-items:stretch;">
                                             ${
                                                 tipoUsuario === "admin"
                                                     ? `
                                                         <button
                                                             onclick="abrirModalGerenciarItem('classes', '${c.id}')"
-                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">
+                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer; flex-shrink:0;">
                                                             Editar
                                                         </button>
                                                     `
                                                     : ""
                                             }
 
-                                            <button
-                                                onclick="solicitarInicioClasse('${c.id}', '${c.nome}')"
-                                                style="flex-shrink:0; width:max-content; padding:6px 10px; background:${corBotao}; color:${corTextoBotao}; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                ${textoBotao}
-                                            </button>
+                                            <div style="display:flex; flex-direction:column; gap:6px; min-width:92px;">
+                                                <button
+                                                    onclick="solicitarInicioClasse('${c.id}', '${c.nome}', 'iniciar')"
+                                                    style="width:100%; padding:6px 10px; background:${corBotao}; color:${corTextoBotao}; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                    ${textoBotao}
+                                                </button>
+
+                                                <button
+                                                    onclick="solicitarInicioClasse('${c.id}', '${c.nome}', 'visualizar')"
+                                                    style="width:100%; padding:6px 10px; background:#262626; color:#fff; border:1px solid #444; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                    Ver
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 `;
@@ -3579,7 +3587,7 @@ async function solicitarInicioMestrado(id, nome, modo = "iniciar") {
 
 
 
-async function solicitarInicioClasse(id, nome) {
+async function solicitarInicioClasse(id, nome, modo = "iniciar") {
     const username = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado");
 
@@ -3609,8 +3617,7 @@ async function solicitarInicioClasse(id, nome) {
     let classeJaConcluida = false;
 
     /*
-     * Verifica diretamente o campo classesConcluidas do usuário.
-     * Assim, a proteção não depende somente da cor ou do cache.
+     * Verificação definitiva diretamente no perfil do usuário.
      */
     if (tipoUsuario !== "admin") {
         try {
@@ -3634,18 +3641,23 @@ async function solicitarInicioClasse(id, nome) {
 
             classeJaConcluida = classesConcluidas.some(
                 nomeClasseConcluida =>
-                    normalizarTextoBusca(nomeClasseConcluida).trim() ===
-                    normalizarTextoBusca(nome).trim()
+                    normalizarTextoBusca(
+                        nomeClasseConcluida
+                    ).trim() ===
+                    normalizarTextoBusca(
+                        nome
+                    ).trim()
             );
         } catch (erro) {
             console.error(
-                "Erro ao verificar se a classe já foi concluída:",
+                "Erro ao verificar as classes já concluídas:",
                 erro
             );
 
             alert(
                 "Não foi possível verificar suas classes concluídas. Tente novamente."
             );
+
             return;
         }
     }
@@ -3653,24 +3665,26 @@ async function solicitarInicioClasse(id, nome) {
     let progressoSalvo = [];
 
     /*
-     * Somente uma classe ainda não concluída pode criar
-     * ou carregar progresso editável.
+     * Carrega o progresso existente.
      */
     if (!classeJaConcluida) {
         try {
-            const progressoSnap = await window.ClubeDB.textoDB
-                .collection("progresso_classes")
-                .doc(`${username}_${id}`)
-                .get();
+            const progressoSnap =
+                await window.ClubeDB.textoDB
+                    .collection("progresso_classes")
+                    .doc(`${username}_${id}`)
+                    .get();
 
             if (progressoSnap.exists) {
-                const dadosProgresso = progressoSnap.data();
+                const dadosProgresso =
+                    progressoSnap.data();
 
-                progressoSalvo = Array.isArray(
-                    dadosProgresso.requisitosConcluidos
-                )
-                    ? dadosProgresso.requisitosConcluidos
-                    : [];
+                progressoSalvo =
+                    Array.isArray(
+                        dadosProgresso.requisitosConcluidos
+                    )
+                        ? dadosProgresso.requisitosConcluidos
+                        : [];
             }
         } catch (erro) {
             console.error(
@@ -3678,40 +3692,78 @@ async function solicitarInicioClasse(id, nome) {
                 erro
             );
         }
-
-        if (
-            progressoSalvo.length === 0 &&
-            requisitos.length === 0
-        ) {
-            try {
-                await window.ClubeDB.textoDB
-                    .collection("progresso_classes")
-                    .doc(`${username}_${id}`)
-                    .set(
-                        {
-                            usuario: username,
-                            itemId: id,
-                            nomeItem: nome,
-                            requisitosConcluidos: [],
-                            status: "em_andamento",
-                            atualizadoEm:
-                                firebase.firestore.FieldValue.serverTimestamp()
-                        },
-                        {
-                            merge: true
-                        }
-                    );
-            } catch (erro) {
-                console.error(
-                    "Erro ao iniciar a classe:",
-                    erro
-                );
-
-                alert("Erro ao iniciar classe.");
-                return;
-            }
-        }
     }
+
+    /*
+     * Registra o início sem apagar progresso existente.
+     */
+    const registrarInicioNoBanco = async () => {
+        await window.ClubeDB.textoDB
+            .collection("progresso_classes")
+            .doc(`${username}_${id}`)
+            .set(
+                {
+                    usuario: username,
+                    itemId: id,
+                    nomeItem: nome,
+                    requisitosConcluidos:
+                        Array.isArray(progressoSalvo)
+                            ? progressoSalvo
+                            : [],
+                    status: "em_andamento",
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                },
+                {
+                    merge: true
+                }
+            );
+    };
+
+    /*
+     * Botão Começar do catálogo.
+     */
+    if (
+        modo === "iniciar" &&
+        !classeJaConcluida
+    ) {
+        const confirmouInicio = confirm(
+            "Tem certeza que você quer começar esta classe?"
+        );
+
+        if (!confirmouInicio) {
+            return;
+        }
+
+        try {
+            await registrarInicioNoBanco();
+
+            alert("Classe iniciada com sucesso!");
+
+            fecharCatalogoClasses();
+            await carregarClassesEmAndamento();
+        } catch (erro) {
+            console.error(
+                "Erro ao iniciar a classe:",
+                erro
+            );
+
+            alert("Erro ao iniciar classe.");
+        }
+
+        return;
+    }
+
+    /*
+     * Classe concluída vira somente consulta.
+     */
+    if (classeJaConcluida) {
+        modo = "concluido";
+    }
+
+    const somenteLeitura =
+        modo === "visualizar" ||
+        modo === "concluido";
 
     const modal = document.createElement("div");
 
@@ -3729,7 +3781,7 @@ async function solicitarInicioClasse(id, nome) {
             <img
                 src="${fotoUrl}"
                 onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
-                style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid ${classeJaConcluida ? "#28a745" : "#262626"}; flex-shrink:0;"
+                style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:${classeJaConcluida ? "#28a745" : "#262626"}; border-width:2px; border-style:solid; flex-shrink:0;"
             >
 
             <h3 style="margin:0; font-size:16px; text-align:center; color:${classeJaConcluida ? "#5ee27a" : "#fff"}; font-weight:bold;">
@@ -3743,45 +3795,57 @@ async function solicitarInicioClasse(id, nome) {
                             ✓ CLASSE CONCLUÍDA
                         </div>
                     `
-                    : ""
+                    : modo === "visualizar"
+                        ? `
+                            <div style="background:#121212; color:#0095f6; border:1px solid #262626; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:bold;">
+                                👁️ VISUALIZAÇÃO SOMENTE LEITURA
+                            </div>
+                        `
+                        : `
+                            <div style="background:#241f10; color:#ffc107; border:1px solid #ffc107; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:bold;">
+                                EM ANDAMENTO
+                            </div>
+                        `
             }
         </div>
 
         <div style="width:100%; border-bottom:1px solid #262626;"></div>
 
         <div style="flex:1; overflow-y:auto; padding:20px;">
-            <p style="color:${classeJaConcluida ? "#5ee27a" : "#8e8e8e"}; font-size:13px; margin-bottom:20px;">
+            <p style="color:${classeJaConcluida ? "#5ee27a" : modo === "visualizar" ? "#0095f6" : "#8e8e8e"}; font-size:13px; margin-bottom:20px;">
                 ${
                     classeJaConcluida
-                        ? "Checklist disponível somente para consulta. Esta classe não pode ser iniciada novamente."
-                        : "Marque os requisitos concluídos. Seu progresso é salvo automaticamente."
+                        ? "Checklist disponível somente para consulta."
+                        : modo === "visualizar"
+                            ? "Você pode consultar os requisitos, mas não pode marcar nenhum item neste modo."
+                            : "Marque os requisitos concluídos. Seu progresso será salvo automaticamente."
                 }
             </p>
 
-            <div id="lista-checks">
+            <div id="lista-checks-class">
                 ${
                     requisitos.length > 0
                         ? requisitos
-                            .map((requisito, indice) => {
+                            .map((req, i) => {
                                 const requisitoMarcado =
                                     classeJaConcluida ||
-                                    progressoSalvo.includes(indice);
+                                    progressoSalvo.includes(i);
 
                                 return `
                                     <label
-                                        style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:${classeJaConcluida ? "default" : "pointer"}; background:${classeJaConcluida ? "#102418" : "#121212"}; padding:12px; border-radius:8px; border:1px solid ${classeJaConcluida ? "#28a745" : "#262626"};">
+                                        style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:${somenteLeitura ? "default" : "pointer"}; background:${somenteLeitura ? "#102418" : "#121212"}; padding:12px; border-radius:8px; border:1px solid ${somenteLeitura ? "#28a745" : "#262626"};">
 
                                         <input
                                             type="checkbox"
-                                            class="req-check"
-                                            data-idx="${indice}"
+                                            class="req-check-class"
+                                            data-idx="${i}"
                                             ${requisitoMarcado ? "checked" : ""}
-                                            ${classeJaConcluida ? "disabled" : ""}
-                                            style="width:20px; height:20px; margin-top:2px; accent-color:${classeJaConcluida ? "#28a745" : "#ffc107"};"
+                                            ${somenteLeitura ? "disabled" : ""}
+                                            style="width:20px; height:20px; margin-top:2px; accent-color:${somenteLeitura ? "#28a745" : "#ffc107"};"
                                         >
 
-                                        <span style="font-size:14px; line-height:1.4; color:${classeJaConcluida ? "#d8f5df" : "#fff"};">
-                                            ${requisito}
+                                        <span style="font-size:14px; line-height:1.4; color:${somenteLeitura ? "#d8f5df" : "#fff"};">
+                                            ${req}
                                         </span>
                                     </label>
                                 `;
@@ -3806,20 +3870,28 @@ async function solicitarInicioClasse(id, nome) {
                             Fechar checklist
                         </button>
                     `
-                    : `
-                        <button
-                            id="btn-enviar-aval-class"
-                            disabled
-                            style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">
-                            Enviar para Avaliação
-                        </button>
+                    : modo === "visualizar"
+                        ? `
+                            <button
+                                id="btn-comecar-class"
+                                style="width:100%; padding:14px; background:#ffc107; color:#121212; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer;">
+                                Começar
+                            </button>
+                        `
+                        : `
+                            <button
+                                id="btn-enviar-aval-class"
+                                disabled
+                                style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">
+                                Enviar para Avaliação
+                            </button>
 
-                        <button
-                            id="btn-cancelar-class"
-                            style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">
-                            Cancelar Classe
-                        </button>
-                    `
+                            <button
+                                id="btn-cancelar-class"
+                                style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">
+                                Cancelar Classe
+                            </button>
+                        `
             }
         </div>
     `;
@@ -3832,17 +3904,22 @@ async function solicitarInicioClasse(id, nome) {
 
     btnFechar.onclick = () => {
         modal.remove();
-        abrirCatalogoClasses();
+
+        if (modo === "continuar") {
+            carregarClassesEmAndamento();
+        } else {
+            abrirCatalogoClasses();
+        }
     };
 
     /*
-     * Modo somente leitura.
-     * Não permite desmarcar, salvar, cancelar ou reenviar.
+     * Classe concluída: somente consulta.
      */
     if (classeJaConcluida) {
-        const btnFecharRevisao = modal.querySelector(
-            "#btn-fechar-revisao-class"
-        );
+        const btnFecharRevisao =
+            modal.querySelector(
+                "#btn-fechar-revisao-class"
+            );
 
         if (btnFecharRevisao) {
             btnFecharRevisao.onclick = () => {
@@ -3854,7 +3931,54 @@ async function solicitarInicioClasse(id, nome) {
         return;
     }
 
-    const checks = modal.querySelectorAll(".req-check");
+    /*
+     * Modo Ver: não permite edição.
+     */
+    if (modo === "visualizar") {
+        const btnComecar =
+            modal.querySelector(
+                "#btn-comecar-class"
+            );
+
+        if (btnComecar) {
+            btnComecar.onclick = async () => {
+                const confirmouInicio = confirm(
+                    "Tem certeza que você quer começar esta classe?"
+                );
+
+                if (!confirmouInicio) {
+                    return;
+                }
+
+                try {
+                    await registrarInicioNoBanco();
+
+                    alert("Classe iniciada com sucesso!");
+
+                    modal.remove();
+
+                    fecharCatalogoClasses();
+                    await carregarClassesEmAndamento();
+                } catch (erro) {
+                    console.error(
+                        "Erro ao iniciar a classe:",
+                        erro
+                    );
+
+                    alert("Erro ao iniciar classe.");
+                }
+            };
+        }
+
+        return;
+    }
+
+    /*
+     * Modo Continuar.
+     */
+    const checks = modal.querySelectorAll(
+        ".req-check-class"
+    );
 
     const btnEnv = modal.querySelector(
         "#btn-enviar-aval-class"
@@ -3864,35 +3988,44 @@ async function solicitarInicioClasse(id, nome) {
         "#btn-cancelar-class"
     );
 
-    btnCancel.onclick = async () => {
-        const confirmouCancelamento = confirm(
-            "Tem certeza que deseja cancelar? Todo o seu progresso nesta classe será excluído."
-        );
-
-        if (!confirmouCancelamento) {
-            return;
-        }
-
-        try {
-            await window.ClubeDB.textoDB
-                .collection("progresso_classes")
-                .doc(`${username}_${id}`)
-                .delete();
-
-            alert("Classe cancelada.");
-
-            modal.remove();
-            carregarEspecialidades();
-        } catch (erro) {
-            console.error(
-                "Erro ao cancelar a classe:",
-                erro
+    /*
+     * Cancelar classe.
+     */
+    if (btnCancel) {
+        btnCancel.onclick = async () => {
+            const confirmouCancelamento = confirm(
+                "Tem certeza que deseja cancelar? Todo o seu progresso nesta classe será excluído."
             );
 
-            alert("Erro ao cancelar.");
-        }
-    };
+            if (!confirmouCancelamento) {
+                return;
+            }
 
+            try {
+                await window.ClubeDB.textoDB
+                    .collection("progresso_classes")
+                    .doc(`${username}_${id}`)
+                    .delete();
+
+                alert("Classe cancelada.");
+
+                modal.remove();
+
+                await carregarClassesEmAndamento();
+            } catch (erro) {
+                console.error(
+                    "Erro ao cancelar a classe:",
+                    erro
+                );
+
+                alert("Erro ao cancelar.");
+            }
+        };
+    }
+
+    /*
+     * Atualiza o botão de envio.
+     */
     const atualizarEstadoBotao = () => {
         if (!btnEnv) {
             return;
@@ -3905,30 +4038,38 @@ async function solicitarInicioClasse(id, nome) {
             );
 
         btnEnv.disabled = !todosMarcados;
-        btnEnv.style.background = todosMarcados
-            ? "#ffc107"
-            : "#333";
+        btnEnv.style.background =
+            todosMarcados
+                ? "#ffc107"
+                : "#333";
 
-        btnEnv.style.color = todosMarcados
-            ? "#121212"
-            : "#fff";
-
-        btnEnv.style.cursor = todosMarcados
-            ? "pointer"
-            : "default";
+        btnEnv.style.color =
+            todosMarcados
+                ? "#121212"
+                : "#fff";
     };
 
     atualizarEstadoBotao();
 
+    /*
+     * Salva progresso automaticamente.
+     */
     checks.forEach(checkbox => {
         checkbox.onchange = async () => {
             atualizarEstadoBotao();
 
-            const requisitosConcluidos = Array.from(checks)
-                .filter(itemCheckbox => itemCheckbox.checked)
-                .map(itemCheckbox =>
-                    parseInt(itemCheckbox.dataset.idx)
-                );
+            const requisitosConcluidos =
+                Array.from(checks)
+                    .filter(
+                        itemCheckbox =>
+                            itemCheckbox.checked
+                    )
+                    .map(
+                        itemCheckbox =>
+                            parseInt(
+                                itemCheckbox.dataset.idx
+                            )
+                    );
 
             try {
                 await window.ClubeDB.textoDB
@@ -3951,104 +4092,130 @@ async function solicitarInicioClasse(id, nome) {
                     );
             } catch (erro) {
                 console.error(
-                    "Erro ao salvar o progresso da classe:",
+                    "Erro ao salvar progresso da classe:",
                     erro
                 );
             }
         };
     });
 
-    btnEnv.onclick = async () => {
-        const confirmouEnvio = confirm(
-            "Deseja enviar para avaliação?"
-        );
-
-        if (!confirmouEnvio) {
-            return;
-        }
-
-        btnEnv.disabled = true;
-        btnEnv.textContent = "Enviando...";
-
-        try {
-            /*
-             * Verificação final de segurança.
-             * Impede o reenvio mesmo com duas abas abertas
-             * ou com o catálogo desatualizado.
-             */
-            const usuarioSnap = await window.ClubeDB.textoDB
-                .collection("usuarios")
-                .where("username", "==", username)
-                .get();
-
-            if (!usuarioSnap.empty) {
-                const dadosUsuario = usuarioSnap.docs[0].data();
-
-                const classesAtuais = Array.isArray(
-                    dadosUsuario.classesConcluidas
-                )
-                    ? dadosUsuario.classesConcluidas
-                    : [];
-
-                const jaConcluiuAntesDoEnvio = classesAtuais.some(
-                    nomeClasseConcluida =>
-                        normalizarTextoBusca(
-                            nomeClasseConcluida
-                        ).trim() ===
-                        normalizarTextoBusca(nome).trim()
-                );
-
-                if (jaConcluiuAntesDoEnvio) {
-                    await window.ClubeDB.textoDB
-                        .collection("progresso_classes")
-                        .doc(`${username}_${id}`)
-                        .delete();
-
-                    alert(
-                        "Esta classe já está concluída no seu perfil e não pode ser enviada novamente."
-                    );
-
-                    modal.remove();
-                    abrirCatalogoClasses();
-                    return;
-                }
-            }
-
-            await window.ClubeDB.textoDB
-                .collection("pendencias_aprovacao")
-                .add({
-                    usuario: username,
-                    itemId: id,
-                    nomeItem: nome,
-                    colecaoOrigem: "progresso_classes",
-                    status: "pendente",
-                    enviadoEm:
-                        firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-            await window.ClubeDB.textoDB
-                .collection("progresso_classes")
-                .doc(`${username}_${id}`)
-                .delete();
-
-            alert("Enviado com sucesso!");
-
-            modal.remove();
-            carregarEspecialidades();
-        } catch (erro) {
-            console.error(
-                "Erro ao enviar a classe:",
-                erro
+    /*
+     * Envio para avaliação.
+     */
+    if (btnEnv) {
+        btnEnv.onclick = async () => {
+            const confirmouEnvio = confirm(
+                "Deseja enviar esta classe para avaliação?"
             );
 
-            alert("Erro ao enviar.");
+            if (!confirmouEnvio) {
+                return;
+            }
 
-            btnEnv.disabled = false;
-            btnEnv.textContent = "Enviar para Avaliação";
+            btnEnv.disabled = true;
+            btnEnv.textContent = "Enviando...";
 
-            atualizarEstadoBotao();
-        }
-    };
+            try {
+                const usuarioSnap =
+                    await window.ClubeDB.textoDB
+                        .collection("usuarios")
+                        .where(
+                            "username",
+                            "==",
+                            username
+                        )
+                        .get();
+
+                if (!usuarioSnap.empty) {
+                    const dadosUsuario =
+                        usuarioSnap.docs[0].data();
+
+                    const classesAtuais =
+                        Array.isArray(
+                            dadosUsuario.classesConcluidas
+                        )
+                            ? dadosUsuario.classesConcluidas
+                            : [];
+
+                    const jaPossuiAntesDoEnvio =
+                        classesAtuais.some(
+                            nomeAdquirido =>
+                                normalizarTextoBusca(
+                                    nomeAdquirido
+                                ).trim() ===
+                                normalizarTextoBusca(
+                                    nome
+                                ).trim()
+                        );
+
+                    if (jaPossuiAntesDoEnvio) {
+                        await window.ClubeDB.textoDB
+                            .collection(
+                                "progresso_classes"
+                            )
+                            .doc(`${username}_${id}`)
+                            .delete();
+
+                        alert(
+                            "Esta classe já pertence ao seu perfil e não pode ser enviada novamente."
+                        );
+
+                        modal.remove();
+                        abrirCatalogoClasses();
+
+                        return;
+                    }
+                }
+
+                await window.ClubeDB.textoDB
+                    .collection(
+                        "pendencias_aprovacao"
+                    )
+                    .add({
+                        usuario: username,
+                        itemId: id,
+                        nomeItem: nome,
+                        colecaoOrigem:
+                            "progresso_classes",
+                        status: "pendente",
+                        enviadoEm:
+                            firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                await window.ClubeDB.textoDB
+                    .collection(
+                        "progresso_classes"
+                    )
+                    .doc(`${username}_${id}`)
+                    .delete();
+
+                alert("Enviado com sucesso!");
+
+                modal.remove();
+
+                await carregarClassesEmAndamento();
+                if (
+                    typeof carregarAprovacoesSite ===
+                    "function"
+                ) {
+                    carregarAprovacoesSite();
+                }
+            } catch (erro) {
+                console.error(
+                    "Erro ao enviar a classe:",
+                    erro
+                );
+
+                alert("Erro ao enviar.");
+
+                btnEnv.disabled = false;
+                btnEnv.textContent =
+                    "Enviar para Avaliação";
+
+                atualizarEstadoBotao();
+            }
+        };
+    }
 }
 
 
@@ -4160,7 +4327,9 @@ async function carregarClassesEmAndamento() {
                             <div style="color:#ffc107; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarInicioClasse('${item.itemId}', '${item.nomeItem || item.nome}' )" style="flex-shrink:0; padding: 8px 14px; background: #ffc107; color: #121212; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Continuar</button>
+                    <button onclick="solicitarInicioClasse('${item.itemId}', '${item.nomeItem || item.nome}', 'continuar')" style="flex-shrink:0; padding:8px 14px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; width:max-content; white-space:nowrap;">
+                        Continuar
+                    </button>
                 </div>
             `;
         }).join("");
