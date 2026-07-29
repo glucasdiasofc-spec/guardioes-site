@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.59.0 - versão alpha";
+const VERSAO_ATUAL = "v0.60.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1881,10 +1881,53 @@ function fecharCatalogoMestrados() {
     document.getElementById("tela-especialidades-andamento").style.display = "block";
 }
 
-function abrirCatalogoClasses() {
+async function abrirCatalogoClasses() {
     document.getElementById("tela-especialidades-andamento").style.display = "none";
     document.getElementById("tela-classes-catalogo").style.display = "block";
     document.getElementById("busca-classe").value = "";
+
+    const container = document.getElementById("lista-classes-container");
+    const username = localStorage.getItem("usernameLogado");
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
+
+    window.classesConcluidasUsuario = new Set();
+
+    if (container) {
+        container.innerHTML = `
+            <p style="color:#8e8e8e; text-align:center; padding:20px;">
+                Verificando suas classes concluídas...
+            </p>
+        `;
+    }
+
+    if (username && tipoUsuario !== "admin") {
+        try {
+            const usuarioSnap = await window.ClubeDB.textoDB
+                .collection("usuarios")
+                .where("username", "==", username)
+                .get();
+
+            if (!usuarioSnap.empty) {
+                const dadosUsuario = usuarioSnap.docs[0].data();
+
+                const classesConcluidas = Array.isArray(dadosUsuario.classesConcluidas)
+                    ? dadosUsuario.classesConcluidas
+                    : [];
+
+                window.classesConcluidasUsuario = new Set(
+                    classesConcluidas.map(nomeClasse =>
+                        normalizarTextoBusca(nomeClasse).trim()
+                    )
+                );
+            }
+        } catch (erro) {
+            console.error(
+                "Erro ao verificar as classes já concluídas:",
+                erro
+            );
+        }
+    }
+
     renderizarCatalogoClasses(window.cacheClasses);
 }
 function fecharCatalogoClasses() {
@@ -2164,7 +2207,7 @@ function renderizarCatalogoEspecialidades(lista, manterEstado = false) {
 function renderizarCatalogoClasses(lista, manterEstado = false) {
     const container = document.getElementById("lista-classes-container");
     if (!container) return;
-    
+
     const inputBusca = document.getElementById("busca-classe");
     const termoBusca = inputBusca ? inputBusca.value.trim() : "";
 
@@ -2172,81 +2215,218 @@ function renderizarCatalogoClasses(lista, manterEstado = false) {
         window.categoriaAtualClasses = null;
     }
 
-    if (!lista || lista.length === 0) { 
-        container.innerHTML = `<div style="margin-bottom:15px;"><button onclick="window.categoriaAtualClasses = null; document.getElementById('busca-classe').value = ''; renderizarCatalogoClasses(window.cacheClasses);" style="background:transparent; border:none; color:#ffc107; cursor:pointer; font-size:13px; font-weight:bold; padding:0;">⬅ Voltar</button></div><p style='color:#8e8e8e;text-align:center;'>Nenhum resultado encontrado.</p>`; 
-        return; 
+    if (!lista || lista.length === 0) {
+        container.innerHTML = `
+            <div style="margin-bottom:15px;">
+                <button
+                    onclick="window.categoriaAtualClasses = null; document.getElementById('busca-classe').value = ''; renderizarCatalogoClasses(window.cacheClasses);"
+                    style="background:transparent; border:none; color:#ffc107; cursor:pointer; font-size:13px; font-weight:bold; padding:0;">
+                    ⬅ Voltar
+                </button>
+            </div>
+
+            <p style="color:#8e8e8e; text-align:center;">
+                Nenhum resultado encontrado.
+            </p>
+        `;
+        return;
     }
 
     const tipoUsuario = localStorage.getItem("usuarioLogado");
+
+    const classesConcluidas =
+        window.classesConcluidasUsuario instanceof Set
+            ? window.classesConcluidasUsuario
+            : new Set();
+
     const categorias = {};
+
     lista.forEach(item => {
         const cat = item.categoria || "Classe";
-        if (!categorias[cat]) categorias[cat] = [];
+
+        if (!categorias[cat]) {
+            categorias[cat] = [];
+        }
+
         categorias[cat].push(item);
     });
 
     let visualizacaoAtiva = window.categoriaAtualClasses;
+
     if (termoBusca && !visualizacaoAtiva) {
-        visualizacaoAtiva = 'Todas';
+        visualizacaoAtiva = "Todas";
     }
 
     if (!visualizacaoAtiva) {
         let htmlCategorias = `
-            <div onclick="window.categoriaAtualClasses = 'Todas'; renderizarCatalogoClasses(window.cacheClasses, true);" style="background:#1e1e1e; border:1px solid #333; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:12px; transition: 0.2s;">
+            <div
+                onclick="window.categoriaAtualClasses = 'Todas'; renderizarCatalogoClasses(window.cacheClasses, true);"
+                style="background:#1e1e1e; border:1px solid #333; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:12px; transition:0.2s;">
+
                 <div style="display:flex; align-items:center; gap:12px;">
                     <span style="font-size:22px;">🌟</span>
-                    <span style="color:#fff; font-weight:bold; font-size:15px;">Todas as Categorias</span>
+
+                    <span style="color:#fff; font-weight:bold; font-size:15px;">
+                        Todas as Categorias
+                    </span>
                 </div>
-                <span style="color:#ffc107; font-size:13px; font-weight:bold;">${lista.length} itens &gt;</span>
+
+                <span style="color:#ffc107; font-size:13px; font-weight:bold;">
+                    ${lista.length} itens &gt;
+                </span>
             </div>
         `;
 
-        Object.entries(categorias).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, itens]) => {
-            htmlCategorias += `
-                <div onclick="window.categoriaAtualClasses = '${cat}'; renderizarCatalogoClasses(window.cacheClasses, true);" style="background:#121212; border:1px solid #262626; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:8px; transition: 0.2s;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <span style="font-size:18px;">📁</span>
-                        <span style="color:#fff; font-weight:500; font-size:14px;">${cat}</span>
+        Object.entries(categorias)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .forEach(([cat, itens]) => {
+                htmlCategorias += `
+                    <div
+                        onclick="window.categoriaAtualClasses = '${cat}'; renderizarCatalogoClasses(window.cacheClasses, true);"
+                        style="background:#121212; border:1px solid #262626; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:8px; transition:0.2s;">
+
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:18px;">📁</span>
+
+                            <span style="color:#fff; font-weight:500; font-size:14px;">
+                                ${cat}
+                            </span>
+                        </div>
+
+                        <span style="color:#8e8e8e; font-size:12px; font-weight:600;">
+                            ${itens.length} itens &gt;
+                        </span>
                     </div>
-                    <span style="color:#8e8e8e; font-size:12px; font-weight:600;">${itens.length} itens &gt;</span>
-                </div>
-            `;
-        });
+                `;
+            });
+
         container.innerHTML = htmlCategorias;
         return;
     }
 
-    let htmlFinal = `<div style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
-        <button onclick="window.categoriaAtualClasses = null; document.getElementById('busca-classe').value = ''; renderizarCatalogoClasses(window.cacheClasses, false);" style="background:transparent; border:none; color:#ffc107; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:5px; padding:0;">
-            ⬅ Voltar às Pastas
-        </button>
-        <span style="color:#8e8e8e; font-size:12px; max-width:50%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;">${visualizacaoAtiva}</span>
-    </div>`;
+    let htmlFinal = `
+        <div style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+            <button
+                onclick="window.categoriaAtualClasses = null; document.getElementById('busca-classe').value = ''; renderizarCatalogoClasses(window.cacheClasses, false);"
+                style="background:transparent; border:none; color:#ffc107; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:5px; padding:0;">
+                ⬅ Voltar às Pastas
+            </button>
 
-    let categoriasParaRenderizar = visualizacaoAtiva === 'Todas' ? categorias : { [visualizacaoAtiva]: categorias[visualizacaoAtiva] || [] };
-
-    htmlFinal += Object.entries(categoriasParaRenderizar).map(([cat, itens]) => {
-        if(!itens || itens.length === 0) return '';
-        return `
-        <div style="width:100%;">
-            <h4 style="color:#ffc107; font-size:12px; margin-bottom:8px; border-left:3px solid #ffc107; padding-left:6px; text-transform:uppercase;">${cat}</h4>
-            <div style="display:grid; gap:8px; width:100%; margin-bottom:15px;">
-                ${itens.map(c => `
-                    <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                            <img src="${c.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
-                        </div>
-                        <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}')" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
-                            <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
-                        </div>
-                    </div>
-                `).join("")}
-            </div>
+            <span style="color:#8e8e8e; font-size:12px; max-width:50%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;">
+                ${visualizacaoAtiva}
+            </span>
         </div>
-        `;
-    }).join("");
+    `;
+
+    const categoriasParaRenderizar =
+        visualizacaoAtiva === "Todas"
+            ? categorias
+            : {
+                [visualizacaoAtiva]:
+                    categorias[visualizacaoAtiva] || []
+            };
+
+    htmlFinal += Object.entries(categoriasParaRenderizar)
+        .map(([cat, itens]) => {
+            if (!itens || itens.length === 0) {
+                return "";
+            }
+
+            return `
+                <div style="width:100%;">
+                    <h4 style="color:#ffc107; font-size:12px; margin-bottom:8px; border-left:3px solid #ffc107; padding-left:6px; text-transform:uppercase;">
+                        ${cat}
+                    </h4>
+
+                    <div style="display:grid; gap:8px; width:100%; margin-bottom:15px;">
+                        ${itens
+                            .map(c => {
+                                const classeConcluida =
+                                    tipoUsuario !== "admin" &&
+                                    classesConcluidas.has(
+                                        normalizarTextoBusca(c.nome).trim()
+                                    );
+
+                                const fundoCard = classeConcluida
+                                    ? "#102418"
+                                    : "#121212";
+
+                                const bordaCard = classeConcluida
+                                    ? "#28a745"
+                                    : "#262626";
+
+                                const corNome = classeConcluida
+                                    ? "#5ee27a"
+                                    : "#fff";
+
+                                const corBotao = classeConcluida
+                                    ? "#28a745"
+                                    : "#ffc107";
+
+                                const corTextoBotao = classeConcluida
+                                    ? "#fff"
+                                    : "#121212";
+
+                                const textoBotao = classeConcluida
+                                    ? "✓ Rever checklist"
+                                    : "Começar";
+
+                                return `
+                                    <div
+                                        style="background:${fundoCard}; border:1px solid ${bordaCard}; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px; ${classeConcluida ? "box-shadow:0 0 0 1px rgba(40,167,69,0.15);" : ""}">
+
+                                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+                                            <img
+                                                src="${c.urlImagem || c.logo || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"}"
+                                                onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
+                                                style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0; border:${classeConcluida ? "1px solid #28a745" : "none"};"
+                                            >
+
+                                            <div style="min-width:0; flex:1;">
+                                                <div style="font-weight:bold; color:${corNome}; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                                    ${c.nome}
+                                                </div>
+
+                                                ${
+                                                    classeConcluida
+                                                        ? `
+                                                            <div style="color:#28a745; font-size:10px; font-weight:bold; margin-top:3px;">
+                                                                CLASSE CONCLUÍDA
+                                                            </div>
+                                                        `
+                                                        : ""
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div style="display:flex; gap:6px;">
+                                            ${
+                                                tipoUsuario === "admin"
+                                                    ? `
+                                                        <button
+                                                            onclick="abrirModalGerenciarItem('classes', '${c.id}')"
+                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">
+                                                            Editar
+                                                        </button>
+                                                    `
+                                                    : ""
+                                            }
+
+                                            <button
+                                                onclick="solicitarInicioClasse('${c.id}', '${c.nome}')"
+                                                style="flex-shrink:0; width:max-content; padding:6px 10px; background:${corBotao}; color:${corTextoBotao}; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                ${textoBotao}
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            })
+                            .join("")}
+                    </div>
+                </div>
+            `;
+        })
+        .join("");
 
     container.innerHTML = htmlFinal;
 }
@@ -3185,124 +3365,473 @@ async function solicitarInicioMestrado(id, nome) {
 
 async function solicitarInicioClasse(id, nome) {
     const username = localStorage.getItem("usernameLogado");
-    if (!username) return alert("Por favor, faça login para iniciar.");
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
 
-    const item = window.cacheClasses.find(c => String(c.id) === String(id));
-    const requisitos = item?.requisitos || [];
-    
-    let progressoSalvo = [];
-    try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).get();
-        if (snap.exists) progressoSalvo = snap.data().requisitosConcluidos || [];
-    } catch(e) {}
+    if (!username) {
+        alert("Por favor, faça login para iniciar.");
+        return;
+    }
 
-    if (progressoSalvo.length === 0 && requisitos.length === 0) {
+    const item = window.cacheClasses.find(
+        classe => String(classe.id) === String(id)
+    );
+
+    if (!item) {
+        alert("Classe não encontrada no catálogo.");
+        return;
+    }
+
+    const requisitos = Array.isArray(item.requisitos)
+        ? item.requisitos
+        : [];
+
+    const fotoUrl =
+        item.urlImagem ||
+        item.logo ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+    let classeJaConcluida = false;
+
+    /*
+     * Verifica diretamente o campo classesConcluidas do usuário.
+     * Assim, a proteção não depende somente da cor ou do cache.
+     */
+    if (tipoUsuario !== "admin") {
         try {
-            await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).set({
-                usuario: username,
-                itemId: id,
-                nomeItem: nome,
-                requisitosConcluidos: [],
-                status: "em_andamento",
-                atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        } catch(e) {
-            alert("Erro ao iniciar classe.");
+            const usuarioSnap = await window.ClubeDB.textoDB
+                .collection("usuarios")
+                .where("username", "==", username)
+                .get();
+
+            if (usuarioSnap.empty) {
+                alert("Não foi possível localizar seu perfil.");
+                return;
+            }
+
+            const dadosUsuario = usuarioSnap.docs[0].data();
+
+            const classesConcluidas = Array.isArray(
+                dadosUsuario.classesConcluidas
+            )
+                ? dadosUsuario.classesConcluidas
+                : [];
+
+            classeJaConcluida = classesConcluidas.some(
+                nomeClasseConcluida =>
+                    normalizarTextoBusca(nomeClasseConcluida).trim() ===
+                    normalizarTextoBusca(nome).trim()
+            );
+        } catch (erro) {
+            console.error(
+                "Erro ao verificar se a classe já foi concluída:",
+                erro
+            );
+
+            alert(
+                "Não foi possível verificar suas classes concluídas. Tente novamente."
+            );
             return;
         }
     }
 
+    let progressoSalvo = [];
+
+    /*
+     * Somente uma classe ainda não concluída pode criar
+     * ou carregar progresso editável.
+     */
+    if (!classeJaConcluida) {
+        try {
+            const progressoSnap = await window.ClubeDB.textoDB
+                .collection("progresso_classes")
+                .doc(`${username}_${id}`)
+                .get();
+
+            if (progressoSnap.exists) {
+                const dadosProgresso = progressoSnap.data();
+
+                progressoSalvo = Array.isArray(
+                    dadosProgresso.requisitosConcluidos
+                )
+                    ? dadosProgresso.requisitosConcluidos
+                    : [];
+            }
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar o progresso da classe:",
+                erro
+            );
+        }
+
+        if (
+            progressoSalvo.length === 0 &&
+            requisitos.length === 0
+        ) {
+            try {
+                await window.ClubeDB.textoDB
+                    .collection("progresso_classes")
+                    .doc(`${username}_${id}`)
+                    .set(
+                        {
+                            usuario: username,
+                            itemId: id,
+                            nomeItem: nome,
+                            requisitosConcluidos: [],
+                            status: "em_andamento",
+                            atualizadoEm:
+                                firebase.firestore.FieldValue.serverTimestamp()
+                        },
+                        {
+                            merge: true
+                        }
+                    );
+            } catch (erro) {
+                console.error(
+                    "Erro ao iniciar a classe:",
+                    erro
+                );
+
+                alert("Erro ao iniciar classe.");
+                return;
+            }
+        }
+    }
+
     const modal = document.createElement("div");
-    modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
-    
+
+    modal.style =
+        "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
+
     modal.innerHTML = `
-        <button id="btn-fechar-checklist-class" style="position:absolute; top:20px; right:20px; background:none; border:none; color:#fff; font-size:30px; cursor:pointer; z-index:10001; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">✕</button>
+        <button
+            id="btn-fechar-checklist-class"
+            style="position:absolute; top:20px; right:20px; background:none; border:none; color:#fff; font-size:30px; cursor:pointer; z-index:10001; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
+            ✕
+        </button>
+
         <div style="display:flex; flex-direction:column; align-items:center; padding:50px 15px 10px 15px; gap:10px;">
-            <img src="${item.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid #262626; flex-shrink:0;">
-            <h3 style="margin:0; font-size:16px; text-align:center; color:#fff; font-weight:bold;">${nome}</h3>
+            <img
+                src="${fotoUrl}"
+                onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
+                style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid ${classeJaConcluida ? "#28a745" : "#262626"}; flex-shrink:0;"
+            >
+
+            <h3 style="margin:0; font-size:16px; text-align:center; color:${classeJaConcluida ? "#5ee27a" : "#fff"}; font-weight:bold;">
+                ${nome}
+            </h3>
+
+            ${
+                classeJaConcluida
+                    ? `
+                        <div style="background:#102418; color:#5ee27a; border:1px solid #28a745; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:bold;">
+                            ✓ CLASSE CONCLUÍDA
+                        </div>
+                    `
+                    : ""
+            }
         </div>
-        <div style="width:100%; border-bottom:1px solid #262626; margin-bottom:0;"></div>
+
+        <div style="width:100%; border-bottom:1px solid #262626;"></div>
 
         <div style="flex:1; overflow-y:auto; padding:20px;">
-            <p style="color:#8e8e8e; font-size:13px; margin-bottom:20px;">Marque os requisitos concluídos. Seu progresso é salvo automaticamente.</p>
+            <p style="color:${classeJaConcluida ? "#5ee27a" : "#8e8e8e"}; font-size:13px; margin-bottom:20px;">
+                ${
+                    classeJaConcluida
+                        ? "Checklist disponível somente para consulta. Esta classe não pode ser iniciada novamente."
+                        : "Marque os requisitos concluídos. Seu progresso é salvo automaticamente."
+                }
+            </p>
+
             <div id="lista-checks">
-                ${requisitos.map((req, i ) => `
-                    <label style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:pointer; background:#121212; padding:12px; border-radius:8px; border:1px solid #262626;">
-                        <input type="checkbox" class="req-check" data-idx="${i}" ${progressoSalvo.includes(i) ? 'checked' : ''} style="width:20px; height:20px; margin-top:2px; accent-color:#ffc107;">
-                        <span style="font-size:14px; line-height:1.4;">${req}</span>
-                    </label>
-                `).join("")}
+                ${
+                    requisitos.length > 0
+                        ? requisitos
+                            .map((requisito, indice) => {
+                                const requisitoMarcado =
+                                    classeJaConcluida ||
+                                    progressoSalvo.includes(indice);
+
+                                return `
+                                    <label
+                                        style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:${classeJaConcluida ? "default" : "pointer"}; background:${classeJaConcluida ? "#102418" : "#121212"}; padding:12px; border-radius:8px; border:1px solid ${classeJaConcluida ? "#28a745" : "#262626"};">
+
+                                        <input
+                                            type="checkbox"
+                                            class="req-check"
+                                            data-idx="${indice}"
+                                            ${requisitoMarcado ? "checked" : ""}
+                                            ${classeJaConcluida ? "disabled" : ""}
+                                            style="width:20px; height:20px; margin-top:2px; accent-color:${classeJaConcluida ? "#28a745" : "#ffc107"};"
+                                        >
+
+                                        <span style="font-size:14px; line-height:1.4; color:${classeJaConcluida ? "#d8f5df" : "#fff"};">
+                                            ${requisito}
+                                        </span>
+                                    </label>
+                                `;
+                            })
+                            .join("")
+                        : `
+                            <p style="color:#8e8e8e; text-align:center; padding:20px;">
+                                Nenhum requisito cadastrado para esta classe.
+                            </p>
+                        `
+                }
             </div>
         </div>
+
         <div style="padding:15px; border-top:1px solid #262626; display:flex; flex-direction:column; gap:10px;">
-            <button id="btn-enviar-aval-class" disabled style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">Enviar para Avaliação</button>
-            <button id="btn-cancelar-class" style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">Cancelar Classe</button>
+            ${
+                classeJaConcluida
+                    ? `
+                        <button
+                            id="btn-fechar-revisao-class"
+                            style="width:100%; padding:14px; background:#28a745; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer;">
+                            Fechar checklist
+                        </button>
+                    `
+                    : `
+                        <button
+                            id="btn-enviar-aval-class"
+                            disabled
+                            style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">
+                            Enviar para Avaliação
+                        </button>
+
+                        <button
+                            id="btn-cancelar-class"
+                            style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">
+                            Cancelar Classe
+                        </button>
+                    `
+            }
         </div>
     `;
 
     document.body.appendChild(modal);
 
-    const checks = modal.querySelectorAll(".req-check");
-    const btnEnv = modal.querySelector("#btn-enviar-aval-class");
-    const btnFechar = modal.querySelector("#btn-fechar-checklist-class");
-    const btnCancel = modal.querySelector("#btn-cancelar-class");
+    const btnFechar = modal.querySelector(
+        "#btn-fechar-checklist-class"
+    );
 
     btnFechar.onclick = () => {
         modal.remove();
-        carregarEspecialidades(); 
+        abrirCatalogoClasses();
     };
 
+    /*
+     * Modo somente leitura.
+     * Não permite desmarcar, salvar, cancelar ou reenviar.
+     */
+    if (classeJaConcluida) {
+        const btnFecharRevisao = modal.querySelector(
+            "#btn-fechar-revisao-class"
+        );
+
+        if (btnFecharRevisao) {
+            btnFecharRevisao.onclick = () => {
+                modal.remove();
+                abrirCatalogoClasses();
+            };
+        }
+
+        return;
+    }
+
+    const checks = modal.querySelectorAll(".req-check");
+
+    const btnEnv = modal.querySelector(
+        "#btn-enviar-aval-class"
+    );
+
+    const btnCancel = modal.querySelector(
+        "#btn-cancelar-class"
+    );
+
     btnCancel.onclick = async () => {
-        if (!confirm("Tem certeza que deseja cancelar? Todo o seu progresso nesta classe será excluído.")) return;
+        const confirmouCancelamento = confirm(
+            "Tem certeza que deseja cancelar? Todo o seu progresso nesta classe será excluído."
+        );
+
+        if (!confirmouCancelamento) {
+            return;
+        }
+
         try {
-            await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).delete();
+            await window.ClubeDB.textoDB
+                .collection("progresso_classes")
+                .doc(`${username}_${id}`)
+                .delete();
+
             alert("Classe cancelada.");
+
             modal.remove();
             carregarEspecialidades();
-        } catch(e) { alert("Erro ao cancelar."); }
+        } catch (erro) {
+            console.error(
+                "Erro ao cancelar a classe:",
+                erro
+            );
+
+            alert("Erro ao cancelar.");
+        }
     };
 
     const atualizarEstadoBotao = () => {
-        if (!btnEnv) return;
-        const todos = Array.from(checks).every(c => c.checked);
-        btnEnv.disabled = !todos;
-        btnEnv.style.background = todos ? "#ffc107" : "#333";
-        btnEnv.style.color = todos ? "#121212" : "#fff";
+        if (!btnEnv) {
+            return;
+        }
+
+        const todosMarcados =
+            requisitos.length > 0 &&
+            Array.from(checks).every(
+                checkbox => checkbox.checked
+            );
+
+        btnEnv.disabled = !todosMarcados;
+        btnEnv.style.background = todosMarcados
+            ? "#ffc107"
+            : "#333";
+
+        btnEnv.style.color = todosMarcados
+            ? "#121212"
+            : "#fff";
+
+        btnEnv.style.cursor = todosMarcados
+            ? "pointer"
+            : "default";
     };
 
     atualizarEstadoBotao();
 
-    checks.forEach(c => c.onchange = async () => {
-        atualizarEstadoBotao();
-        const concluidos = Array.from(checks).filter(i => i.checked).map(i => parseInt(i.dataset.idx));
-        await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).set({
-            usuario: username,
-            itemId: id,
-            nomeItem: nome,
-            requisitosConcluidos: concluidos,
-            status: "em_andamento",
-            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+    checks.forEach(checkbox => {
+        checkbox.onchange = async () => {
+            atualizarEstadoBotao();
+
+            const requisitosConcluidos = Array.from(checks)
+                .filter(itemCheckbox => itemCheckbox.checked)
+                .map(itemCheckbox =>
+                    parseInt(itemCheckbox.dataset.idx)
+                );
+
+            try {
+                await window.ClubeDB.textoDB
+                    .collection("progresso_classes")
+                    .doc(`${username}_${id}`)
+                    .set(
+                        {
+                            usuario: username,
+                            itemId: id,
+                            nomeItem: nome,
+                            requisitosConcluidos:
+                                requisitosConcluidos,
+                            status: "em_andamento",
+                            atualizadoEm:
+                                firebase.firestore.FieldValue.serverTimestamp()
+                        },
+                        {
+                            merge: true
+                        }
+                    );
+            } catch (erro) {
+                console.error(
+                    "Erro ao salvar o progresso da classe:",
+                    erro
+                );
+            }
+        };
     });
 
     btnEnv.onclick = async () => {
-        if (!confirm("Deseja enviar para avaliação?")) return;
+        const confirmouEnvio = confirm(
+            "Deseja enviar para avaliação?"
+        );
+
+        if (!confirmouEnvio) {
+            return;
+        }
+
         btnEnv.disabled = true;
         btnEnv.textContent = "Enviando...";
+
         try {
-            await window.ClubeDB.textoDB.collection("pendencias_aprovacao").add({
-                usuario: username,
-                itemId: id,
-                nomeItem: nome,
-                colecaoOrigem: "progresso_classes",
-                status: "pendente",
-                enviadoEm: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).delete();
+            /*
+             * Verificação final de segurança.
+             * Impede o reenvio mesmo com duas abas abertas
+             * ou com o catálogo desatualizado.
+             */
+            const usuarioSnap = await window.ClubeDB.textoDB
+                .collection("usuarios")
+                .where("username", "==", username)
+                .get();
+
+            if (!usuarioSnap.empty) {
+                const dadosUsuario = usuarioSnap.docs[0].data();
+
+                const classesAtuais = Array.isArray(
+                    dadosUsuario.classesConcluidas
+                )
+                    ? dadosUsuario.classesConcluidas
+                    : [];
+
+                const jaConcluiuAntesDoEnvio = classesAtuais.some(
+                    nomeClasseConcluida =>
+                        normalizarTextoBusca(
+                            nomeClasseConcluida
+                        ).trim() ===
+                        normalizarTextoBusca(nome).trim()
+                );
+
+                if (jaConcluiuAntesDoEnvio) {
+                    await window.ClubeDB.textoDB
+                        .collection("progresso_classes")
+                        .doc(`${username}_${id}`)
+                        .delete();
+
+                    alert(
+                        "Esta classe já está concluída no seu perfil e não pode ser enviada novamente."
+                    );
+
+                    modal.remove();
+                    abrirCatalogoClasses();
+                    return;
+                }
+            }
+
+            await window.ClubeDB.textoDB
+                .collection("pendencias_aprovacao")
+                .add({
+                    usuario: username,
+                    itemId: id,
+                    nomeItem: nome,
+                    colecaoOrigem: "progresso_classes",
+                    status: "pendente",
+                    enviadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+            await window.ClubeDB.textoDB
+                .collection("progresso_classes")
+                .doc(`${username}_${id}`)
+                .delete();
+
             alert("Enviado com sucesso!");
+
             modal.remove();
             carregarEspecialidades();
-        } catch(e) { alert("Erro ao enviar."); btnEnv.disabled = false; }
+        } catch (erro) {
+            console.error(
+                "Erro ao enviar a classe:",
+                erro
+            );
+
+            alert("Erro ao enviar.");
+
+            btnEnv.disabled = false;
+            btnEnv.textContent = "Enviar para Avaliação";
+
+            atualizarEstadoBotao();
+        }
     };
 }
 
