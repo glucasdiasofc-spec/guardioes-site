@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.56.0 - versão alpha";
+const VERSAO_ATUAL = "v0.57.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -666,10 +666,17 @@ async function carregarPerfilDoUsuario() {
                 avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
             }
 
-            // Cálculo dinâmico do contador centralizado de conquistas
-            const qtdClasses = (dados.classesConcluidas || []).length;
-            const qtdEspecialidades = (dados.especialidades || []).length;
-            const qtdMestrados = (dados.mestrados || []).length;
+            // ==========================================
+            // FIX DE DEDUPLICAÇÃO DE ARRAYS (SET)
+            // ==========================================
+            const classesUnicas = [...new Set(dados.classesConcluidas || [])];
+            const especialidadesUnicas = [...new Set(dados.especialidades || [])];
+            const mestradosUnicos = [...new Set(dados.mestrados || [])];
+
+            // Cálculo dinâmico usando apenas as contagens limpas (Sem duplicatas)
+            const qtdClasses = classesUnicas.length;
+            const qtdEspecialidades = especialidadesUnicas.length;
+            const qtdMestrados = mestradosUnicos.length;
             if (contadorEl) contadorEl.textContent = (qtdClasses + qtdEspecialidades + qtdMestrados);
 
             // Exibição condicional do Grid de Publicações
@@ -692,17 +699,17 @@ async function carregarPerfilDoUsuario() {
             if (tClasses) tClasses.textContent = `🎒 Classes Regulares (${qtdClasses})`;
             if (classesEl) {
                 if (qtdClasses > 0) {
-                    classesEl.innerHTML = dados.classesConcluidas.map(c => `• ${c}`).join("<br>");
+                    classesEl.innerHTML = classesUnicas.map(c => `• ${c}`).join("<br>");
                 } else {
                     classesEl.innerHTML = `• Classe Vinculada: ${dados.tipo === 'Desbravador' ? 'Classe Regular' : 'Classe de Líder'}`;
                 }
             }
 
-            // Renderização Detalhada: Especialidades
+            // Renderização Detalhada: Especialidades (Garantidamente Únicas)
             if (tEspecialidades) tEspecialidades.textContent = `🏅 Especialidades Adquiridas (${qtdEspecialidades})`;
             if (especialidadesEl) {
                 if (qtdEspecialidades > 0) {
-                    especialidadesEl.innerHTML = dados.especialidades.map(esp => `
+                    especialidadesEl.innerHTML = especialidadesUnicas.map(esp => `
                         <span style="background: #262626; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word;">
                             🎖️ ${esp}
                         </span>
@@ -716,11 +723,11 @@ async function carregarPerfilDoUsuario() {
                 }
             }
 
-            // Renderização Detalhada: Mestrados
+            // Renderização Detalhada: Mestrados (Garantidamente Únicos)
             if (tMestrados) tMestrados.textContent = `🏆 Mestrados Adquiridos (${qtdMestrados})`;
             if (mestradosEl) {
                 if (qtdMestrados > 0) {
-                    mestradosEl.innerHTML = dados.mestrados.map(mest => `
+                    mestradosEl.innerHTML = mestradosUnicos.map(mest => `
                         <span style="background: #1e3a1e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word; border: 1px solid #2e5a2e;">
                             🏆 ${mest}
                         </span>
