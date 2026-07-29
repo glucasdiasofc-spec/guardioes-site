@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.59.0 - versão alpha";
+const VERSAO_ATUAL = "v0.56.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -666,53 +666,10 @@ async function carregarPerfilDoUsuario() {
                 avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
             }
 
-            // =========================================================================
-            // HIGIENIZADOR AVANÇADO CONTRA DUPLICATAS (SUPORTA STRINGS E OBJETOS)
-            // =========================================================================
-            const extrairEFiltrarUnicos = (entrada) => {
-                if (!entrada) return [];
-                let arrayBase = [];
-                
-                if (Array.isArray(entrada)) {
-                    arrayBase = entrada.flat(Infinity);
-                } else if (typeof entrada === 'string') {
-                    arrayBase = entrada.split(',');
-                } else if (typeof entrada === 'object') {
-                    arrayBase = Object.values(entrada);
-                }
-
-                const mapaUnicos = new Map();
-
-                arrayBase.forEach(item => {
-                    if (!item) return;
-                    let texto = "";
-                    if (typeof item === 'object') {
-                        texto = item.nome || item.titulo || item.especialidade || item.classe || item.nomeEspecialidade || JSON.stringify(item);
-                    } else {
-                        texto = String(item);
-                    }
-                    
-                    texto = texto.trim();
-                    if (!texto) return;
-
-                    // Normaliza chave de comparação para ignorar caixa alta/baixa
-                    const chaveNormalizada = texto.toLowerCase();
-                    if (!mapaUnicos.has(chaveNormalizada)) {
-                        mapaUnicos.set(chaveNormalizada, texto);
-                    }
-                });
-
-                return Array.from(mapaUnicos.values());
-            };
-
-            const classesUnicas = extrairEFiltrarUnicos(dados.classesConcluidas);
-            const especialidadesUnicas = extrairEFiltrarUnicos(dados.especialidades);
-            const mestradosUnicos = extrairEFiltrarUnicos(dados.mestrados);
-
-            // Cálculo dinâmico usando estritamente os contadores das listas higienizadas
-            const qtdClasses = classesUnicas.length;
-            const qtdEspecialidades = especialidadesUnicas.length;
-            const qtdMestrados = mestradosUnicos.length;
+            // Cálculo dinâmico do contador centralizado de conquistas
+            const qtdClasses = (dados.classesConcluidas || []).length;
+            const qtdEspecialidades = (dados.especialidades || []).length;
+            const qtdMestrados = (dados.mestrados || []).length;
             if (contadorEl) contadorEl.textContent = (qtdClasses + qtdEspecialidades + qtdMestrados);
 
             // Exibição condicional do Grid de Publicações
@@ -735,7 +692,7 @@ async function carregarPerfilDoUsuario() {
             if (tClasses) tClasses.textContent = `🎒 Classes Regulares (${qtdClasses})`;
             if (classesEl) {
                 if (qtdClasses > 0) {
-                    classesEl.innerHTML = classesUnicas.map(c => `• ${c}`).join("<br>");
+                    classesEl.innerHTML = dados.classesConcluidas.map(c => `• ${c}`).join("<br>");
                 } else {
                     classesEl.innerHTML = `• Classe Vinculada: ${dados.tipo === 'Desbravador' ? 'Classe Regular' : 'Classe de Líder'}`;
                 }
@@ -745,7 +702,7 @@ async function carregarPerfilDoUsuario() {
             if (tEspecialidades) tEspecialidades.textContent = `🏅 Especialidades Adquiridas (${qtdEspecialidades})`;
             if (especialidadesEl) {
                 if (qtdEspecialidades > 0) {
-                    especialidadesEl.innerHTML = especialidadesUnicas.map(esp => `
+                    especialidadesEl.innerHTML = dados.especialidades.map(esp => `
                         <span style="background: #262626; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word;">
                             🎖️ ${esp}
                         </span>
@@ -763,7 +720,7 @@ async function carregarPerfilDoUsuario() {
             if (tMestrados) tMestrados.textContent = `🏆 Mestrados Adquiridos (${qtdMestrados})`;
             if (mestradosEl) {
                 if (qtdMestrados > 0) {
-                    mestradosEl.innerHTML = mestradosUnicos.map(mest => `
+                    mestradosEl.innerHTML = dados.mestrados.map(mest => `
                         <span style="background: #1e3a1e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word; border: 1px solid #2e5a2e;">
                             🏆 ${mest}
                         </span>
@@ -2345,7 +2302,7 @@ async function solicitarInicioClasse(id, nome) {
     modal.innerHTML = `
         <button id="btn-fechar-checklist-class" style="position:absolute; top:20px; right:20px; background:none; border:none; color:#fff; font-size:30px; cursor:pointer; z-index:10001; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">✕</button>
         <div style="display:flex; flex-direction:column; align-items:center; padding:50px 15px 10px 15px; gap:10px;">
-            <img src="${item?.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid #262626; flex-shrink:0;">
+            <img src="${item.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid #262626; flex-shrink:0;">
             <h3 style="margin:0; font-size:16px; text-align:center; color:#fff; font-weight:bold;">${nome}</h3>
         </div>
         <div style="width:100%; border-bottom:1px solid #262626; margin-bottom:0;"></div>
@@ -2353,7 +2310,7 @@ async function solicitarInicioClasse(id, nome) {
         <div style="flex:1; overflow-y:auto; padding:20px;">
             <p style="color:#8e8e8e; font-size:13px; margin-bottom:20px;">Marque os requisitos concluídos. Seu progresso é salvo automaticamente.</p>
             <div id="lista-checks">
-                ${requisitos.map((req, i) => `
+                ${requisitos.map((req, i ) => `
                     <label style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:pointer; background:#121212; padding:12px; border-radius:8px; border:1px solid #262626;">
                         <input type="checkbox" class="req-check" data-idx="${i}" ${progressoSalvo.includes(i) ? 'checked' : ''} style="width:20px; height:20px; margin-top:2px; accent-color:#ffc107;">
                         <span style="font-size:14px; line-height:1.4;">${req}</span>
