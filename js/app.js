@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.55.0 - versão alpha";
+const VERSAO_ATUAL = "v0.56.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1774,11 +1774,43 @@ function fecharCatalogoClasses() {
 // MECANISMO DE BUSCA LOCAL
 // ==========================================
 function pesquisarEspecialidadeLocal() {
-    const termo = normalizarTextoBusca(document.getElementById("busca-especialidade").value);
-    const filtrados = window.cacheEspecialidades.filter(e => 
-        normalizarTextoBusca(e.nome).includes(termo) || normalizarTextoBusca(e.categoria || e.area).includes(termo)
+
+    const termo = normalizarTextoBusca(
+        document.getElementById("busca-especialidade").value
     );
+
+    let lista = window.cacheEspecialidades;
+
+    // Se estiver dentro de uma categoria específica,
+    // pesquisa apenas nela.
+    if (
+        window.categoriaEspecialidadeSelecionada &&
+        window.categoriaEspecialidadeSelecionada !== "Todas"
+    ) {
+
+        lista = lista.filter(item =>
+            (item.categoria || item.area || "Geral") ===
+            window.categoriaEspecialidadeSelecionada
+        );
+
+    }
+
+    const filtrados = lista.filter(item => {
+
+        return (
+            normalizarTextoBusca(item.nome).includes(termo) ||
+            normalizarTextoBusca(item.categoria || item.area || "")
+                .includes(termo)
+        );
+
+    });
+
+    // Guarda o resultado para manter a pesquisa
+    // quando trocar entre categorias.
+    window.especialidadesFiltradas = filtrados;
+
     renderizarCatalogoEspecialidades(filtrados);
+
 }
 
 function pesquisarMestradoLocal() {
@@ -1802,38 +1834,208 @@ function pesquisarClasseLocal() {
 // RENDERIZAÇÃO DOS CATÁLOGOS (AGRUPADOS)
 // ==========================================
 function renderizarCatalogoEspecialidades(lista) {
+
     const container = document.getElementById("lista-especialidades-container");
     if (!container) return;
-    if (lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
+
+    if (!window.categoriaEspecialidadeSelecionada)
+        window.categoriaEspecialidadeSelecionada = null;
+
+    if (lista.length === 0) {
+        container.innerHTML = "<p style='color:#8e8e8e;text-align:center;'>Nenhum resultado.</p>";
+        return;
+    }
 
     const tipoUsuario = localStorage.getItem("usuarioLogado");
+
     const categorias = {};
+
     lista.forEach(item => {
         const cat = item.categoria || item.area || "Geral";
         if (!categorias[cat]) categorias[cat] = [];
         categorias[cat].push(item);
     });
 
-    container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
-        <div>
-            <h4 style="color:#007bff; font-size:12px; margin-bottom:8px; border-left:3px solid #007bff; padding-left:6px; text-transform:uppercase;">${cat}</h4>
-            <div style="display:grid; gap:8px; width:100%;">
+    //==========================
+    // TELA DE CATEGORIAS
+    //==========================
 
-                ${itens.map(e => `
-                    <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                            <img src="${e.urlImagem || e.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; word-break:break-word;">${e.nome}</div></div>
+    if (window.categoriaEspecialidadeSelecionada === null) {
+
+        const nomesCategorias = ["Todas", ...Object.keys(categorias)];
+
+        container.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
+
+                ${nomesCategorias.map(cat => {
+
+                    const quantidade = cat === "Todas"
+                        ? lista.length
+                        : categorias[cat].length;
+
+                    return `
+                        <div
+                            onclick="window.categoriaEspecialidadeSelecionada='${cat}';renderizarCatalogoEspecialidades(especialidadesFiltradas || especialidades);"
+                            style="
+                                cursor:pointer;
+                                background:#121212;
+                                border:1px solid #262626;
+                                border-radius:10px;
+                                padding:16px;
+                                transition:.2s;
+                            "
+                            onmouseenter="this.style.borderColor='#007bff'"
+                            onmouseleave="this.style.borderColor='#262626'">
+
+                            <div style="font-size:15px;font-weight:bold;color:#fff;">
+                                ${cat}
+                            </div>
+
+                            <div style="margin-top:6px;font-size:12px;color:#8e8e8e;">
+                                ${quantidade} especialidade(s)
+                            </div>
+
                         </div>
-                        <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('especialidades', '${e.id}'  )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
-                            <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
-                        </div>
-                    </div>
-                `).join("")}
+                    `;
+                }).join("")}
+
             </div>
-        </div>
-    `).join("");
+        `;
+
+        return;
+    }
+
+    //==========================
+    // TODAS
+    //==========================
+
+    let categoriasMostrar = categorias;
+
+    if (window.categoriaEspecialidadeSelecionada !== "Todas") {
+        categoriasMostrar = {
+            [window.categoriaEspecialidadeSelecionada]:
+                categorias[window.categoriaEspecialidadeSelecionada] || []
+        };
+    }
+
+    container.innerHTML = `
+
+        <button
+            onclick="
+                window.categoriaEspecialidadeSelecionada=null;
+                renderizarCatalogoEspecialidades(especialidadesFiltradas || especialidades);
+            "
+            style="
+                margin-bottom:15px;
+                background:#007bff;
+                color:#fff;
+                border:none;
+                border-radius:8px;
+                padding:8px 14px;
+                cursor:pointer;
+                font-weight:bold;
+            ">
+            ← Voltar para categorias
+        </button>
+
+        ${Object.entries(categoriasMostrar).map(([cat, itens]) => `
+
+            <div>
+
+                <h4 style="
+                    color:#007bff;
+                    font-size:12px;
+                    margin-bottom:8px;
+                    border-left:3px solid #007bff;
+                    padding-left:6px;
+                    text-transform:uppercase;
+                ">
+                    ${cat}
+                </h4>
+
+                <div style="display:grid;gap:8px;width:100%;">
+
+                    ${itens.map(e=>`
+
+                        <div style="
+                            background:#121212;
+                            border:1px solid #262626;
+                            padding:10px;
+                            border-radius:8px;
+                            display:flex;
+                            align-items:center;
+                            justify-content:space-between;
+                            gap:10px;
+                        ">
+
+                            <div style="
+                                display:flex;
+                                align-items:center;
+                                gap:10px;
+                                min-width:0;
+                                flex:1;
+                            ">
+
+                                <img
+                                    src="${e.urlImagem || e.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}"
+                                    onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
+                                    style="
+                                        width:38px;
+                                        height:38px;
+                                        object-fit:cover;
+                                        border-radius:6px;
+                                        flex-shrink:0;
+                                    ">
+
+                                <div style="min-width:0;flex:1;">
+                                    <div style="
+                                        font-weight:bold;
+                                        color:#fff;
+                                        font-size:13px;
+                                        word-break:break-word;
+                                    ">
+                                        ${e.nome}
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div style="display:flex;gap:6px;">
+
+                                ${tipoUsuario==="admin"
+                                    ? `<button onclick="abrirModalGerenciarItem('especialidades','${e.id}')" style="background:#333;color:#fff;border:none;border-radius:6px;padding:6px 8px;font-size:11px;cursor:pointer;">Editar</button>`
+                                    : ""}
+
+                                <button
+                                    onclick="solicitarInicioEspecialidade('${e.id}','${e.nome}')"
+                                    style="
+                                        flex-shrink:0;
+                                        width:max-content;
+                                        padding:6px 10px;
+                                        background:#007bff;
+                                        color:#fff;
+                                        border:none;
+                                        border-radius:6px;
+                                        font-size:11px;
+                                        font-weight:bold;
+                                        cursor:pointer;
+                                    ">
+                                    Começar
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    `).join("")}
+
+                </div>
+
+            </div>
+
+        `).join("")}
+
+    `;
 }
 
 
