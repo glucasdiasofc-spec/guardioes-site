@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.60.0 - versão alpha";
+const VERSAO_ATUAL = "v0.61.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -2170,41 +2170,24 @@ function renderizarCatalogoEspecialidades(lista, manterEstado = false) {
                                             </div>
                                         </div>
 
-                                        <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0; width:95px;">
+                                        <div style="display:flex; gap:6px;">
                                             ${
                                                 tipoUsuario === "admin"
                                                     ? `
                                                         <button
                                                             onclick="abrirModalGerenciarItem('especialidades', '${e.id}')"
-                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer; width:100%;">
+                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">
                                                             Editar
                                                         </button>
                                                     `
                                                     : ""
                                             }
 
-                                            ${
-                                                especialidadeConcluida
-                                                    ? `
-                                                        <button
-                                                            onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}', 'ver')"
-                                                            style="width:100%; padding:6px 10px; background:${corBotao}; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                            ${textoBotao}
-                                                        </button>
-                                                    `
-                                                    : `
-                                                        <button
-                                                            onclick="window.confirmarEIniciarItem('especialidades', '${e.id}', '${e.nome}')"
-                                                            style="width:100%; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                            Começar
-                                                        </button>
-                                                        <button
-                                                            onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}', 'ver')"
-                                                            style="width:100%; padding:6px 10px; background:#333; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                            Ver
-                                                        </button>
-                                                    `
-                                            }
+                                            <button
+                                                onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')"
+                                                style="flex-shrink:0; width:max-content; padding:6px 10px; background:${corBotao}; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                ${textoBotao}
+                                            </button>
                                         </div>
                                     </div>
                                 `;
@@ -2416,41 +2399,24 @@ function renderizarCatalogoClasses(lista, manterEstado = false) {
                                             </div>
                                         </div>
 
-                                        <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0; width:95px;">
+                                        <div style="display:flex; gap:6px;">
                                             ${
                                                 tipoUsuario === "admin"
                                                     ? `
                                                         <button
                                                             onclick="abrirModalGerenciarItem('classes', '${c.id}')"
-                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer; width:100%;">
+                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">
                                                             Editar
                                                         </button>
                                                     `
                                                     : ""
                                             }
 
-                                            ${
-                                                classeConcluida
-                                                    ? `
-                                                        <button
-                                                            onclick="solicitarInicioClasse('${c.id}', '${c.nome}', 'ver')"
-                                                            style="width:100%; padding:6px 10px; background:${corBotao}; color:${corTextoBotao}; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                            ${textoBotao}
-                                                        </button>
-                                                    `
-                                                    : `
-                                                        <button
-                                                            onclick="window.confirmarEIniciarItem('classes', '${c.id}', '${c.nome}')"
-                                                            style="width:100%; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                            Começar
-                                                        </button>
-                                                        <button
-                                                            onclick="solicitarInicioClasse('${c.id}', '${c.nome}', 'ver')"
-                                                            style="width:100%; padding:6px 10px; background:#333; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                            Ver
-                                                        </button>
-                                                    `
-                                            }
+                                            <button
+                                                onclick="solicitarInicioClasse('${c.id}', '${c.nome}')"
+                                                style="flex-shrink:0; width:max-content; padding:6px 10px; background:${corBotao}; color:${corTextoBotao}; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                ${textoBotao}
+                                            </button>
                                         </div>
                                     </div>
                                 `;
