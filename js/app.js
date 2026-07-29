@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.57.0 - versão alpha";
+const VERSAO_ATUAL = "v0.58.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -666,14 +666,50 @@ async function carregarPerfilDoUsuario() {
                 avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
             }
 
-            // ==========================================
-            // FIX DE DEDUPLICAÇÃO DE ARRAYS (SET)
-            // ==========================================
-            const classesUnicas = [...new Set(dados.classesConcluidas || [])];
-            const especialidadesUnicas = [...new Set(dados.especialidades || [])];
-            const mestradosUnicos = [...new Set(dados.mestrados || [])];
+            // =========================================================================
+            // HIGIENIZADOR AVANÇADO CONTRA DUPLICATAS (SUPORTA STRINGS E OBJETOS)
+            // =========================================================================
+            const extrairEFiltrarUnicos = (entrada) => {
+                if (!entrada) return [];
+                let arrayBase = [];
+                
+                if (Array.isArray(entrada)) {
+                    arrayBase = entrada.flat(Infinity);
+                } else if (typeof entrada === 'string') {
+                    arrayBase = entrada.split(',');
+                } else if (typeof entrada === 'object') {
+                    arrayBase = Object.values(entrada);
+                }
 
-            // Cálculo dinâmico usando apenas as contagens limpas (Sem duplicatas)
+                const mapaUnicos = new Map();
+
+                arrayBase.forEach(item => {
+                    if (!item) return;
+                    let texto = "";
+                    if (typeof item === 'object') {
+                        texto = item.nome || item.titulo || item.especialidade || item.classe || item.nomeEspecialidade || JSON.stringify(item);
+                    } else {
+                        texto = String(item);
+                    }
+                    
+                    texto = texto.trim();
+                    if (!texto) return;
+
+                    // Normaliza chave de comparação para ignorar caixa alta/baixa
+                    const chaveNormalizada = texto.toLowerCase();
+                    if (!mapaUnicos.has(chaveNormalizada)) {
+                        mapaUnicos.set(chaveNormalizada, texto);
+                    }
+                });
+
+                return Array.from(mapaUnicos.values());
+            };
+
+            const classesUnicas = extrairEFiltrarUnicos(dados.classesConcluidas);
+            const especialidadesUnicas = extrairEFiltrarUnicos(dados.especialidades);
+            const mestradosUnicos = extrairEFiltrarUnicos(dados.mestrados);
+
+            // Cálculo dinâmico usando estritamente os contadores das listas higienizadas
             const qtdClasses = classesUnicas.length;
             const qtdEspecialidades = especialidadesUnicas.length;
             const qtdMestrados = mestradosUnicos.length;
@@ -705,7 +741,7 @@ async function carregarPerfilDoUsuario() {
                 }
             }
 
-            // Renderização Detalhada: Especialidades (Garantidamente Únicas)
+            // Renderização Detalhada: Especialidades
             if (tEspecialidades) tEspecialidades.textContent = `🏅 Especialidades Adquiridas (${qtdEspecialidades})`;
             if (especialidadesEl) {
                 if (qtdEspecialidades > 0) {
@@ -723,7 +759,7 @@ async function carregarPerfilDoUsuario() {
                 }
             }
 
-            // Renderização Detalhada: Mestrados (Garantidamente Únicos)
+            // Renderização Detalhada: Mestrados
             if (tMestrados) tMestrados.textContent = `🏆 Mestrados Adquiridos (${qtdMestrados})`;
             if (mestradosEl) {
                 if (qtdMestrados > 0) {
