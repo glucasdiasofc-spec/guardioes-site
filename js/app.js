@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.66.0 - versão alpha";
+const VERSAO_ATUAL = "v0.67.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -4391,42 +4391,263 @@ async function carregarEspecialidadesEmAndamento() {
 async function carregarMestradosEmAndamento() {
     const username = localStorage.getItem("usernameLogado");
     const container = document.getElementById("lista-mestrados-progresso-container");
+
     if (!container) return;
 
+    if (!username) {
+        container.innerHTML = `
+            <p style="color:#8e8e8e; font-size:12px; text-align:center; padding:10px;">
+                Nenhum mestrado em andamento.
+            </p>
+        `;
+        return;
+    }
+
     try {
-        const snap = await window.ClubeDB.textoDB.collection("progresso_mestrados")
+        const db = window.ClubeDB.textoDB;
+
+        /*
+         * =====================================================
+         * 1. BUSCA O CATÁLOGO REAL DE MESTRADOS
+         *
+         * O Firebase é a fonte oficial.
+         * Não usamos window.cacheMestrados aqui para decidir
+         * se o item ainda existe, pois o cache pode estar
+         * desatualizado.
+         * =====================================================
+         */
+        const snapCatalogoMestrados = await db
+            .collection("mestrados")
+            .get();
+
+        /*
+         * Guarda os IDs que ainda existem no catálogo.
+         *
+         * Exemplo:
+         * mestrado_1
+         * mestrado_2
+         * mestrado_3
+         */
+        const idsMestradosExistentes = new Set(
+            snapCatalogoMestrados.docs.map(doc =>
+                String(doc.id)
+            )
+        );
+
+        /*
+         * Atualiza o cache dos mestrados imediatamente.
+         * Isso também evita que um item excluído continue sendo
+         * encontrado visualmente por um cache antigo.
+         */
+        window.cacheMestrados =
+            snapCatalogoMestrados.docs.map(doc => {
+                const dados = doc.data() || {};
+
+                return {
+                    id: String(doc.id),
+                    ...dados,
+                    categoria:
+                        dados.categoria ||
+                        dados.area ||
+                        "Mestrado",
+                    urlImagem:
+                        dados.urlImagem ||
+                        dados.logo ||
+                        ""
+                };
+            });
+
+
+        /*
+         * =====================================================
+         * 2. BUSCA OS MESTRADOS EM ANDAMENTO DO USUÁRIO
+         * =====================================================
+         */
+        const snapProgresso = await db
+            .collection("progresso_mestrados")
             .where("usuario", "==", username)
-            .where("status", "==", "em_andamento").get();
+            .where("status", "==", "em_andamento")
+            .get();
 
-        container.innerHTML = ""; 
 
-        if (snap.empty) {
-            container.innerHTML = "<p style='color:#8e8e8e; font-size:12px; text-align:center; padding:10px;'>Nenhum mestrado em andamento.</p>";
+        /*
+         * =====================================================
+         * 3. REMOVE REGISTROS ÓRFÃOS
+         *
+         * Qualquer progresso cujo itemId não exista mais
+         * na coleção "mestrados" significa que o catálogo
+         * foi apagado pelo administrador.
+         *
+         * Esses documentos são excluídos automaticamente.
+         * =====================================================
+         */
+        const progressosValidos = [];
+        const progressosOrfaos = [];
+
+        snapProgresso.docs.forEach(doc => {
+            const dados = doc.data() || {};
+            const itemId = String(dados.itemId || "");
+
+            if (
+                itemId &&
+                idsMestradosExistentes.has(itemId)
+            ) {
+                progressosValidos.push({
+                    doc,
+                    dados
+                });
+            } else {
+                progressosOrfaos.push(doc);
+            }
+        });
+
+
+        /*
+         * =====================================================
+         * 4. EXCLUI OS REGISTROS DE MESTRADOS APAGADOS
+         *
+         * Fazemos em lotes para respeitar o limite do Firestore.
+         * =====================================================
+         */
+        if (progressosOrfaos.length > 0) {
+            for (
+                let inicio = 0;
+                inicio < progressosOrfaos.length;
+                inicio += 450
+            ) {
+                const lote = db.batch();
+
+                const grupo =
+                    progressosOrfaos.slice(
+                        inicio,
+                        inicio + 450
+                    );
+
+                grupo.forEach(doc => {
+                    lote.delete(doc.ref);
+                });
+
+                await lote.commit();
+            }
+
+            console.log(
+                `Limpeza automática concluída: ${progressosOrfaos.length} registro(s) de mestrado excluído(s) do catálogo foram removidos de "progresso_mestrados".`
+            );
+        }
+
+
+        /*
+         * =====================================================
+         * 5. LIMPA A INTERFACE ANTES DE RENDERIZAR
+         * =====================================================
+         */
+        container.innerHTML = "";
+
+
+        /*
+         * =====================================================
+         * 6. SE NÃO SOBROU NENHUM MESTRADO VÁLIDO
+         * =====================================================
+         */
+        if (progressosValidos.length === 0) {
+            container.innerHTML = `
+                <p style="color:#8e8e8e; font-size:12px; text-align:center; padding:10px;">
+                    Nenhum mestrado em andamento.
+                </p>
+            `;
             return;
         }
 
-        container.innerHTML = snap.docs.map(doc => {
-            const dados = doc.data();
-            const mestItem = window.cacheMestrados.find(m => String(m.id) === String(dados.itemId));
-            const imgUrl = mestItem?.urlImagem || mestItem?.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
-            return `
-                <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
-                        <img src="${imgUrl}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                        <div style="min-width:0; flex:1;">
-                            <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dados.nomeItem || dados.nome}</div>
-                            <div style="color:#28a745; font-size:11px; font-weight:bold;">Em Andamento</div>
+
+        /*
+         * =====================================================
+         * 7. RENDERIZA SOMENTE MESTRADOS QUE AINDA EXISTEM
+         * NO CATÁLOGO
+         * =====================================================
+         */
+        container.innerHTML = progressosValidos
+            .map(({ dados }) => {
+                const mestItem =
+                    window.cacheMestrados.find(
+                        mestrado =>
+                            String(mestrado.id) ===
+                            String(dados.itemId)
+                    );
+
+                /*
+                 * Esta proteção é redundante de propósito.
+                 * Mesmo que algo inesperado aconteça,
+                 * nunca renderizamos um progresso sem item
+                 * correspondente no catálogo.
+                 */
+                if (!mestItem) {
+                    return "";
+                }
+
+                const imgUrl =
+                    mestItem.urlImagem ||
+                    mestItem.logo ||
+                    "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+                const nomeMestrado =
+                    dados.nomeItem ||
+                    dados.nome ||
+                    mestItem.nome ||
+                    "Mestrado";
+
+                /*
+                 * Proteção contra caracteres especiais no nome.
+                 * Evita quebrar o onclick do botão Continuar.
+                 */
+                const nomeSeguro =
+                    String(nomeMestrado)
+                        .replace(/\\/g, "\\\\")
+                        .replace(/'/g, "\\'")
+                        .replace(/"/g, "&quot;");
+
+                return `
+                    <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
+                        
+                        <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+                            <img
+                                src="${imgUrl}"
+                                onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
+                                style="width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0;"
+                            >
+
+                            <div style="min-width:0; flex:1;">
+                                <div style="font-weight:bold; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    ${nomeMestrado}
+                                </div>
+
+                                <div style="color:#28a745; font-size:11px; font-weight:bold;">
+                                    Em Andamento
+                                </div>
+                            </div>
                         </div>
+
+                        <button
+                            onclick="solicitarInicioMestrado('${dados.itemId}', '${nomeSeguro}', 'continuar')"
+                            style="flex-shrink:0; padding:8px 14px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; width:max-content; white-space:nowrap;"
+                        >
+                            Continuar
+                        </button>
                     </div>
-                    <button onclick="solicitarInicioMestrado('${dados.itemId}', '${dados.nomeItem || dados.nome}', 'continuar')" style="flex-shrink:0; padding:8px 14px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; width:max-content; white-space:nowrap;">
-                        Continuar
-                    </button>
-                </div>
-            `;
-        }).join("");
-    } catch (e) { 
-        console.error(e);
-        container.innerHTML = "<p style='color:#ff4d4d; font-size:11px;'>Erro ao carregar.</p>";
+                `;
+            })
+            .join("");
+
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar e limpar mestrados em andamento:",
+            erro
+        );
+
+        container.innerHTML = `
+            <p style="color:#ff4d4d; font-size:11px; text-align:center; padding:10px;">
+                Erro ao carregar mestrados em andamento.
+            </p>
+        `;
     }
 }
 
