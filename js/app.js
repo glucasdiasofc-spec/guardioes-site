@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.54.0 - versão alpha";
+const VERSAO_ATUAL = "v0.55.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1933,8 +1933,9 @@ async function solicitarInicioEspecialidade(id, nome) {
                 `).join("")}
             </div>
         </div>
-        <div style="padding:15px; border-top:1px solid #262626;">
+        <div style="padding:15px; border-top:1px solid #262626; display:flex; flex-direction:column; gap:10px;">
             <button id="btn-enviar-aval" disabled style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">Enviar para Avaliação</button>
+            <button id="btn-cancelar-esp" style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">Cancelar Especialidade</button>
         </div>
     `;
 
@@ -1943,11 +1944,21 @@ async function solicitarInicioEspecialidade(id, nome) {
     const checks = modal.querySelectorAll(".req-check");
     const btnEnv = modal.querySelector("#btn-enviar-aval");
     const btnFechar = modal.querySelector("#btn-fechar-checklist-esp");
+    const btnCancel = modal.querySelector("#btn-cancelar-esp");
 
-    // Botão X agora fecha o modal e recarrega a tela de andamento
     btnFechar.onclick = () => {
         modal.remove();
         carregarEspecialidades();
+    };
+
+    btnCancel.onclick = async () => {
+        if (!confirm("Tem certeza que deseja cancelar? Todo o seu progresso nesta especialidade será excluído.")) return;
+        try {
+            await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).delete();
+            alert("Especialidade cancelada.");
+            modal.remove();
+            carregarEspecialidades();
+        } catch(e) { alert("Erro ao cancelar."); }
     };
 
     const atualizarEstadoBotao = () => {
@@ -1985,7 +1996,6 @@ async function solicitarInicioEspecialidade(id, nome) {
                 status: "pendente",
                 enviadoEm: firebase.firestore.FieldValue.serverTimestamp()
             });
-            // Remove o progresso em andamento (foi enviado para aprovação)
             await window.ClubeDB.textoDB.collection("progresso_especialidades").doc(`${username}_${id}`).delete();
             alert("Enviado com sucesso!");
             modal.remove();
@@ -1993,6 +2003,7 @@ async function solicitarInicioEspecialidade(id, nome) {
         } catch(e) { alert("Erro ao enviar."); btnEnv.disabled = false; }
     };
 }
+
 
 
 
@@ -2047,8 +2058,9 @@ async function solicitarInicioMestrado(id, nome) {
                 `).join("")}
             </div>
         </div>
-        <div style="padding:15px; border-top:1px solid #262626;">
+        <div style="padding:15px; border-top:1px solid #262626; display:flex; flex-direction:column; gap:10px;">
             <button id="btn-enviar-aval-mest" disabled style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">Enviar para Avaliação</button>
+            <button id="btn-cancelar-mest" style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">Cancelar Mestrado</button>
         </div>
     `;
 
@@ -2057,10 +2069,21 @@ async function solicitarInicioMestrado(id, nome) {
     const checks = modal.querySelectorAll(".req-check");
     const btnEnv = modal.querySelector("#btn-enviar-aval-mest");
     const btnFechar = modal.querySelector("#btn-fechar-checklist-mest");
+    const btnCancel = modal.querySelector("#btn-cancelar-mest");
 
     btnFechar.onclick = () => {
         modal.remove();
         carregarEspecialidades(); 
+    };
+
+    btnCancel.onclick = async () => {
+        if (!confirm("Tem certeza que deseja cancelar? Todo o seu progresso neste mestrado será excluído.")) return;
+        try {
+            await window.ClubeDB.textoDB.collection("progresso_mestrados").doc(`${username}_${id}`).delete();
+            alert("Mestrado cancelado.");
+            modal.remove();
+            carregarEspecialidades();
+        } catch(e) { alert("Erro ao cancelar."); }
     };
 
     const atualizarEstadoBotao = () => {
@@ -2105,6 +2128,7 @@ async function solicitarInicioMestrado(id, nome) {
         } catch(e) { alert("Erro ao enviar."); btnEnv.disabled = false; }
     };
 }
+
 
 
 async function solicitarInicioClasse(id, nome) {
@@ -2158,8 +2182,9 @@ async function solicitarInicioClasse(id, nome) {
                 `).join("")}
             </div>
         </div>
-        <div style="padding:15px; border-top:1px solid #262626;">
+        <div style="padding:15px; border-top:1px solid #262626; display:flex; flex-direction:column; gap:10px;">
             <button id="btn-enviar-aval-class" disabled style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">Enviar para Avaliação</button>
+            <button id="btn-cancelar-class" style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">Cancelar Classe</button>
         </div>
     `;
 
@@ -2168,10 +2193,21 @@ async function solicitarInicioClasse(id, nome) {
     const checks = modal.querySelectorAll(".req-check");
     const btnEnv = modal.querySelector("#btn-enviar-aval-class");
     const btnFechar = modal.querySelector("#btn-fechar-checklist-class");
+    const btnCancel = modal.querySelector("#btn-cancelar-class");
 
     btnFechar.onclick = () => {
         modal.remove();
         carregarEspecialidades(); 
+    };
+
+    btnCancel.onclick = async () => {
+        if (!confirm("Tem certeza que deseja cancelar? Todo o seu progresso nesta classe será excluído.")) return;
+        try {
+            await window.ClubeDB.textoDB.collection("progresso_classes").doc(`${username}_${id}`).delete();
+            alert("Classe cancelada.");
+            modal.remove();
+            carregarEspecialidades();
+        } catch(e) { alert("Erro ao cancelar."); }
     };
 
     const atualizarEstadoBotao = () => {
@@ -2217,6 +2253,7 @@ async function solicitarInicioClasse(id, nome) {
         } catch(e) { alert("Erro ao enviar."); btnEnv.disabled = false; }
     };
 }
+
 
 
 
