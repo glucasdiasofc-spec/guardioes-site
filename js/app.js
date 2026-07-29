@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.56.0 - versão alpha";
+const VERSAO_ATUAL = "v0.57.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1675,15 +1675,54 @@ async function carregarEspecialidades() {
             try {
                 const snap = await window.ClubeDB.textoDB.collection("especialidades").get();
                 if (!snap.empty) {
-                    window.cacheEspecialidades = snap.docs.map(doc => ({ 
-                        id: String(doc.id), ...doc.data(),
-                        categoria: doc.data().categoria || doc.data().area || "Geral",
-                        urlImagem: doc.data().urlImagem || doc.data().logo
-                    }));
+                    const mapaEspecialidades = new Map();
+
+snap.docs.forEach(doc => {
+    const dados = doc.data();
+
+    const item = {
+        id: String(doc.id),
+        ...dados,
+        categoria: dados.categoria || dados.area || "Geral",
+        urlImagem: dados.urlImagem || dados.logo
+    };
+
+    // Usa nome + categoria como chave para eliminar duplicatas
+    const chave = `${(item.nome || "").trim().toLowerCase()}|${(item.categoria || "").trim().toLowerCase()}`;
+
+    // Mantém apenas a primeira ocorrência
+    if (!mapaEspecialidades.has(chave)) {
+        mapaEspecialidades.set(chave, item);
+    }
+});
+
+window.cacheEspecialidades = [...mapaEspecialidades.values()];
                 } else { throw "vazio"; }
             } catch {
-                window.cacheEspecialidades = (typeof listaEspecialidadesParaImportar !== "undefined") ? 
-                    listaEspecialidadesParaImportar.map(e => ({ ...e, id: String(e.id || e.nome), categoria: e.area || "Geral", urlImagem: e.logo })) : [];
+                if (typeof listaEspecialidadesParaImportar !== "undefined") {
+
+    const mapaEspecialidades = new Map();
+
+    listaEspecialidadesParaImportar.forEach(e => {
+        const item = {
+            ...e,
+            id: String(e.id || e.nome),
+            categoria: e.categoria || e.area || "Geral",
+            urlImagem: e.urlImagem || e.logo
+        };
+
+        const chave = `${(item.nome || "").trim().toLowerCase()}|${(item.categoria || "").trim().toLowerCase()}`;
+
+        if (!mapaEspecialidades.has(chave)) {
+            mapaEspecialidades.set(chave, item);
+        }
+    });
+
+    window.cacheEspecialidades = [...mapaEspecialidades.values()];
+
+} else {
+    window.cacheEspecialidades = [];
+}
             }
         }
         renderizarCatalogoEspecialidades(window.cacheEspecialidades);
