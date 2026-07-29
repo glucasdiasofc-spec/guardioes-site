@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.64.0 - versão alpha";
+const VERSAO_ATUAL = "v0.65.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -2456,7 +2456,13 @@ function renderizarCatalogoClasses(lista, manterEstado = false) {
 async function solicitarInicioEspecialidade(id, nome, modo = "editar") {
     const username = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado");
-    const modoNormalizado = modo === "visualizar" ? "visualizar" : "editar";
+
+    const modoNormalizado =
+        modo === "visualizar"
+            ? "visualizar"
+            : modo === "continuar"
+                ? "continuar"
+                : "editar";
 
     if (!username) {
         return alert("Por favor, faça login para iniciar.");
@@ -2557,9 +2563,12 @@ async function solicitarInicioEspecialidade(id, nome, modo = "editar") {
                     usuario: username,
                     itemId: id,
                     nomeItem: nome,
-                    requisitosConcluidos: Array.isArray(progressoSalvo) ? progressoSalvo : [],
+                    requisitosConcluidos: Array.isArray(progressoSalvo)
+                        ? progressoSalvo
+                        : [],
                     status: "em_andamento",
-                    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
                 },
                 {
                     merge: true
@@ -2570,6 +2579,11 @@ async function solicitarInicioEspecialidade(id, nome, modo = "editar") {
     /*
      * Ação direta de "Começar" no catálogo:
      * confirma, grava o progresso e leva para "Em andamento".
+     *
+     * IMPORTANTE:
+     * O modo "continuar" não entra aqui.
+     * Portanto, ao clicar em "Continuar" nas especialidades
+     * em andamento, o checklist abre diretamente.
      */
     if (modoNormalizado === "editar" && !especialidadeJaAdquirida) {
         const confirmarInicio = confirm(
@@ -2594,6 +2608,13 @@ async function solicitarInicioEspecialidade(id, nome, modo = "editar") {
         return;
     }
 
+    /*
+     * Somente "visualizar" e especialidade já concluída
+     * ficam em modo somente leitura.
+     *
+     * "continuar" fica fora daqui e, portanto,
+     * continua sendo um checklist totalmente editável.
+     */
     const somenteLeitura =
         modoNormalizado === "visualizar" || especialidadeJaAdquirida;
 
@@ -2744,6 +2765,10 @@ async function solicitarInicioEspecialidade(id, nome, modo = "editar") {
         return;
     }
 
+    /*
+     * Modo somente leitura.
+     * O modo "continuar" não passa por este bloco.
+     */
     if (modoNormalizado === "visualizar") {
         const btnComecar = modal.querySelector("#btn-comecar-esp");
 
@@ -4234,7 +4259,7 @@ async function carregarEspecialidadesEmAndamento() {
             .where("usuario", "==", username)
             .where("status", "==", "em_andamento").get();
 
-        container.innerHTML = ""; // Limpa o "Carregando..."
+        container.innerHTML = ""; // Limpa o "Carregando."
 
         if (snap.empty) {
             container.innerHTML = "<p style='color:#8e8e8e; font-size:12px; text-align:center; padding:10px;'>Nenhuma especialidade em andamento.</p>";
@@ -4245,6 +4270,7 @@ async function carregarEspecialidadesEmAndamento() {
             const dados = doc.data();
             const espItem = window.cacheEspecialidades.find(e => String(e.id) === String(dados.itemId));
             const imgUrl = espItem?.urlImagem || espItem?.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
+
             return `
                 <div style="background:#121212; border:1px solid #262626; padding:12px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px;">
                     <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
@@ -4254,10 +4280,16 @@ async function carregarEspecialidadesEmAndamento() {
                             <div style="color:#0095f6; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarInicioEspecialidade('${dados.itemId}', '${dados.nomeItem}' )" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Continuar</button>
+
+                    <button
+                        onclick="solicitarInicioEspecialidade('${dados.itemId}', '${dados.nomeItem}', 'continuar')"
+                        style="flex-shrink:0; padding:8px 14px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; width:max-content; white-space:nowrap;">
+                        Continuar
+                    </button>
                 </div>
             `;
         }).join("");
+
     } catch (e) { 
         console.error(e);
         container.innerHTML = "<p style='color:#ff4d4d; font-size:11px;'>Erro ao carregar.</p>";
