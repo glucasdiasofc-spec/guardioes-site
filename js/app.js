@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.55.0 - versão alpha";
+const VERSAO_ATUAL = "v0.56.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1771,54 +1771,132 @@ function fecharCatalogoClasses() {
 
 
 // ==========================================
+// ESTADOS ATUAIS DE CATEGORIA
+// ==========================================
+window.categoriaAtualEspecialidades = null;
+window.categoriaAtualMestrados = null;
+window.categoriaAtualClasses = null;
+
+// ==========================================
 // MECANISMO DE BUSCA LOCAL
 // ==========================================
 function pesquisarEspecialidadeLocal() {
     const termo = normalizarTextoBusca(document.getElementById("busca-especialidade").value);
-    const filtrados = window.cacheEspecialidades.filter(e => 
+    let filtrados = window.cacheEspecialidades;
+
+    if (window.categoriaAtualEspecialidades && window.categoriaAtualEspecialidades !== 'Todas') {
+        filtrados = filtrados.filter(e => (e.categoria || e.area || "Geral") === window.categoriaAtualEspecialidades);
+    }
+
+    filtrados = filtrados.filter(e => 
         normalizarTextoBusca(e.nome).includes(termo) || normalizarTextoBusca(e.categoria || e.area).includes(termo)
     );
-    renderizarCatalogoEspecialidades(filtrados);
+    renderizarCatalogoEspecialidades(filtrados, true);
 }
 
 function pesquisarMestradoLocal() {
     const termo = normalizarTextoBusca(document.getElementById("busca-mestrado").value);
-    const filtrados = window.cacheMestrados.filter(m => 
+    let filtrados = window.cacheMestrados;
+
+    if (window.categoriaAtualMestrados && window.categoriaAtualMestrados !== 'Todas') {
+        filtrados = filtrados.filter(m => (m.categoria || m.area || "Mestrado") === window.categoriaAtualMestrados);
+    }
+
+    filtrados = filtrados.filter(m => 
         normalizarTextoBusca(m.nome).includes(termo) || normalizarTextoBusca(m.categoria || m.area).includes(termo)
     );
-    renderizarCatalogoMestrados(filtrados);
+    renderizarCatalogoMestrados(filtrados, true);
 }
 
 function pesquisarClasseLocal() {
     const termo = normalizarTextoBusca(document.getElementById("busca-classe").value);
-    const filtrados = window.cacheClasses.filter(c => 
+    let filtrados = window.cacheClasses;
+
+    if (window.categoriaAtualClasses && window.categoriaAtualClasses !== 'Todas') {
+        filtrados = filtrados.filter(c => (c.categoria || "Classe") === window.categoriaAtualClasses);
+    }
+
+    filtrados = filtrados.filter(c => 
         normalizarTextoBusca(c.nome).includes(termo) || normalizarTextoBusca(c.categoria).includes(termo)
     );
-    renderizarCatalogoClasses(filtrados);
+    renderizarCatalogoClasses(filtrados, true);
 }
 
 
 // ==========================================
-// RENDERIZAÇÃO DOS CATÁLOGOS (AGRUPADOS)
+// RENDERIZAÇÃO DOS CATÁLOGOS (PASTAS / AGRUPADOS)
 // ==========================================
-function renderizarCatalogoEspecialidades(lista) {
+function renderizarCatalogoEspecialidades(lista, manterEstado = false) {
     const container = document.getElementById("lista-especialidades-container");
     if (!container) return;
-    if (lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
+    
+    const inputBusca = document.getElementById("busca-especialidade");
+    const termoBusca = inputBusca ? inputBusca.value.trim() : "";
+
+    if (!manterEstado && !termoBusca) {
+        window.categoriaAtualEspecialidades = null;
+    }
+
+    if (lista.length === 0) { 
+        container.innerHTML = `<div style="margin-bottom:15px;"><button onclick="window.categoriaAtualEspecialidades = null; document.getElementById('busca-especialidade').value = ''; renderizarCatalogoEspecialidades(window.cacheEspecialidades);" style="background:transparent; border:none; color:#007bff; cursor:pointer; font-size:13px; font-weight:bold; padding:0;">⬅ Voltar</button></div><p style='color:#8e8e8e;text-align:center;'>Nenhum resultado encontrado.</p>`; 
+        return; 
+    }
 
     const tipoUsuario = localStorage.getItem("usuarioLogado");
     const categorias = {};
+    
     lista.forEach(item => {
         const cat = item.categoria || item.area || "Geral";
         if (!categorias[cat]) categorias[cat] = [];
         categorias[cat].push(item);
     });
 
-    container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
+    let visualizacaoAtiva = window.categoriaAtualEspecialidades;
+    if (termoBusca && !visualizacaoAtiva) {
+        visualizacaoAtiva = 'Todas';
+    }
+
+    if (!visualizacaoAtiva) {
+        let htmlCategorias = `
+            <div onclick="window.categoriaAtualEspecialidades = 'Todas'; renderizarCatalogoEspecialidades(window.cacheEspecialidades, true);" style="background:#1e1e1e; border:1px solid #333; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:12px; transition: 0.2s;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:22px;">🌟</span>
+                    <span style="color:#fff; font-weight:bold; font-size:15px;">Todas as Especialidades</span>
+                </div>
+                <span style="color:#007bff; font-size:13px; font-weight:bold;">${lista.length} itens &gt;</span>
+            </div>
+        `;
+
+        Object.entries(categorias).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, itens]) => {
+            htmlCategorias += `
+                <div onclick="window.categoriaAtualEspecialidades = '${cat}'; renderizarCatalogoEspecialidades(window.cacheEspecialidades, true);" style="background:#121212; border:1px solid #262626; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:8px; transition: 0.2s;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:18px;">📁</span>
+                        <span style="color:#fff; font-weight:500; font-size:14px;">${cat}</span>
+                    </div>
+                    <span style="color:#8e8e8e; font-size:12px; font-weight:600;">${itens.length} itens &gt;</span>
+                </div>
+            `;
+        });
+        container.innerHTML = htmlCategorias;
+        return;
+    }
+
+    let htmlFinal = `<div style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+        <button onclick="window.categoriaAtualEspecialidades = null; document.getElementById('busca-especialidade').value = ''; renderizarCatalogoEspecialidades(window.cacheEspecialidades, false);" style="background:transparent; border:none; color:#007bff; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:5px; padding:0;">
+            ⬅ Voltar às Pastas
+        </button>
+        <span style="color:#8e8e8e; font-size:12px; max-width:50%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;">${visualizacaoAtiva}</span>
+    </div>`;
+
+    let categoriasParaRenderizar = visualizacaoAtiva === 'Todas' ? categorias : { [visualizacaoAtiva]: categorias[visualizacaoAtiva] || [] };
+
+    htmlFinal += Object.entries(categoriasParaRenderizar).map(([cat, itens]) => {
+        if(!itens || itens.length === 0) return '';
+        return `
         <div>
             <h4 style="color:#007bff; font-size:12px; margin-bottom:8px; border-left:3px solid #007bff; padding-left:6px; text-transform:uppercase;">${cat}</h4>
-            <div style="display:grid; gap:8px; width:100%;">
-
+            <div style="display:grid; gap:8px; width:100%; margin-bottom:15px;">
                 ${itens.map(e => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
@@ -1826,22 +1904,36 @@ function renderizarCatalogoEspecialidades(lista) {
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; word-break:break-word;">${e.nome}</div></div>
                         </div>
                         <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('especialidades', '${e.id}'  )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('especialidades', '${e.id}')" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
                             <button onclick="solicitarInicioEspecialidade('${e.id}', '${e.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#007bff; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                         </div>
                     </div>
                 `).join("")}
             </div>
         </div>
-    `).join("");
+        `;
+    }).join("");
+
+    container.innerHTML = htmlFinal;
 }
 
 
 
-function renderizarCatalogoClasses(lista) {
+function renderizarCatalogoClasses(lista, manterEstado = false) {
     const container = document.getElementById("lista-classes-container");
     if (!container) return;
-    if (!lista || lista.length === 0) { container.innerHTML = "<p style='color:8e8e8e;text-align:center;'>Nenhum resultado.</p>"; return; }
+    
+    const inputBusca = document.getElementById("busca-classe");
+    const termoBusca = inputBusca ? inputBusca.value.trim() : "";
+
+    if (!manterEstado && !termoBusca) {
+        window.categoriaAtualClasses = null;
+    }
+
+    if (!lista || lista.length === 0) { 
+        container.innerHTML = `<div style="margin-bottom:15px;"><button onclick="window.categoriaAtualClasses = null; document.getElementById('busca-classe').value = ''; renderizarCatalogoClasses(window.cacheClasses);" style="background:transparent; border:none; color:#ffc107; cursor:pointer; font-size:13px; font-weight:bold; padding:0;">⬅ Voltar</button></div><p style='color:#8e8e8e;text-align:center;'>Nenhum resultado encontrado.</p>`; 
+        return; 
+    }
 
     const tipoUsuario = localStorage.getItem("usuarioLogado");
     const categorias = {};
@@ -1851,11 +1943,52 @@ function renderizarCatalogoClasses(lista) {
         categorias[cat].push(item);
     });
 
-        container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
+    let visualizacaoAtiva = window.categoriaAtualClasses;
+    if (termoBusca && !visualizacaoAtiva) {
+        visualizacaoAtiva = 'Todas';
+    }
+
+    if (!visualizacaoAtiva) {
+        let htmlCategorias = `
+            <div onclick="window.categoriaAtualClasses = 'Todas'; renderizarCatalogoClasses(window.cacheClasses, true);" style="background:#1e1e1e; border:1px solid #333; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:12px; transition: 0.2s;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:22px;">🌟</span>
+                    <span style="color:#fff; font-weight:bold; font-size:15px;">Todas as Categorias</span>
+                </div>
+                <span style="color:#ffc107; font-size:13px; font-weight:bold;">${lista.length} itens &gt;</span>
+            </div>
+        `;
+
+        Object.entries(categorias).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, itens]) => {
+            htmlCategorias += `
+                <div onclick="window.categoriaAtualClasses = '${cat}'; renderizarCatalogoClasses(window.cacheClasses, true);" style="background:#121212; border:1px solid #262626; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:8px; transition: 0.2s;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:18px;">📁</span>
+                        <span style="color:#fff; font-weight:500; font-size:14px;">${cat}</span>
+                    </div>
+                    <span style="color:#8e8e8e; font-size:12px; font-weight:600;">${itens.length} itens &gt;</span>
+                </div>
+            `;
+        });
+        container.innerHTML = htmlCategorias;
+        return;
+    }
+
+    let htmlFinal = `<div style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+        <button onclick="window.categoriaAtualClasses = null; document.getElementById('busca-classe').value = ''; renderizarCatalogoClasses(window.cacheClasses, false);" style="background:transparent; border:none; color:#ffc107; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:5px; padding:0;">
+            ⬅ Voltar às Pastas
+        </button>
+        <span style="color:#8e8e8e; font-size:12px; max-width:50%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;">${visualizacaoAtiva}</span>
+    </div>`;
+
+    let categoriasParaRenderizar = visualizacaoAtiva === 'Todas' ? categorias : { [visualizacaoAtiva]: categorias[visualizacaoAtiva] || [] };
+
+    htmlFinal += Object.entries(categoriasParaRenderizar).map(([cat, itens]) => {
+        if(!itens || itens.length === 0) return '';
+        return `
         <div style="width:100%;">
             <h4 style="color:#ffc107; font-size:12px; margin-bottom:8px; border-left:3px solid #ffc107; padding-left:6px; text-transform:uppercase;">${cat}</h4>
-            <div style="display:grid; gap:8px; width:100%;">
-
+            <div style="display:grid; gap:8px; width:100%; margin-bottom:15px;">
                 ${itens.map(c => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
@@ -1863,14 +1996,17 @@ function renderizarCatalogoClasses(lista) {
                             <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.nome}</div></div>
                         </div>
                         <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}' )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('classes', '${c.id}')" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
                             <button onclick="solicitarInicioClasse('${c.id}', '${c.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#ffc107; color:#121212; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                         </div>
                     </div>
                 `).join("")}
             </div>
         </div>
-    `).join("");
+        `;
+    }).join("");
+
+    container.innerHTML = htmlFinal;
 }
 
 
@@ -2369,10 +2505,21 @@ async function carregarClassesEmAndamento() {
 }
 
 
-function renderizarCatalogoMestrados(lista) {
+function renderizarCatalogoMestrados(lista, manterEstado = false) {
     const container = document.getElementById("lista-mestrados-container");
     if (!container) return;
-    if (!lista || lista.length === 0) { container.innerHTML = "<p style='color:#8e8e8e;text-align:center;'>Nenhum mestrado disponível.</p>"; return; }
+
+    const inputBusca = document.getElementById("busca-mestrado");
+    const termoBusca = inputBusca ? inputBusca.value.trim() : "";
+
+    if (!manterEstado && !termoBusca) {
+        window.categoriaAtualMestrados = null;
+    }
+
+    if (!lista || lista.length === 0) { 
+        container.innerHTML = `<div style="margin-bottom:15px;"><button onclick="window.categoriaAtualMestrados = null; document.getElementById('busca-mestrado').value = ''; renderizarCatalogoMestrados(window.cacheMestrados);" style="background:transparent; border:none; color:#28a745; cursor:pointer; font-size:13px; font-weight:bold; padding:0;">⬅ Voltar</button></div><p style='color:#8e8e8e;text-align:center;'>Nenhum resultado encontrado.</p>`; 
+        return; 
+    }
 
     const tipoUsuario = localStorage.getItem("usuarioLogado");
     const categorias = {};
@@ -2382,26 +2529,70 @@ function renderizarCatalogoMestrados(lista) {
         categorias[cat].push(item);
     });
 
-        container.innerHTML = Object.entries(categorias).map(([cat, itens]) => `
+    let visualizacaoAtiva = window.categoriaAtualMestrados;
+    if (termoBusca && !visualizacaoAtiva) {
+        visualizacaoAtiva = 'Todas';
+    }
+
+    if (!visualizacaoAtiva) {
+        let htmlCategorias = `
+            <div onclick="window.categoriaAtualMestrados = 'Todas'; renderizarCatalogoMestrados(window.cacheMestrados, true);" style="background:#1e1e1e; border:1px solid #333; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:12px; transition: 0.2s;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:22px;">🌟</span>
+                    <span style="color:#fff; font-weight:bold; font-size:15px;">Todas as Categorias</span>
+                </div>
+                <span style="color:#28a745; font-size:13px; font-weight:bold;">${lista.length} itens &gt;</span>
+            </div>
+        `;
+
+        Object.entries(categorias).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, itens]) => {
+            htmlCategorias += `
+                <div onclick="window.categoriaAtualMestrados = '${cat}'; renderizarCatalogoMestrados(window.cacheMestrados, true);" style="background:#121212; border:1px solid #262626; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:8px; transition: 0.2s;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:18px;">📁</span>
+                        <span style="color:#fff; font-weight:500; font-size:14px;">${cat}</span>
+                    </div>
+                    <span style="color:#8e8e8e; font-size:12px; font-weight:600;">${itens.length} itens &gt;</span>
+                </div>
+            `;
+        });
+        container.innerHTML = htmlCategorias;
+        return;
+    }
+
+    let htmlFinal = `<div style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+        <button onclick="window.categoriaAtualMestrados = null; document.getElementById('busca-mestrado').value = ''; renderizarCatalogoMestrados(window.cacheMestrados, false);" style="background:transparent; border:none; color:#28a745; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:5px; padding:0;">
+            ⬅ Voltar às Pastas
+        </button>
+        <span style="color:#8e8e8e; font-size:12px; max-width:50%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;">${visualizacaoAtiva}</span>
+    </div>`;
+
+    let categoriasParaRenderizar = visualizacaoAtiva === 'Todas' ? categorias : { [visualizacaoAtiva]: categorias[visualizacaoAtiva] || [] };
+
+    htmlFinal += Object.entries(categoriasParaRenderizar).map(([cat, itens]) => {
+        if(!itens || itens.length === 0) return '';
+        return `
         <div style="margin-bottom:15px; width:100%;">
             <h4 style="color:#28a745; font-size:12px; margin-bottom:8px; border-left:3px solid #28a745; padding-left:6px; text-transform:uppercase;">${cat}</h4>
             <div style="display:grid; gap:8px; width:100%;">
-
                 ${itens.map(m => `
                     <div style="background:#121212; border:1px solid #262626; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                             <img src="${m.urlImagem || m.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.nome}</div></div>
+                            <div style="min-width:0; flex:1;"><div style="font-weight:bold; color:#fff; font-size:13px; word-break:break-word;">${m.nome}</div></div>
                         </div>
                         <div style="display:flex; gap:6px;">
-                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('mestrados', '${m.id}' )" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
+                            ${tipoUsuario === 'admin' ? `<button onclick="abrirModalGerenciarItem('mestrados', '${m.id}')" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">Editar</button>` : ''}
                             <button onclick="solicitarInicioMestrado('${m.id}', '${m.nome}')" style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">Começar</button>
                         </div>
                     </div>
                 `).join("")}
             </div>
         </div>
-    `).join("");
+        `;
+    }).join("");
+
+    container.innerHTML = htmlFinal;
 }
 
 
