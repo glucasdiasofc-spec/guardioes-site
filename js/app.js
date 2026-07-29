@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.48.0 - versão alpha";
+const VERSAO_ATUAL = "v0.49.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -2024,10 +2024,13 @@ async function solicitarInicioMestrado(id, nome) {
     modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
     
     modal.innerHTML = `
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #262626;">
-            <h3 style="margin:0; font-size:16px;">${nome}</h3>
-            <button id="btn-fechar-checklist-mest" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
+        <div style="display:flex; flex-direction:column; align-items:center; padding:20px 15px 10px 15px; gap:10px;">
+            <img src="${item.urlImagem || item.logo || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid #262626; flex-shrink:0;">
+            <h3 style="margin:0; font-size:16px; text-align:center; color:#fff; font-weight:bold;">${nome}</h3>
+            <button id="btn-fechar-checklist-mest" style="position:absolute; top:15px; right:15px; background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
         </div>
+        <div style="width:100%; border-bottom:1px solid #262626; margin-bottom:0;"></div>
+
         <div style="flex:1; overflow-y:auto; padding:20px;">
             <p style="color:#8e8e8e; font-size:13px; margin-bottom:20px;">Marque os requisitos concluídos. Seu progresso é salvo automaticamente.</p>
             <div id="lista-checks">
@@ -2131,10 +2134,13 @@ async function solicitarInicioClasse(id, nome) {
     modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; display:flex; flex-direction:column; color:#fff;";
     
     modal.innerHTML = `
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #262626;">
-            <h3 style="margin:0; font-size:16px;">${nome}</h3>
-            <button id="btn-fechar-checklist-class" style="background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
+        <div style="display:flex; flex-direction:column; align-items:center; padding:20px 15px 10px 15px; gap:10px;">
+            <img src="${item.urlImagem || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'" style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid #262626; flex-shrink:0;">
+            <h3 style="margin:0; font-size:16px; text-align:center; color:#fff; font-weight:bold;">${nome}</h3>
+            <button id="btn-fechar-checklist-class" style="position:absolute; top:15px; right:15px; background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">✕</button>
         </div>
+        <div style="width:100%; border-bottom:1px solid #262626; margin-bottom:0;"></div>
+
         <div style="flex:1; overflow-y:auto; padding:20px;">
             <p style="color:#8e8e8e; font-size:13px; margin-bottom:20px;">Marque os requisitos concluídos. Seu progresso é salvo automaticamente.</p>
             <div id="lista-checks">
