@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.62.0 - versão alpha";
+const VERSAO_ATUAL = "v0.63.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -2956,7 +2956,7 @@ async function solicitarInicioEspecialidade(id, nome, modo = "editar") {
 
 
 
-async function solicitarInicioMestrado(id, nome) {
+async function solicitarInicioMestrado(id, nome, modo = "iniciar") {
     const username = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado");
 
@@ -2988,8 +2988,7 @@ async function solicitarInicioMestrado(id, nome) {
     let mestradoJaAdquirido = false;
 
     /*
-     * Consulta diretamente o documento do usuário.
-     * Não depende somente da cor ou do cache do catálogo.
+     * Verificação definitiva diretamente no perfil do usuário.
      */
     if (tipoUsuario !== "admin") {
         try {
@@ -3010,19 +3009,20 @@ async function solicitarInicioMestrado(id, nome) {
                 : [];
 
             mestradoJaAdquirido = mestradosAdquiridos.some(
-                nomeAdquirido =>
-                    normalizarTextoBusca(nomeAdquirido).trim() ===
+                nomeMestradoAdquirido =>
+                    normalizarTextoBusca(nomeMestradoAdquirido).trim() ===
                     normalizarTextoBusca(nome).trim()
             );
         } catch (erro) {
             console.error(
-                "Erro ao verificar se o mestrado já foi adquirido:",
+                "Erro ao verificar os mestrados já adquiridos:",
                 erro
             );
 
             alert(
                 "Não foi possível verificar seus mestrados. Tente novamente."
             );
+
             return;
         }
     }
@@ -3030,8 +3030,7 @@ async function solicitarInicioMestrado(id, nome) {
     let progressoSalvo = [];
 
     /*
-     * Um progresso só pode ser carregado ou criado quando
-     * o usuário ainda não possui o mestrado.
+     * Carrega o progresso somente para itens ainda não concluídos.
      */
     if (!mestradoJaAdquirido) {
         try {
@@ -3055,40 +3054,81 @@ async function solicitarInicioMestrado(id, nome) {
                 erro
             );
         }
-
-        if (
-            progressoSalvo.length === 0 &&
-            requisitos.length === 0
-        ) {
-            try {
-                await window.ClubeDB.textoDB
-                    .collection("progresso_mestrados")
-                    .doc(`${username}_${id}`)
-                    .set(
-                        {
-                            usuario: username,
-                            itemId: id,
-                            nomeItem: nome,
-                            requisitosConcluidos: [],
-                            status: "em_andamento",
-                            atualizadoEm:
-                                firebase.firestore.FieldValue.serverTimestamp()
-                        },
-                        {
-                            merge: true
-                        }
-                    );
-            } catch (erro) {
-                console.error(
-                    "Erro ao iniciar o mestrado:",
-                    erro
-                );
-
-                alert("Erro ao iniciar mestrado.");
-                return;
-            }
-        }
     }
+
+    /*
+     * Função central para registrar o início do mestrado.
+     * O progresso existente é preservado.
+     */
+    const registrarInicioNoBanco = async () => {
+        await window.ClubeDB.textoDB
+            .collection("progresso_mestrados")
+            .doc(`${username}_${id}`)
+            .set(
+                {
+                    usuario: username,
+                    itemId: id,
+                    nomeItem: nome,
+                    requisitosConcluidos:
+                        Array.isArray(progressoSalvo)
+                            ? progressoSalvo
+                            : [],
+                    status: "em_andamento",
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                },
+                {
+                    merge: true
+                }
+            );
+    };
+
+    /*
+     * Modo "iniciar":
+     * usado pelo botão Começar do catálogo.
+     */
+    if (
+        modo === "iniciar" &&
+        !mestradoJaAdquirido
+    ) {
+        const confirmouInicio = confirm(
+            "Tem certeza que você quer começar este mestrado?"
+        );
+
+        if (!confirmouInicio) {
+            return;
+        }
+
+        try {
+            await registrarInicioNoBanco();
+
+            alert("Mestrado iniciado com sucesso!");
+
+            fecharCatalogoMestrados();
+            await carregarMestradosEmAndamento();
+        } catch (erro) {
+            console.error(
+                "Erro ao iniciar o mestrado:",
+                erro
+            );
+
+            alert("Erro ao iniciar mestrado.");
+        }
+
+        return;
+    }
+
+    /*
+     * Item concluído:
+     * abre somente para consulta.
+     */
+    if (mestradoJaAdquirido) {
+        modo = "concluido";
+    }
+
+    const somenteLeitura =
+        modo === "visualizar" ||
+        modo === "concluido";
 
     const modal = document.createElement("div");
 
@@ -3106,7 +3146,7 @@ async function solicitarInicioMestrado(id, nome) {
             <img
                 src="${fotoUrl}"
                 onerror="this.src='https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'"
-                style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:2px solid ${mestradoJaAdquirido ? "#28a745" : "#262626"}; flex-shrink:0;"
+                style="width:120px; height:120px; object-fit:cover; border-radius:12px; border:${mestradoJaAdquirido ? "#28a745" : "#262626"}; border-width:2px; border-style:solid; flex-shrink:0;"
             >
 
             <h3 style="margin:0; font-size:16px; text-align:center; color:${mestradoJaAdquirido ? "#5ee27a" : "#fff"}; font-weight:bold;">
@@ -3120,45 +3160,57 @@ async function solicitarInicioMestrado(id, nome) {
                             ✓ MESTRADO CONCLUÍDO
                         </div>
                     `
-                    : ""
+                    : modo === "visualizar"
+                        ? `
+                            <div style="background:#121212; color:#0095f6; border:1px solid #262626; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:bold;">
+                                👁️ VISUALIZAÇÃO SOMENTE LEITURA
+                            </div>
+                        `
+                        : `
+                            <div style="background:#102418; color:#5ee27a; border:1px solid #28a745; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:bold;">
+                                EM ANDAMENTO
+                            </div>
+                        `
             }
         </div>
 
         <div style="width:100%; border-bottom:1px solid #262626;"></div>
 
         <div style="flex:1; overflow-y:auto; padding:20px;">
-            <p style="color:${mestradoJaAdquirido ? "#5ee27a" : "#8e8e8e"}; font-size:13px; margin-bottom:20px;">
+            <p style="color:${mestradoJaAdquirido ? "#5ee27a" : modo === "visualizar" ? "#0095f6" : "#8e8e8e"}; font-size:13px; margin-bottom:20px;">
                 ${
                     mestradoJaAdquirido
-                        ? "Checklist disponível somente para consulta. Este mestrado não pode ser iniciado novamente."
-                        : "Marque os requisitos concluídos. Seu progresso é salvo automaticamente."
+                        ? "Checklist disponível somente para consulta."
+                        : modo === "visualizar"
+                            ? "Você pode consultar os requisitos, mas não pode marcar nenhum item neste modo."
+                            : "Marque os requisitos concluídos. Seu progresso será salvo automaticamente."
                 }
             </p>
 
-            <div id="lista-checks">
+            <div id="lista-checks-mest">
                 ${
                     requisitos.length > 0
                         ? requisitos
-                            .map((requisito, indice) => {
+                            .map((req, i) => {
                                 const requisitoMarcado =
                                     mestradoJaAdquirido ||
-                                    progressoSalvo.includes(indice);
+                                    progressoSalvo.includes(i);
 
                                 return `
                                     <label
-                                        style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:${mestradoJaAdquirido ? "default" : "pointer"}; background:${mestradoJaAdquirido ? "#102418" : "#121212"}; padding:12px; border-radius:8px; border:1px solid ${mestradoJaAdquirido ? "#28a745" : "#262626"};">
+                                        style="display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; cursor:${somenteLeitura ? "default" : "pointer"}; background:${somenteLeitura ? "#102418" : "#121212"}; padding:12px; border-radius:8px; border:1px solid ${somenteLeitura ? "#28a745" : "#262626"};">
 
                                         <input
                                             type="checkbox"
-                                            class="req-check"
-                                            data-idx="${indice}"
+                                            class="req-check-mest"
+                                            data-idx="${i}"
                                             ${requisitoMarcado ? "checked" : ""}
-                                            ${mestradoJaAdquirido ? "disabled" : ""}
-                                            style="width:20px; height:20px; margin-top:2px; accent-color:#28a745;"
+                                            ${somenteLeitura ? "disabled" : ""}
+                                            style="width:20px; height:20px; margin-top:2px; accent-color:${somenteLeitura ? "#28a745" : "#0095f6"};"
                                         >
 
-                                        <span style="font-size:14px; line-height:1.4; color:${mestradoJaAdquirido ? "#d8f5df" : "#fff"};">
-                                            ${requisito}
+                                        <span style="font-size:14px; line-height:1.4; color:${somenteLeitura ? "#d8f5df" : "#fff"};">
+                                            ${req}
                                         </span>
                                     </label>
                                 `;
@@ -3183,20 +3235,28 @@ async function solicitarInicioMestrado(id, nome) {
                             Fechar checklist
                         </button>
                     `
-                    : `
-                        <button
-                            id="btn-enviar-aval-mest"
-                            disabled
-                            style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">
-                            Enviar para Avaliação
-                        </button>
+                    : modo === "visualizar"
+                        ? `
+                            <button
+                                id="btn-comecar-mest"
+                                style="width:100%; padding:14px; background:#28a745; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer;">
+                                Começar
+                            </button>
+                        `
+                        : `
+                            <button
+                                id="btn-enviar-aval-mest"
+                                disabled
+                                style="width:100%; padding:14px; background:#333; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:14px;">
+                                Enviar para Avaliação
+                            </button>
 
-                        <button
-                            id="btn-cancelar-mest"
-                            style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">
-                            Cancelar Mestrado
-                        </button>
-                    `
+                            <button
+                                id="btn-cancelar-mest"
+                                style="width:100%; padding:12px; background:none; color:#ff4d4d; border:1px solid #ff4d4d; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">
+                                Cancelar Mestrado
+                            </button>
+                        `
             }
         </div>
     `;
@@ -3209,13 +3269,16 @@ async function solicitarInicioMestrado(id, nome) {
 
     btnFechar.onclick = () => {
         modal.remove();
-        abrirCatalogoMestrados();
+
+        if (modo === "continuar") {
+            carregarMestradosEmAndamento();
+        } else {
+            abrirCatalogoMestrados();
+        }
     };
 
     /*
-     * Modo somente leitura.
-     * Não salva progresso, não permite desmarcar,
-     * cancelar ou enviar novamente.
+     * Item concluído: somente consulta.
      */
     if (mestradoJaAdquirido) {
         const btnFecharRevisao = modal.querySelector(
@@ -3232,7 +3295,54 @@ async function solicitarInicioMestrado(id, nome) {
         return;
     }
 
-    const checks = modal.querySelectorAll(".req-check");
+    /*
+     * Modo "Ver":
+     * nenhuma alteração é permitida.
+     */
+    if (modo === "visualizar") {
+        const btnComecar = modal.querySelector(
+            "#btn-comecar-mest"
+        );
+
+        if (btnComecar) {
+            btnComecar.onclick = async () => {
+                const confirmouInicio = confirm(
+                    "Tem certeza que você quer começar este mestrado?"
+                );
+
+                if (!confirmouInicio) {
+                    return;
+                }
+
+                try {
+                    await registrarInicioNoBanco();
+
+                    alert("Mestrado iniciado com sucesso!");
+
+                    modal.remove();
+
+                    fecharCatalogoMestrados();
+                    await carregarMestradosEmAndamento();
+                } catch (erro) {
+                    console.error(
+                        "Erro ao iniciar o mestrado:",
+                        erro
+                    );
+
+                    alert("Erro ao iniciar mestrado.");
+                }
+            };
+        }
+
+        return;
+    }
+
+    /*
+     * A partir daqui estamos no modo "Continuar".
+     */
+    const checks = modal.querySelectorAll(
+        ".req-check-mest"
+    );
 
     const btnEnv = modal.querySelector(
         "#btn-enviar-aval-mest"
@@ -3242,61 +3352,83 @@ async function solicitarInicioMestrado(id, nome) {
         "#btn-cancelar-mest"
     );
 
-    btnCancel.onclick = async () => {
-        const confirmouCancelamento = confirm(
-            "Tem certeza que deseja cancelar? Todo o seu progresso neste mestrado será excluído."
-        );
-
-        if (!confirmouCancelamento) {
-            return;
-        }
-
-        try {
-            await window.ClubeDB.textoDB
-                .collection("progresso_mestrados")
-                .doc(`${username}_${id}`)
-                .delete();
-
-            alert("Mestrado cancelado.");
-
-            modal.remove();
-            carregarEspecialidades();
-        } catch (erro) {
-            console.error(
-                "Erro ao cancelar o mestrado:",
-                erro
+    /*
+     * Cancelamento.
+     */
+    if (btnCancel) {
+        btnCancel.onclick = async () => {
+            const confirmouCancelamento = confirm(
+                "Tem certeza que deseja cancelar? Todo o seu progresso neste mestrado será excluído."
             );
 
-            alert("Erro ao cancelar.");
-        }
-    };
+            if (!confirmouCancelamento) {
+                return;
+            }
 
+            try {
+                await window.ClubeDB.textoDB
+                    .collection("progresso_mestrados")
+                    .doc(`${username}_${id}`)
+                    .delete();
+
+                alert("Mestrado cancelado.");
+
+                modal.remove();
+
+                await carregarMestradosEmAndamento();
+            } catch (erro) {
+                console.error(
+                    "Erro ao cancelar o mestrado:",
+                    erro
+                );
+
+                alert("Erro ao cancelar.");
+            }
+        };
+    }
+
+    /*
+     * Atualiza o estado do botão de envio.
+     */
     const atualizarEstadoBotao = () => {
         if (!btnEnv) {
             return;
         }
 
-        const todosMarcados = Array.from(checks).every(
-            checkbox => checkbox.checked
-        );
+        const todosMarcados =
+            requisitos.length > 0 &&
+            Array.from(checks).every(
+                checkbox => checkbox.checked
+            );
 
         btnEnv.disabled = !todosMarcados;
-        btnEnv.style.background = todosMarcados
-            ? "#28a745"
-            : "#333";
+        btnEnv.style.background =
+            todosMarcados
+                ? "#28a745"
+                : "#333";
     };
 
     atualizarEstadoBotao();
 
+    /*
+     * Salva progresso automaticamente.
+     */
     checks.forEach(checkbox => {
         checkbox.onchange = async () => {
             atualizarEstadoBotao();
 
-            const requisitosConcluidos = Array.from(checks)
-                .filter(itemCheckbox => itemCheckbox.checked)
-                .map(itemCheckbox =>
-                    parseInt(itemCheckbox.dataset.idx)
-                );
+            const requisitosConcluidos =
+                Array.from(checks)
+                    .filter(
+                        itemCheckbox =>
+                            itemCheckbox.checked
+                    )
+                    .map(
+                        itemCheckbox =>
+                            parseInt(
+                                itemCheckbox.dataset.idx
+                            )
+                    );
 
             try {
                 await window.ClubeDB.textoDB
@@ -3319,102 +3451,130 @@ async function solicitarInicioMestrado(id, nome) {
                     );
             } catch (erro) {
                 console.error(
-                    "Erro ao salvar o progresso do mestrado:",
+                    "Erro ao salvar progresso do mestrado:",
                     erro
                 );
             }
         };
     });
 
-    btnEnv.onclick = async () => {
-        const confirmouEnvio = confirm(
-            "Deseja enviar para avaliação?"
-        );
-
-        if (!confirmouEnvio) {
-            return;
-        }
-
-        btnEnv.disabled = true;
-        btnEnv.textContent = "Enviando...";
-
-        try {
-            /*
-             * Verificação final de segurança.
-             * Impede o reenvio mesmo com duas abas abertas
-             * ou com o catálogo desatualizado.
-             */
-            const usuarioSnap = await window.ClubeDB.textoDB
-                .collection("usuarios")
-                .where("username", "==", username)
-                .get();
-
-            if (!usuarioSnap.empty) {
-                const dadosUsuario = usuarioSnap.docs[0].data();
-
-                const mestradosAtuais = Array.isArray(
-                    dadosUsuario.mestrados
-                )
-                    ? dadosUsuario.mestrados
-                    : [];
-
-                const jaPossuiAntesDoEnvio = mestradosAtuais.some(
-                    nomeAdquirido =>
-                        normalizarTextoBusca(nomeAdquirido).trim() ===
-                        normalizarTextoBusca(nome).trim()
-                );
-
-                if (jaPossuiAntesDoEnvio) {
-                    await window.ClubeDB.textoDB
-                        .collection("progresso_mestrados")
-                        .doc(`${username}_${id}`)
-                        .delete();
-
-                    alert(
-                        "Este mestrado já pertence ao seu perfil e não pode ser enviado novamente."
-                    );
-
-                    modal.remove();
-                    abrirCatalogoMestrados();
-                    return;
-                }
-            }
-
-            await window.ClubeDB.textoDB
-                .collection("pendencias_aprovacao")
-                .add({
-                    usuario: username,
-                    itemId: id,
-                    nomeItem: nome,
-                    colecaoOrigem: "progresso_mestrados",
-                    status: "pendente",
-                    enviadoEm:
-                        firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-            await window.ClubeDB.textoDB
-                .collection("progresso_mestrados")
-                .doc(`${username}_${id}`)
-                .delete();
-
-            alert("Enviado com sucesso!");
-
-            modal.remove();
-            carregarEspecialidades();
-        } catch (erro) {
-            console.error(
-                "Erro ao enviar o mestrado:",
-                erro
+    /*
+     * Envio para avaliação.
+     */
+    if (btnEnv) {
+        btnEnv.onclick = async () => {
+            const confirmouEnvio = confirm(
+                "Deseja enviar este mestrado para avaliação?"
             );
 
-            alert("Erro ao enviar.");
+            if (!confirmouEnvio) {
+                return;
+            }
 
-            btnEnv.disabled = false;
-            btnEnv.textContent = "Enviar para Avaliação";
+            btnEnv.disabled = true;
+            btnEnv.textContent = "Enviando...";
 
-            atualizarEstadoBotao();
-        }
-    };
+            try {
+                const usuarioSnap =
+                    await window.ClubeDB.textoDB
+                        .collection("usuarios")
+                        .where(
+                            "username",
+                            "==",
+                            username
+                        )
+                        .get();
+
+                if (!usuarioSnap.empty) {
+                    const dadosUsuario =
+                        usuarioSnap.docs[0].data();
+
+                    const mestradosAtuais =
+                        Array.isArray(
+                            dadosUsuario.mestrados
+                        )
+                            ? dadosUsuario.mestrados
+                            : [];
+
+                    const jaPossuiAntesDoEnvio =
+                        mestradosAtuais.some(
+                            nomeAdquirido =>
+                                normalizarTextoBusca(
+                                    nomeAdquirido
+                                ).trim() ===
+                                normalizarTextoBusca(
+                                    nome
+                                ).trim()
+                        );
+
+                    if (jaPossuiAntesDoEnvio) {
+                        await window.ClubeDB.textoDB
+                            .collection(
+                                "progresso_mestrados"
+                            )
+                            .doc(`${username}_${id}`)
+                            .delete();
+
+                        alert(
+                            "Este mestrado já pertence ao seu perfil e não pode ser enviado novamente."
+                        );
+
+                        modal.remove();
+                        abrirCatalogoMestrados();
+
+                        return;
+                    }
+                }
+
+                await window.ClubeDB.textoDB
+                    .collection(
+                        "pendencias_aprovacao"
+                    )
+                    .add({
+                        usuario: username,
+                        itemId: id,
+                        nomeItem: nome,
+                        colecaoOrigem:
+                            "progresso_mestrados",
+                        status: "pendente",
+                        enviadoEm:
+                            firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                await window.ClubeDB.textoDB
+                    .collection(
+                        "progresso_mestrados"
+                    )
+                    .doc(`${username}_${id}`)
+                    .delete();
+
+                alert("Enviado com sucesso!");
+
+                modal.remove();
+
+                await carregarMestradosEmAndamento();
+                if (
+                    typeof carregarAprovacoesSite ===
+                    "function"
+                ) {
+                    carregarAprovacoesSite();
+                }
+            } catch (erro) {
+                console.error(
+                    "Erro ao enviar o mestrado:",
+                    erro
+                );
+
+                alert("Erro ao enviar.");
+
+                btnEnv.disabled = false;
+                btnEnv.textContent =
+                    "Enviar para Avaliação";
+
+                atualizarEstadoBotao();
+            }
+        };
+    }
 }
 
 
@@ -3967,7 +4127,9 @@ async function carregarMestradosEmAndamento() {
                             <div style="color:#28a745; font-size:11px; font-weight:bold;">Em Andamento</div>
                         </div>
                     </div>
-                    <button onclick="solicitarInicioMestrado('${dados.itemId}', '${dados.nomeItem || dados.nome}' )" style="flex-shrink:0; padding: 8px 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; width: max-content; white-space: nowrap;">Continuar</button>
+                    <button onclick="solicitarInicioMestrado('${dados.itemId}', '${dados.nomeItem || dados.nome}', 'continuar')" style="flex-shrink:0; padding:8px 14px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; width:max-content; white-space:nowrap;">
+                        Continuar
+                    </button>
                 </div>
             `;
         }).join("");
@@ -4193,24 +4355,32 @@ function renderizarCatalogoMestrados(lista, manterEstado = false) {
                                             </div>
                                         </div>
 
-                                        <div style="display:flex; gap:6px;">
+                                                                                <div style="display:flex; gap:6px; align-items:stretch;">
                                             ${
                                                 tipoUsuario === "admin"
                                                     ? `
                                                         <button
                                                             onclick="abrirModalGerenciarItem('mestrados', '${m.id}')"
-                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer;">
+                                                            style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 8px; font-size:11px; cursor:pointer; flex-shrink:0;">
                                                             Editar
                                                         </button>
                                                     `
                                                     : ""
                                             }
 
-                                            <button
-                                                onclick="solicitarInicioMestrado('${m.id}', '${m.nome}')"
-                                                style="flex-shrink:0; width:max-content; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
-                                                ${textoBotao}
-                                            </button>
+                                            <div style="display:flex; flex-direction:column; gap:6px; min-width:92px;">
+                                                <button
+                                                    onclick="solicitarInicioMestrado('${m.id}', '${m.nome}', 'iniciar')"
+                                                    style="width:100%; padding:6px 10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                    ${textoBotao}
+                                                </button>
+
+                                                <button
+                                                    onclick="solicitarInicioMestrado('${m.id}', '${m.nome}', 'visualizar')"
+                                                    style="width:100%; padding:6px 10px; background:#262626; color:#fff; border:1px solid #444; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                                    Ver
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 `;
