@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.70.0 - versão alpha";
+const VERSAO_ATUAL = "v0.71.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -5789,34 +5789,135 @@ function popularCategoriasNoModal(tipo, selecionada = "") {
 async function gerenciarCategoriasAdmin() {
     const tipo = document.getElementById("edit-item-tipo").value;
     const catAtual = document.getElementById("edit-item-categoria-select").value;
-    
-    if (!catAtual || catAtual === "NOVA") return alert("Selecione uma categoria existente para editar ou apagar.");
 
-    const acao = prompt(`Categoria: "${catAtual}"\nDigite 'EDITAR' para renomear ou 'APAGAR' para remover de todos os itens desta categoria:`);
-    
+    if (!catAtual || catAtual === "NOVA") {
+        return alert("Selecione uma categoria existente para editar ou apagar.");
+    }
+
+    const acao = prompt(
+        `Categoria: "${catAtual}"\nDigite 'EDITAR' para renomear ou 'APAGAR' para remover de todos os itens desta categoria:`
+    );
+
     if (!acao) return;
 
-    if (acao.toUpperCase() === 'EDITAR') {
-        const novoNome = prompt("Novo nome para a categoria:", catAtual);
-        if (!novoNome || novoNome === catAtual) return;
-        
-        if (confirm(`Isso vai renomear a categoria de TODOS os itens em "${tipo}". Continuar?`)) {
-            const snap = await window.ClubeDB.textoDB.collection(tipo).where("categoria", "==", catAtual).get();
-            const batch = window.ClubeDB.textoDB.batch();
-            snap.forEach(doc => batch.update(doc.ref, { categoria: novoNome }));
+    const acaoNormalizada = acao.trim().toUpperCase();
+
+    if (acaoNormalizada !== "EDITAR" && acaoNormalizada !== "APAGAR") {
+        alert("Ação inválida.");
+        return;
+    }
+
+    const db = window.ClubeDB.textoDB;
+
+    const configuracoes = {
+        especialidades: {
+            cache: "cacheEspecialidades",
+            render: renderizarCatalogoEspecialidades,
+            categoriaAtual: "categoriaAtualEspecialidades",
+            busca: "busca-especialidade",
+            padrao: "Geral"
+        },
+        mestrados: {
+            cache: "cacheMestrados",
+            render: renderizarCatalogoMestrados,
+            categoriaAtual: "categoriaAtualMestrados",
+            busca: "busca-mestrado",
+            padrao: "Geral"
+        },
+        classes: {
+            cache: "cacheClasses",
+            render: renderizarCatalogoClasses,
+            categoriaAtual: "categoriaAtualClasses",
+            busca: "busca-classe",
+            padrao: "Geral"
+        }
+    };
+
+    const cfg = configuracoes[tipo];
+    if (!cfg) {
+        alert("Tipo inválido.");
+        return;
+    }
+
+    try {
+        let novaCategoria = catAtual;
+
+        if (acaoNormalizada === "EDITAR") {
+            novaCategoria = prompt("Novo nome para a categoria:", catAtual);
+            if (!novaCategoria || novaCategoria.trim() === "" || novaCategoria === catAtual) return;
+            novaCategoria = novaCategoria.trim();
+
+            const confirmou = confirm(
+                `Isso vai renomear a categoria de TODOS os itens em "${tipo}". Continuar?`
+            );
+
+            if (!confirmou) return;
+
+            const snap = await db.collection(tipo).where("categoria", "==", catAtual).get();
+            const batch = db.batch();
+
+            snap.forEach(doc => {
+                batch.update(doc.ref, {
+                    categoria: novaCategoria,
+                    area: novaCategoria
+                });
+            });
+
             await batch.commit();
             alert("Categoria atualizada!");
-            location.reload(); // Recarrega para limpar caches
-        }
-    } else if (acao.toUpperCase() === 'APAGAR') {
-        if (confirm(`Deseja remover a categoria "${catAtual}" de todos os itens? (Os itens não serão excluídos, apenas ficarão sem categoria)`)) {
-            const snap = await window.ClubeDB.textoDB.collection(tipo).where("categoria", "==", catAtual).get();
-            const batch = window.ClubeDB.textoDB.batch();
-            snap.forEach(doc => batch.update(doc.ref, { categoria: "Geral" }));
+        } else {
+            const confirmou = confirm(
+                `Deseja remover a categoria "${catAtual}" de todos os itens? (Os itens não serão excluídos, apenas ficarão sem categoria)`
+            );
+
+            if (!confirmou) return;
+
+            const snap = await db.collection(tipo).where("categoria", "==", catAtual).get();
+            const batch = db.batch();
+
+            snap.forEach(doc => {
+                batch.update(doc.ref, {
+                    categoria: cfg.padrao,
+                    area: cfg.padrao
+                });
+            });
+
             await batch.commit();
             alert("Categoria removida!");
-            location.reload();
         }
+
+        const cacheAtual = Array.isArray(window[cfg.cache]) ? [...window[cfg.cache]] : [];
+        const categoriaFinal = (acaoNormalizada === "EDITAR") ? novaCategoria : cfg.padrao;
+
+        window[cfg.cache] = cacheAtual.map(item => {
+            const itemCategoria = item.categoria || item.area || cfg.padrao;
+
+            if (itemCategoria !== catAtual) return item;
+
+            return {
+                ...item,
+                categoria: categoriaFinal,
+                area: categoriaFinal
+            };
+        });
+
+        if (window[cfg.categoriaAtual] === catAtual) {
+            window[cfg.categoriaAtual] = (acaoNormalizada === "EDITAR") ? novaCategoria : null;
+        }
+
+        const buscaEl = document.getElementById(cfg.busca);
+        if (buscaEl && acaoNormalizada === "APAGAR") {
+            buscaEl.value = buscaEl.value;
+        }
+
+        fecharModalGerenciarItem();
+
+        if (typeof cfg.render === "function") {
+            cfg.render(window[cfg.cache], true);
+        }
+    } catch (erro) {
+        console.error("Erro ao gerenciar categoria:", erro);
+        alert("Não foi possível concluir a alteração da categoria.");
     }
 }
 
@@ -5882,30 +5983,38 @@ function fecharModalGerenciarItem() {
 
 async function salvarAlteracoesItemAdmin() {
     const btn = document.getElementById("btn-salvar-item-geral");
-    const id = document.getElementById("edit-item-id").value;
+    const id = String(document.getElementById("edit-item-id").value || "").trim();
     const tipo = document.getElementById("edit-item-tipo").value;
     const nome = document.getElementById("edit-item-nome").value.trim();
-    const requisitos = document.getElementById("edit-item-requisitos").value.split("\n").filter(r => r.trim() !== "");
-    
+    const requisitos = document
+        .getElementById("edit-item-requisitos")
+        .value
+        .split("\n")
+        .map(r => r.trim())
+        .filter(r => r !== "");
+
     const catSelect = document.getElementById("edit-item-categoria-select").value;
-    const categoria = (catSelect === "NOVA") ? document.getElementById("edit-item-categoria-nova").value.trim() : catSelect;
+    const categoria = (catSelect === "NOVA")
+        ? document.getElementById("edit-item-categoria-nova").value.trim()
+        : catSelect;
 
     if (!nome || !categoria) return alert("Nome e Categoria são obrigatórios.");
 
-    btn.disabled = true;
-    btn.textContent = "Salvando...";
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Salvando...";
+    }
 
-       try {
+    try {
         let finalFotoUrl = document.getElementById("edit-item-foto-url").value || "";
         const arquivoFoto = document.getElementById("edit-item-foto-file").files[0];
 
-        // Se houver novo arquivo, faz o upload para o Cloudinary
         if (arquivoFoto) {
             const uploadResultado = await subirImagemParaNuvem(arquivoFoto);
             if (uploadResultado) {
                 finalFotoUrl = uploadResultado;
-                // Atualiza a prévia e o campo hidden com a nova URL
                 document.getElementById("edit-item-foto-url").value = finalFotoUrl;
+
                 const previa = document.getElementById("previa-item-img");
                 if (previa) {
                     previa.src = finalFotoUrl;
@@ -5914,46 +6023,90 @@ async function salvarAlteracoesItemAdmin() {
             }
         }
 
-        // Proteção Máxima contra undefined usando o operador || ""
         const db = window.ClubeDB.textoDB;
+
         const dadosSeguros = {
             nome: nome,
             urlImagem: finalFotoUrl || "",
             categoria: categoria,
+            area: categoria,
             requisitos: requisitos,
             atualizadoEm: new Date()
         };
 
+        let idFinal = id;
+
         if (id) {
-            // .update() exige que NENHUM campo seja undefined
             await db.collection(tipo).doc(id).update({
                 nome: dadosSeguros.nome,
                 urlImagem: dadosSeguros.urlImagem,
                 categoria: dadosSeguros.categoria,
+                area: dadosSeguros.area,
                 requisitos: dadosSeguros.requisitos,
                 atualizadoEm: dadosSeguros.atualizadoEm
             });
-            alert("Item atualizado!");
         } else {
-            await db.collection(tipo).add(dadosSeguros);
-            alert("Item criado!");
+            const novoDoc = await db.collection(tipo).add(dadosSeguros);
+            idFinal = String(novoDoc.id);
         }
 
-        // Limpa o input de arquivo para evitar re-upload acidental
-        const fileInput = document.getElementById("edit-item-foto-file");
-        if (fileInput) fileInput.value = "";
+        const configuracoes = {
+            especialidades: {
+                cache: "cacheEspecialidades",
+                render: renderizarCatalogoEspecialidades,
+                andamento: carregarEspecialidadesEmAndamento
+            },
+            mestrados: {
+                cache: "cacheMestrados",
+                render: renderizarCatalogoMestrados,
+                andamento: carregarMestradosEmAndamento
+            },
+            classes: {
+                cache: "cacheClasses",
+                render: renderizarCatalogoClasses,
+                andamento: carregarClassesEmAndamento
+            }
+        };
+
+        const cfg = configuracoes[tipo];
+        const itemSalvo = {
+            id: idFinal,
+            ...dadosSeguros
+        };
+
+        if (cfg) {
+            const cacheAtual = Array.isArray(window[cfg.cache]) ? [...window[cfg.cache]] : [];
+            const idx = cacheAtual.findIndex(item => String(item.id) === String(idFinal));
+
+            if (idx >= 0) {
+                cacheAtual[idx] = {
+                    ...cacheAtual[idx],
+                    ...itemSalvo
+                };
+            } else {
+                cacheAtual.push(itemSalvo);
+            }
+
+            window[cfg.cache] = cacheAtual;
+
+            if (typeof cfg.render === "function") {
+                cfg.render(window[cfg.cache], true);
+            }
+
+            if (typeof cfg.andamento === "function") {
+                await cfg.andamento();
+            }
+        }
 
         fecharModalGerenciarItem();
-        window.cacheEspecialidades = []; 
-        window.cacheMestrados = [];
-        window.cacheClasses = [];
-        carregarEspecialidades(); 
-        
+        alert(id ? "Item atualizado!" : "Item criado!");
     } catch (e) {
         alert("Erro ao salvar: " + e.message);
     } finally {
-        btn.disabled = false;
-        btn.textContent = "Salvar";
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Salvar";
+        }
     }
 }
 
@@ -6002,13 +6155,10 @@ async function excluirItemAdmin() {
         document.getElementById("edit-item-id").value || ""
     ).trim();
 
-    const tipo =
-        document.getElementById("edit-item-tipo").value;
+    const tipo = document.getElementById("edit-item-tipo").value;
 
     if (!id || !tipo) {
-        alert(
-            "Não foi possível identificar o item que será excluído."
-        );
+        alert("Não foi possível identificar o item que será excluído.");
         return;
     }
 
@@ -6016,32 +6166,36 @@ async function excluirItemAdmin() {
         especialidades: {
             progresso: "progresso_especialidades",
             cache: "cacheEspecialidades",
-            nome: "especialidade"
+            nome: "especialidade",
+            render: renderizarCatalogoEspecialidades,
+            andamento: carregarEspecialidadesEmAndamento
         },
         mestrados: {
             progresso: "progresso_mestrados",
             cache: "cacheMestrados",
-            nome: "mestrado"
+            nome: "mestrado",
+            render: renderizarCatalogoMestrados,
+            andamento: carregarMestradosEmAndamento
         },
         classes: {
             progresso: "progresso_classes",
             cache: "cacheClasses",
-            nome: "classe"
+            nome: "classe",
+            render: renderizarCatalogoClasses,
+            andamento: carregarClassesEmAndamento
         }
     };
 
     const config = configuracaoTipos[tipo];
 
     if (!config) {
-        alert(
-            "Tipo de item inválido. Não foi possível excluir."
-        );
+        alert("Tipo de item inválido. Não foi possível excluir.");
         return;
     }
 
     const confirmou = confirm(
         `Tem certeza que deseja excluir permanentemente este ${config.nome}?\n\n` +
-        `O item será removido do catálogo e os progressos/avaliações pendentes relacionados a ele também serão excluídos.`
+        "O item será removido do catálogo e os progressos/avaliações pendentes relacionados a ele também serão excluídos."
     );
 
     if (!confirmou) {
@@ -6050,233 +6204,78 @@ async function excluirItemAdmin() {
 
     try {
         const db = window.ClubeDB.textoDB;
+        const itemRef = db.collection(tipo).doc(id);
 
         /*
-         * =====================================================
-         * 1. VERIFICA SE O ITEM REALMENTE EXISTE NO CATÁLOGO
-         * =====================================================
-         */
-        const itemRef = db
-            .collection(tipo)
-            .doc(id);
-
-        const itemSnap = await itemRef.get();
-
-        if (!itemSnap.exists) {
-            /*
-             * Mesmo que o cache ainda mostre o item,
-             * o Firebase é a fonte oficial.
-             */
-            throw new Error(
-                "O item não existe mais no catálogo do Firebase."
-            );
-        }
-
-        /*
-         * =====================================================
-         * 2. EXCLUI O ITEM PRINCIPAL DO CATÁLOGO
-         * =====================================================
+         * Se o item já tiver sido removido do catálogo por outra
+         * ação anterior, seguimos mesmo assim com a limpeza dos
+         * vínculos e da interface.
          */
         await itemRef.delete();
 
+        const [snapProgressos, snapPendencias] = await Promise.all([
+            db.collection(config.progresso)
+                .where("itemId", "==", id)
+                .get(),
+            db.collection("pendencias_aprovacao")
+                .where("itemId", "==", id)
+                .where("colecaoOrigem", "==", config.progresso)
+                .get()
+        ]);
 
-        /*
-         * =====================================================
-         * 3. EXCLUI TODOS OS PROGRESSOS "EM ANDAMENTO"
-         * RELACIONADOS AO ITEM
-         *
-         * Procuramos pelo campo itemId em vez de depender
-         * somente do ID do documento.
-         *
-         * Isso é importante porque o progresso normalmente usa
-         * documentos no formato:
-         *
-         * usuario_itemId
-         *
-         * e podemos ter vários usuários com o mesmo item.
-         * =====================================================
-         */
-        const snapProgressos = await db
-            .collection(config.progresso)
-            .where("itemId", "==", id)
-            .get();
+        const apagarEmLotes = async (docs) => {
+            if (!docs || docs.length === 0) return;
 
-        /*
-         * Firestore permite no máximo 500 operações por batch.
-         * Dividimos em grupos para evitar falha se houver muitos
-         * usuários com esse item salvo.
-         */
-        const documentosParaApagar = [
-            ...snapProgressos.docs
-        ];
+            for (let inicio = 0; inicio < docs.length; inicio += 450) {
+                const lote = db.batch();
+                const grupo = docs.slice(inicio, inicio + 450);
 
-        for (
-            let inicio = 0;
-            inicio < documentosParaApagar.length;
-            inicio += 450
-        ) {
-            const lote = db.batch();
+                grupo.forEach(doc => lote.delete(doc.ref));
 
-            const grupo =
-                documentosParaApagar.slice(
-                    inicio,
-                    inicio + 450
-                );
-
-            grupo.forEach(doc => {
-                lote.delete(doc.ref);
-            });
-
-            if (grupo.length > 0) {
                 await lote.commit();
             }
-        }
+        };
 
+        await apagarEmLotes([...snapProgressos.docs]);
+        await apagarEmLotes([...snapPendencias.docs]);
 
-        /*
-         * =====================================================
-         * 4. EXCLUI TODAS AS PENDÊNCIAS DE AVALIAÇÃO
-         * RELACIONADAS AO ITEM
-         *
-         * Caso alguém tenha enviado o item para avaliação,
-         * ele também não pode continuar aparecendo em
-         * "Aprovações Pendentes" depois de o catálogo ter
-         * sido excluído pelo administrador.
-         *
-         * Filtramos pelo itemId e pela coleção de origem correta.
-         * =====================================================
-         */
-        const snapPendencias = await db
-            .collection("pendencias_aprovacao")
-            .where("itemId", "==", id)
-            .where(
-                "colecaoOrigem",
-                "==",
-                config.progresso
-            )
-            .get();
+        const cacheAtual = Array.isArray(window[config.cache]) ? window[config.cache] : [];
+        window[config.cache] = cacheAtual.filter(item => String(item.id) !== id);
 
-        const pendenciasParaApagar = [
-            ...snapPendencias.docs
-        ];
-
-        for (
-            let inicio = 0;
-            inicio < pendenciasParaApagar.length;
-            inicio += 450
-        ) {
-            const lote = db.batch();
-
-            const grupo =
-                pendenciasParaApagar.slice(
-                    inicio,
-                    inicio + 450
-                );
-
-            grupo.forEach(doc => {
-                lote.delete(doc.ref);
-            });
-
-            if (grupo.length > 0) {
-                await lote.commit();
-            }
-        }
-
-
-        /*
-         * =====================================================
-         * 5. LIMPA O CACHE CORRETO
-         * =====================================================
-         */
-        window[config.cache] = [];
-
-
-        /*
-         * =====================================================
-         * 6. LIMPA OS ESTADOS DE CATEGORIA
-         * PARA EVITAR QUE A INTERFACE FIQUE EM UMA PASTA
-         * ANTIGA DO ITEM EXCLUÍDO.
-         * =====================================================
-         */
-        if (tipo === "especialidades") {
-            window.categoriaAtualEspecialidades = null;
-
-            const busca =
-                document.getElementById(
-                    "busca-especialidade"
-                );
-
-            if (busca) {
-                busca.value = "";
-            }
-        }
-
-        if (tipo === "mestrados") {
-            window.categoriaAtualMestrados = null;
-
-            const busca =
-                document.getElementById(
-                    "busca-mestrado"
-                );
-
-            if (busca) {
-                busca.value = "";
-            }
-        }
-
-        if (tipo === "classes") {
-            window.categoriaAtualClasses = null;
-
-            const busca =
-                document.getElementById(
-                    "busca-classe"
-                );
-
-            if (busca) {
-                busca.value = "";
-            }
-        }
-
-
-        /*
-         * =====================================================
-         * 7. FECHA O MODAL ANTES DE RECARREGAR OS DADOS
-         * =====================================================
-         */
         fecharModalGerenciarItem();
 
+        if (tipo === "especialidades") {
+            if (window.categoriaAtualEspecialidades && !window.cacheEspecialidades.some(i => (i.categoria || i.area || "Geral") === window.categoriaAtualEspecialidades)) {
+                window.categoriaAtualEspecialidades = null;
+            }
+            renderizarCatalogoEspecialidades(window.cacheEspecialidades, true);
+            if (typeof carregarEspecialidadesEmAndamento === "function") {
+                await carregarEspecialidadesEmAndamento();
+            }
+        } else if (tipo === "mestrados") {
+            if (window.categoriaAtualMestrados && !window.cacheMestrados.some(i => (i.categoria || i.area || "Mestrado") === window.categoriaAtualMestrados)) {
+                window.categoriaAtualMestrados = null;
+            }
+            renderizarCatalogoMestrados(window.cacheMestrados, true);
+            if (typeof carregarMestradosEmAndamento === "function") {
+                await carregarMestradosEmAndamento();
+            }
+        } else if (tipo === "classes") {
+            if (window.categoriaAtualClasses && !window.cacheClasses.some(i => (i.categoria || "Classe") === window.categoriaAtualClasses)) {
+                window.categoriaAtualClasses = null;
+            }
+            renderizarCatalogoClasses(window.cacheClasses, true);
+            if (typeof carregarClassesEmAndamento === "function") {
+                await carregarClassesEmAndamento();
+            }
+        }
 
-        /*
-         * =====================================================
-         * 8. RECARREGA OS TRÊS CATÁLOGOS DIRETAMENTE DO FIREBASE
-         *
-         * Como todos os caches estão sendo atualizados pela
-         * função carregarEspecialidades(), usamos ela como
-         * ponto único de sincronização.
-         * =====================================================
-         */
-        await carregarEspecialidades();
-
-
-        /*
-         * =====================================================
-         * 9. FEEDBACK FINAL
-         * =====================================================
-         */
         alert(
             `${config.nome.charAt(0).toUpperCase() + config.nome.slice(1)} excluído com sucesso.`
         );
-
     } catch (erro) {
-        console.error(
-            `Erro ao excluir ${config.nome}:`,
-            erro
-        );
-
-        alert(
-            `Não foi possível excluir o ${config.nome}.\n\n` +
-            `${erro.message || "Erro desconhecido."}`
-        );
+        console.error(`Erro ao excluir ${config.nome}:`, erro);
+        alert(`Não foi possível excluir o ${config.nome}.\n\n${erro.message || "Erro desconhecido."}`);
     }
 }
 
