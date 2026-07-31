@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.73.0 - versão alpha";
+const VERSAO_ATUAL = "v0.74.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -3395,18 +3395,19 @@ async function solicitarInicioMestrado(id, nome, modo = "iniciar") {
     document.body.appendChild(modal);
 
     const btnFechar = modal.querySelector(
-        "#btn-fechar-checklist-mest"
-    );
+    "#btn-fechar-checklist-mest"
+);
 
-    btnFechar.onclick = () => {
-        modal.remove();
-
-        if (modo === "continuar") {
-            carregarMestradosEmAndamento();
-        } else {
-            abrirCatalogoMestrados();
-        }
-    };
+btnFechar.onclick = () => {
+    /*
+     * Fecha somente a checklist do mestrado.
+     *
+     * A tela que estava aberta por baixo será preservada:
+     * - "Ver" mantém o usuário no catálogo e na categoria atual.
+     * - "Continuar" mantém o usuário em Mestrados em andamento.
+     */
+    modal.remove();
+};
 
     /*
      * Item concluído: somente consulta.
@@ -4022,18 +4023,19 @@ async function solicitarInicioClasse(id, nome, modo = "iniciar") {
     document.body.appendChild(modal);
 
     const btnFechar = modal.querySelector(
-        "#btn-fechar-checklist-class"
-    );
+    "#btn-fechar-checklist-class"
+);
 
-    btnFechar.onclick = () => {
-        modal.remove();
-
-        if (modo === "continuar") {
-            carregarClassesEmAndamento();
-        } else {
-            abrirCatalogoClasses();
-        }
-    };
+btnFechar.onclick = () => {
+    /*
+     * Fecha somente a checklist da classe.
+     *
+     * A tela que estava aberta por baixo será preservada:
+     * - "Ver" mantém o usuário no catálogo e na categoria atual.
+     * - "Continuar" mantém o usuário em Classes em andamento.
+     */
+    modal.remove();
+};
 
     /*
      * Classe concluída: somente consulta.
