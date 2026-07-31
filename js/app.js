@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.72.0 - versão alpha";
+const VERSAO_ATUAL = "v0.73.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -2839,10 +2839,16 @@ async function solicitarInicioEspecialidade(id, nome, modo = "editar") {
 
     const btnFechar = modal.querySelector("#btn-fechar-checklist-esp");
 
-    btnFechar.onclick = () => {
-        modal.remove();
-        abrirCatalogoEspecialidades();
-    };
+btnFechar.onclick = () => {
+    /*
+     * Fecha somente a checklist.
+     *
+     * A tela que já estava aberta por baixo é preservada:
+     * - "Ver" mantém o usuário no catálogo e na categoria atual.
+     * - "Continuar" mantém o usuário em Especialidades em andamento.
+     */
+    modal.remove();
+};
 
     if (especialidadeJaAdquirida) {
         const btnFecharRevisao = modal.querySelector("#btn-fechar-revisao-esp");
