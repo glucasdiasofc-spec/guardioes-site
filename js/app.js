@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.72.0 - versão alpha";
+const VERSAO_ATUAL = "v0.71.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -1032,44 +1032,10 @@ async function carregarLogoClubeConfig() {
             }
         } else {
             if (logoImg) logoImg.style.display = "none";
+            if (logoTexto) logoTexto.style.display = "block";
         }
-    } catch (erro) {
-        console.error("Erro ao carregar logo do clube:", erro);
-    }
-}
-
-// Função completa implementada para gerenciar a exclusão lógica via update, prevenindo o recriamento por arquivos de importação
-async function excluirItemAdmin() {
-    const id = document.getElementById("edit-item-id").value;
-    const tipo = document.getElementById("edit-item-tipo").value; // 'especialidades', 'mestrados', 'classes'[cite: 5]
-    
-    if (!id) {
-        alert("Nenhum item selecionado para exclusão.");
-        return;
-    }
-
-    if (!confirm("Tem certeza que deseja excluir este item?")) return;
-
-    try {
-        // Substituição crítica: em vez de .delete(), usamos .update({ excluida: true }) para manter no Firebase e barrar o recriamento
-        await window.ClubeDB.textoDB.collection(tipo).doc(id).update({
-            excluida: true
-        });
-
-        alert("Item excluído com sucesso!");
-        fecharModalGerenciarItem();
-        
-        // Atualiza a listagem correspondente na interface
-        if (tipo === "especialidades" && typeof carregarEspecialidades === "function") {
-            carregarEspecialidades();
-        } else if (tipo === "mestrados" && typeof carregarMestrados === "function") {
-            carregarMestrados();
-        } else if (tipo === "classes" && typeof carregarClasses === "function") {
-            carregarClasses();
-        }
-    } catch (erro) {
-        console.error("Erro ao excluir item:", erro);
-        alert("Erro ao excluir item: " + erro.message);
+    } catch (error) {
+        console.error("Erro ao carregar configurações da logo:", error);
     }
 }
 
@@ -1723,12 +1689,6 @@ async function carregarEspecialidades() {
             snapEspecialidades.docs.forEach(doc => {
                 const dados = doc.data() || {};
 
-                // PREVENÇÃO DE RESSURREIÇÃO (SOFT DELETE)
-                // Ignora a especialidade se ela foi marcada como excluída logicamente.
-                if (dados.excluida === true || dados.status === "inativa" || dados.status === "excluida") {
-                    return;
-                }
-
                 const item = {
                     id: String(doc.id),
                     ...dados,
@@ -1806,29 +1766,23 @@ async function carregarEspecialidades() {
              *
              * NÃO usamos fallbackMestrados aqui.
              */
-            window.cacheMestrados = [];
-            
-            snapMestrados.docs.forEach(doc => {
-                const dados = doc.data() || {};
-                
-                // PREVENÇÃO DE RESSURREIÇÃO (SOFT DELETE)
-                if (dados.excluida === true || dados.status === "inativa" || dados.status === "excluida") {
-                    return;
-                }
+            window.cacheMestrados =
+                snapMestrados.docs.map(doc => {
+                    const dados = doc.data() || {};
 
-                window.cacheMestrados.push({
-                    id: String(doc.id),
-                    ...dados,
-                    categoria:
-                        dados.categoria ||
-                        dados.area ||
-                        "Mestrado",
-                    urlImagem:
-                        dados.urlImagem ||
-                        dados.logo ||
-                        ""
+                    return {
+                        id: String(doc.id),
+                        ...dados,
+                        categoria:
+                            dados.categoria ||
+                            dados.area ||
+                            "Mestrado",
+                        urlImagem:
+                            dados.urlImagem ||
+                            dados.logo ||
+                            ""
+                    };
                 });
-            });
         } catch (erroMestrados) {
             console.error(
                 "Erro ao carregar mestrados do Firebase:",
@@ -1860,28 +1814,22 @@ async function carregarEspecialidades() {
              *
              * NÃO usamos fallbackClasses aqui.
              */
-            window.cacheClasses = [];
-            
-            snapClasses.docs.forEach(doc => {
-                const dados = doc.data() || {};
-                
-                // PREVENÇÃO DE RESSURREIÇÃO (SOFT DELETE)
-                if (dados.excluida === true || dados.status === "inativa" || dados.status === "excluida") {
-                    return;
-                }
+            window.cacheClasses =
+                snapClasses.docs.map(doc => {
+                    const dados = doc.data() || {};
 
-                window.cacheClasses.push({
-                    id: String(doc.id),
-                    ...dados,
-                    categoria:
-                        dados.categoria ||
-                        "Classe",
-                    urlImagem:
-                        dados.urlImagem ||
-                        dados.logo ||
-                        ""
+                    return {
+                        id: String(doc.id),
+                        ...dados,
+                        categoria:
+                            dados.categoria ||
+                            "Classe",
+                        urlImagem:
+                            dados.urlImagem ||
+                            dados.logo ||
+                            ""
+                    };
                 });
-            });
         } catch (erroClasses) {
             console.error(
                 "Erro ao carregar classes do Firebase:",
