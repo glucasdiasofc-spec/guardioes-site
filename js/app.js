@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.71.0 - versão alpha";
+const VERSAO_ATUAL = "v0.72.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -6206,31 +6206,115 @@ async function excluirItemAdmin() {
         const db = window.ClubeDB.textoDB;
         const itemRef = db.collection(tipo).doc(id);
 
+        const cacheAtual = Array.isArray(window[config.cache])
+            ? window[config.cache]
+            : [];
+
+        const itemNoCache = cacheAtual.find(
+            item => String(item.id) === id
+        );
+
+        const itemSnapshot = await itemRef.get();
+
+        const dadosItem = itemSnapshot.exists
+            ? itemSnapshot.data() || {}
+            : {};
+
+        const nomeItem = String(
+            dadosItem.nome ||
+            (itemNoCache && itemNoCache.nome) ||
+            ""
+        ).trim();
+
         /*
-         * Se o item já tiver sido removido do catálogo por outra
-         * ação anterior, seguimos mesmo assim com a limpeza dos
-         * vínculos e da interface.
+         * As especialidades existentes em especialidades-dados.js
+         * são importadas novamente quando o site carrega.
+         *
+         * Por isso, ao excluir uma especialidade, também salvamos
+         * um registro na coleção "especialidades_excluidas".
+         *
+         * Esse registro impede que o importador recrie a
+         * especialidade depois de atualizar a página.
          */
-        await itemRef.delete();
+        if (tipo === "especialidades") {
+            if (!nomeItem) {
+                throw new Error(
+                    "Não foi possível identificar o nome da especialidade. A exclusão foi cancelada para impedir que ela volte após atualizar a página."
+                );
+            }
+
+            const normalizarNomeEspecialidade = valor =>
+                String(valor || "")
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .trim()
+                    .toLowerCase()
+                    .replace(/\s+/g, " ");
+
+            const nomeNormalizado =
+                normalizarNomeEspecialidade(nomeItem);
+
+            const exclusaoRef = db
+                .collection("especialidades_excluidas")
+                .doc(encodeURIComponent(nomeNormalizado));
+
+            /*
+             * A exclusão da especialidade e o registro de bloqueio
+             * acontecem juntos em um único lote.
+             *
+             * Assim, não existe o risco de apagar a especialidade
+             * sem registrar que ela não deve ser importada novamente.
+             */
+            const loteExclusaoCatalogo = db.batch();
+
+            loteExclusaoCatalogo.delete(itemRef);
+
+            loteExclusaoCatalogo.set(
+                exclusaoRef,
+                {
+                    nome: nomeItem,
+                    nomeNormalizado: nomeNormalizado,
+                    itemIdOriginal: id,
+                    excluidoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                },
+                {
+                    merge: true
+                }
+            );
+
+            await loteExclusaoCatalogo.commit();
+        } else {
+            await itemRef.delete();
+        }
 
         const [snapProgressos, snapPendencias] = await Promise.all([
             db.collection(config.progresso)
                 .where("itemId", "==", id)
                 .get(),
+
             db.collection("pendencias_aprovacao")
                 .where("itemId", "==", id)
                 .where("colecaoOrigem", "==", config.progresso)
                 .get()
         ]);
 
-        const apagarEmLotes = async (docs) => {
-            if (!docs || docs.length === 0) return;
+        const apagarEmLotes = async docs => {
+            if (!docs || docs.length === 0) {
+                return;
+            }
 
-            for (let inicio = 0; inicio < docs.length; inicio += 450) {
+            for (
+                let inicio = 0;
+                inicio < docs.length;
+                inicio += 450
+            ) {
                 const lote = db.batch();
                 const grupo = docs.slice(inicio, inicio + 450);
 
-                grupo.forEach(doc => lote.delete(doc.ref));
+                grupo.forEach(doc => {
+                    lote.delete(doc.ref);
+                });
 
                 await lote.commit();
             }
@@ -6239,43 +6323,108 @@ async function excluirItemAdmin() {
         await apagarEmLotes([...snapProgressos.docs]);
         await apagarEmLotes([...snapPendencias.docs]);
 
-        const cacheAtual = Array.isArray(window[config.cache]) ? window[config.cache] : [];
-        window[config.cache] = cacheAtual.filter(item => String(item.id) !== id);
+        window[config.cache] = cacheAtual.filter(
+            item => String(item.id) !== id
+        );
 
         fecharModalGerenciarItem();
 
         if (tipo === "especialidades") {
-            if (window.categoriaAtualEspecialidades && !window.cacheEspecialidades.some(i => (i.categoria || i.area || "Geral") === window.categoriaAtualEspecialidades)) {
+            if (
+                window.categoriaAtualEspecialidades &&
+                !window.cacheEspecialidades.some(
+                    item =>
+                        (
+                            item.categoria ||
+                            item.area ||
+                            "Geral"
+                        ) === window.categoriaAtualEspecialidades
+                )
+            ) {
                 window.categoriaAtualEspecialidades = null;
             }
-            renderizarCatalogoEspecialidades(window.cacheEspecialidades, true);
-            if (typeof carregarEspecialidadesEmAndamento === "function") {
+
+            renderizarCatalogoEspecialidades(
+                window.cacheEspecialidades,
+                true
+            );
+
+            if (
+                typeof carregarEspecialidadesEmAndamento ===
+                "function"
+            ) {
                 await carregarEspecialidadesEmAndamento();
             }
         } else if (tipo === "mestrados") {
-            if (window.categoriaAtualMestrados && !window.cacheMestrados.some(i => (i.categoria || i.area || "Mestrado") === window.categoriaAtualMestrados)) {
+            if (
+                window.categoriaAtualMestrados &&
+                !window.cacheMestrados.some(
+                    item =>
+                        (
+                            item.categoria ||
+                            item.area ||
+                            "Mestrado"
+                        ) === window.categoriaAtualMestrados
+                )
+            ) {
                 window.categoriaAtualMestrados = null;
             }
-            renderizarCatalogoMestrados(window.cacheMestrados, true);
-            if (typeof carregarMestradosEmAndamento === "function") {
+
+            renderizarCatalogoMestrados(
+                window.cacheMestrados,
+                true
+            );
+
+            if (
+                typeof carregarMestradosEmAndamento ===
+                "function"
+            ) {
                 await carregarMestradosEmAndamento();
             }
         } else if (tipo === "classes") {
-            if (window.categoriaAtualClasses && !window.cacheClasses.some(i => (i.categoria || "Classe") === window.categoriaAtualClasses)) {
+            if (
+                window.categoriaAtualClasses &&
+                !window.cacheClasses.some(
+                    item =>
+                        (
+                            item.categoria ||
+                            "Classe"
+                        ) === window.categoriaAtualClasses
+                )
+            ) {
                 window.categoriaAtualClasses = null;
             }
-            renderizarCatalogoClasses(window.cacheClasses, true);
-            if (typeof carregarClassesEmAndamento === "function") {
+
+            renderizarCatalogoClasses(
+                window.cacheClasses,
+                true
+            );
+
+            if (
+                typeof carregarClassesEmAndamento ===
+                "function"
+            ) {
                 await carregarClassesEmAndamento();
             }
         }
 
         alert(
-            `${config.nome.charAt(0).toUpperCase() + config.nome.slice(1)} excluído com sucesso.`
+            `${
+                config.nome.charAt(0).toUpperCase() +
+                config.nome.slice(1)
+            } excluído com sucesso.`
         );
     } catch (erro) {
-        console.error(`Erro ao excluir ${config.nome}:`, erro);
-        alert(`Não foi possível excluir o ${config.nome}.\n\n${erro.message || "Erro desconhecido."}`);
+        console.error(
+            `Erro ao excluir ${config.nome}:`,
+            erro
+        );
+
+        alert(
+            `Não foi possível excluir o ${config.nome}.\n\n${
+                erro.message || "Erro desconhecido."
+            }`
+        );
     }
 }
 
