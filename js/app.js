@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.76.0 - versão alpha";
+const VERSAO_ATUAL = "v0.77.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -7466,5 +7466,354 @@ async function removerConquistaUsuario(userId, campo, itemNome) {
     } catch (e) {
         alert("Erro ao remover item.");
     }
+}
+
+// =====================================================
+// CRIADOR DE PUBLICAÇÕES — ETAPA VISUAL
+// =====================================================
+
+let urlPreviaPublicacaoAtual = null;
+
+function abrirCriadorPublicacao() {
+    const modal =
+        document.getElementById("modal-criar-publicacao");
+
+    const textarea =
+        document.getElementById("publicacao-texto");
+
+    const avatarCriador =
+        document.getElementById("criador-publicacao-avatar");
+
+    const avatarPerfil =
+        document.getElementById("perfil-usuario-avatar");
+
+    if (!modal) {
+        console.error(
+            "O modal #modal-criar-publicacao não foi encontrado."
+        );
+
+        return;
+    }
+
+    /*
+     * Usa a mesma foto carregada no perfil.
+     */
+    if (
+        avatarCriador &&
+        avatarPerfil &&
+        avatarPerfil.src
+    ) {
+        avatarCriador.src =
+            avatarPerfil.src;
+    }
+
+    modal.style.display =
+        "flex";
+
+    atualizarCriadorPublicacao();
+
+    /*
+     * Aguarda o modal aparecer antes de focar.
+     */
+    setTimeout(() => {
+        if (textarea) {
+            textarea.focus();
+        }
+    }, 50);
+}
+
+
+function fecharCriadorPublicacao() {
+    const modal =
+        document.getElementById("modal-criar-publicacao");
+
+    const textarea =
+        document.getElementById("publicacao-texto");
+
+    const inputArquivo =
+        document.getElementById("publicacao-arquivo");
+
+    const previa =
+        document.getElementById("publicacao-previa-midia");
+
+    const tipoMidia =
+        document.getElementById("publicacao-tipo-midia");
+
+    if (modal) {
+        modal.style.display =
+            "none";
+    }
+
+    if (textarea) {
+        textarea.value =
+            "";
+    }
+
+    if (inputArquivo) {
+        inputArquivo.value =
+            "";
+    }
+
+    if (previa) {
+        previa.innerHTML =
+            "";
+
+        previa.style.display =
+            "none";
+    }
+
+    if (tipoMidia) {
+        tipoMidia.textContent =
+            "";
+    }
+
+    /*
+     * Libera a URL temporária criada pelo navegador.
+     */
+    if (urlPreviaPublicacaoAtual) {
+        URL.revokeObjectURL(
+            urlPreviaPublicacaoAtual
+        );
+
+        urlPreviaPublicacaoAtual =
+            null;
+    }
+
+    atualizarCriadorPublicacao();
+}
+
+
+function selecionarMidiaPublicacao() {
+    const input =
+        document.getElementById("publicacao-arquivo");
+
+    if (input) {
+        input.click();
+    }
+}
+
+
+function mostrarPreviaMidiaPublicacao(input) {
+    const arquivo =
+        input.files &&
+        input.files[0];
+
+    const previa =
+        document.getElementById("publicacao-previa-midia");
+
+    const tipoMidia =
+        document.getElementById("publicacao-tipo-midia");
+
+    if (
+        !arquivo ||
+        !previa
+    ) {
+        atualizarCriadorPublicacao();
+        return;
+    }
+
+    const ehImagem =
+        arquivo.type.startsWith("image/");
+
+    const ehVideo =
+        arquivo.type.startsWith("video/");
+
+    if (
+        !ehImagem &&
+        !ehVideo
+    ) {
+        alert(
+            "Selecione uma imagem ou um vídeo."
+        );
+
+        input.value =
+            "";
+
+        atualizarCriadorPublicacao();
+        return;
+    }
+
+    /*
+     * Remove a URL temporária anterior.
+     */
+    if (urlPreviaPublicacaoAtual) {
+        URL.revokeObjectURL(
+            urlPreviaPublicacaoAtual
+        );
+    }
+
+    urlPreviaPublicacaoAtual =
+        URL.createObjectURL(arquivo);
+
+    if (ehImagem) {
+        previa.innerHTML = `
+            <button
+                type="button"
+                onclick="removerMidiaPublicacao()"
+                aria-label="Remover mídia"
+                style="
+                    position:absolute;
+                    top:10px;
+                    right:10px;
+                    z-index:2;
+                    width:34px;
+                    height:34px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    padding:0;
+                    border:none;
+                    border-radius:50%;
+                    background:rgba(0,0,0,0.75);
+                    color:#fff;
+                    font-size:18px;
+                    cursor:pointer;
+                "
+            >
+                ✕
+            </button>
+
+            <img
+                src="${urlPreviaPublicacaoAtual}"
+                alt="Prévia da imagem selecionada"
+            >
+        `;
+    } else {
+        previa.innerHTML = `
+            <button
+                type="button"
+                onclick="removerMidiaPublicacao()"
+                aria-label="Remover mídia"
+                style="
+                    position:absolute;
+                    top:10px;
+                    right:10px;
+                    z-index:2;
+                    width:34px;
+                    height:34px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    padding:0;
+                    border:none;
+                    border-radius:50%;
+                    background:rgba(0,0,0,0.75);
+                    color:#fff;
+                    font-size:18px;
+                    cursor:pointer;
+                "
+            >
+                ✕
+            </button>
+
+            <video
+                src="${urlPreviaPublicacaoAtual}"
+                controls
+                playsinline
+            ></video>
+        `;
+    }
+
+    previa.style.display =
+        "block";
+
+    if (tipoMidia) {
+        tipoMidia.textContent =
+            ehImagem
+                ? "Imagem selecionada"
+                : "Vídeo selecionado";
+    }
+
+    atualizarCriadorPublicacao();
+}
+
+
+function removerMidiaPublicacao() {
+    const input =
+        document.getElementById("publicacao-arquivo");
+
+    const previa =
+        document.getElementById("publicacao-previa-midia");
+
+    const tipoMidia =
+        document.getElementById("publicacao-tipo-midia");
+
+    if (input) {
+        input.value =
+            "";
+    }
+
+    if (previa) {
+        previa.innerHTML =
+            "";
+
+        previa.style.display =
+            "none";
+    }
+
+    if (tipoMidia) {
+        tipoMidia.textContent =
+            "";
+    }
+
+    if (urlPreviaPublicacaoAtual) {
+        URL.revokeObjectURL(
+            urlPreviaPublicacaoAtual
+        );
+
+        urlPreviaPublicacaoAtual =
+            null;
+    }
+
+    atualizarCriadorPublicacao();
+}
+
+
+function atualizarCriadorPublicacao() {
+    const textarea =
+        document.getElementById("publicacao-texto");
+
+    const inputArquivo =
+        document.getElementById("publicacao-arquivo");
+
+    const contador =
+        document.getElementById("publicacao-contador");
+
+    const btnPublicar =
+        document.getElementById("btn-confirmar-publicacao");
+
+    const texto =
+        textarea
+            ? textarea.value
+            : "";
+
+    const possuiArquivo =
+        Boolean(
+            inputArquivo &&
+            inputArquivo.files &&
+            inputArquivo.files.length > 0
+        );
+
+    if (contador) {
+        contador.textContent =
+            `${texto.length}/500`;
+    }
+
+    if (btnPublicar) {
+        btnPublicar.disabled =
+            texto.trim().length === 0 &&
+            !possuiArquivo;
+    }
+}
+
+
+function publicarPublicacao() {
+    /*
+     * Nesta primeira etapa, ainda não enviamos dados
+     * para o Firestore nem arquivos para o Telegram.
+     */
+    alert(
+        "A tela de publicação está funcionando. No próximo passo conectaremos os dados ao Firestore."
+    );
 }
 

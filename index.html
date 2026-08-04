@@ -258,10 +258,340 @@
                 max-height: 100vh;
                 overflow: hidden !important; 
             }
-            #conteudo-principal-site {
-                /* Força a rolagem a acontecer e impactar apenas internamente, sem empurrar o cabeçalho */
+                        #conteudo-principal-site {
+                /* A rolagem continua acontecendo somente dentro do conteúdo */
                 scrollbar-gutter: stable;
                 overflow-x: hidden;
+            }
+
+            /* =====================================================
+               FEED DE PUBLICAÇÕES — LAYOUT INSPIRADO NO X
+               ===================================================== */
+
+            #sub-aba-feed {
+                min-height: 100%;
+                padding: 0 !important;
+                box-sizing: border-box;
+            }
+
+            .feed-x-container {
+                width: 100%;
+                max-width: 600px;
+                min-height: 100%;
+                margin: 0 auto;
+                background: #000;
+                border-left: 1px solid #2f3336;
+                border-right: 1px solid #2f3336;
+                box-sizing: border-box;
+            }
+
+            .feed-x-cabecalho {
+                position: sticky;
+                top: 0;
+                z-index: 30;
+                height: 52px;
+                display: flex;
+                align-items: center;
+                padding: 0 16px;
+                background: rgba(0, 0, 0, 0.92);
+                border-bottom: 1px solid #2f3336;
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                box-sizing: border-box;
+            }
+
+            .feed-x-cabecalho h2 {
+                margin: 0;
+                color: #e7e9ea;
+                font-size: 20px;
+                font-weight: 700;
+            }
+
+            .feed-x-post {
+                display: grid;
+                grid-template-columns: 48px minmax(0, 1fr);
+                gap: 10px;
+                width: 100%;
+                padding: 12px 16px;
+                border-bottom: 1px solid #2f3336;
+                box-sizing: border-box;
+                transition: background-color 0.2s ease;
+            }
+
+            .feed-x-post:hover {
+                background: rgba(255, 255, 255, 0.025);
+            }
+
+            .feed-x-avatar {
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                object-fit: cover;
+                background: #16181c;
+            }
+
+            .feed-x-conteudo {
+                min-width: 0;
+            }
+
+            .feed-x-autor {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                min-width: 0;
+                margin-bottom: 3px;
+                font-size: 15px;
+                line-height: 20px;
+            }
+
+            .feed-x-nome {
+                color: #e7e9ea;
+                font-weight: 700;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .feed-x-username,
+            .feed-x-data {
+                color: #71767b;
+                white-space: nowrap;
+            }
+
+            .feed-x-texto {
+                color: #e7e9ea;
+                font-size: 15px;
+                line-height: 20px;
+                white-space: pre-wrap;
+                overflow-wrap: anywhere;
+            }
+
+            .feed-x-midia {
+                width: 100%;
+                margin-top: 12px;
+                border: 1px solid #2f3336;
+                border-radius: 16px;
+                overflow: hidden;
+                background: #16181c;
+            }
+
+            .feed-x-midia img,
+            .feed-x-midia video {
+                display: block;
+                width: 100%;
+                max-height: 520px;
+                object-fit: contain;
+                background: #000;
+            }
+
+            .feed-x-midia-demonstracao {
+                min-height: 180px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 25px;
+                box-sizing: border-box;
+                color: #71767b;
+                font-size: 14px;
+                text-align: center;
+            }
+
+            .feed-x-acoes {
+                display: flex;
+                justify-content: space-between;
+                width: 100%;
+                max-width: 430px;
+                margin-top: 10px;
+            }
+
+            .feed-x-acao {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                padding: 5px;
+                background: none;
+                border: none;
+                color: #71767b;
+                font-size: 13px;
+                cursor: pointer;
+                border-radius: 999px;
+                transition: 0.2s ease;
+            }
+
+            .feed-x-acao:hover {
+                color: #1d9bf0;
+                background: rgba(29, 155, 240, 0.1);
+            }
+
+            /* Botão + acima da barra inferior */
+            #btn-criar-publicacao {
+                position: fixed;
+                right: max(18px, calc((100vw - 600px) / 2 + 18px));
+                bottom: calc(68px + env(safe-area-inset-bottom));
+                z-index: 1200;
+                width: 56px;
+                height: 56px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+                border: none;
+                border-radius: 50%;
+                background: #1d9bf0;
+                color: #fff;
+                font-size: 36px;
+                font-weight: 300;
+                line-height: 1;
+                cursor: pointer;
+                box-shadow: 0 5px 18px rgba(0, 0, 0, 0.55);
+                transition: transform 0.2s ease, background-color 0.2s ease;
+            }
+
+            #btn-criar-publicacao:hover {
+                background: #1a8cd8;
+                transform: scale(1.06);
+            }
+
+            #btn-criar-publicacao:active {
+                transform: scale(0.94);
+            }
+
+            /* =====================================================
+               MODAL DE CRIAÇÃO DE PUBLICAÇÃO
+               ===================================================== */
+
+            #modal-criar-publicacao {
+                display: none;
+                position: fixed;
+                inset: 0;
+                z-index: 20000;
+                align-items: flex-start;
+                justify-content: center;
+                padding: 55px 16px 16px;
+                background: rgba(91, 112, 131, 0.4);
+                box-sizing: border-box;
+            }
+
+            .criador-publicacao-card {
+                width: 100%;
+                max-width: 600px;
+                max-height: calc(100dvh - 80px);
+                display: flex;
+                flex-direction: column;
+                background: #000;
+                border-radius: 16px;
+                overflow: hidden;
+                box-sizing: border-box;
+            }
+
+            .criador-publicacao-header {
+                height: 52px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 16px;
+                border-bottom: 1px solid #2f3336;
+                flex-shrink: 0;
+                box-sizing: border-box;
+            }
+
+            .criador-publicacao-header h3 {
+                margin: 0;
+                color: #e7e9ea;
+                font-size: 17px;
+            }
+
+            .criador-publicacao-corpo {
+                display: grid;
+                grid-template-columns: 48px minmax(0, 1fr);
+                gap: 10px;
+                padding: 14px 16px;
+                overflow-y: auto;
+                box-sizing: border-box;
+            }
+
+            #publicacao-texto {
+                width: 100%;
+                min-height: 120px;
+                resize: none;
+                padding: 5px 0;
+                background: transparent;
+                border: none;
+                outline: none;
+                color: #e7e9ea;
+                font-family: inherit;
+                font-size: 20px;
+                line-height: 26px;
+                box-sizing: border-box;
+            }
+
+            #publicacao-texto::placeholder {
+                color: #71767b;
+            }
+
+            #publicacao-previa-midia {
+                display: none;
+                position: relative;
+                margin-top: 12px;
+                border: 1px solid #2f3336;
+                border-radius: 16px;
+                overflow: hidden;
+                background: #000;
+            }
+
+            #publicacao-previa-midia img,
+            #publicacao-previa-midia video {
+                display: block;
+                width: 100%;
+                max-height: 420px;
+                object-fit: contain;
+            }
+
+            .criador-publicacao-rodape {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 10px 16px;
+                border-top: 1px solid #2f3336;
+                flex-shrink: 0;
+                box-sizing: border-box;
+            }
+
+            .btn-publicar-x {
+                padding: 8px 18px;
+                border: none;
+                border-radius: 999px;
+                background: #1d9bf0;
+                color: #fff;
+                font-size: 14px;
+                font-weight: 700;
+                cursor: pointer;
+            }
+
+            .btn-publicar-x:disabled {
+                opacity: 0.5;
+                cursor: default;
+            }
+
+            @media (max-width: 600px) {
+                .feed-x-container {
+                    border-left: none;
+                    border-right: none;
+                }
+
+                #modal-criar-publicacao {
+                    align-items: stretch;
+                    padding: 0;
+                    background: #000;
+                }
+
+                .criador-publicacao-card {
+                    max-width: none;
+                    max-height: none;
+                    height: 100dvh;
+                    border-radius: 0;
+                }
             }
         </style>
 
@@ -290,10 +620,105 @@
             <!-- Container de Conteúdo (Scrollável) -->
             <main id="conteudo-principal-site" style="flex: 1; overflow-y: auto; width: 100%; box-sizing: border-box; padding-bottom: 80px;">
                 
-                <!-- ABA 1: FEED / HOME -->
-                <div id="sub-aba-feed" style="display: block; padding: 35px 16px 20px 16px;">
-                    <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px; text-align: left;">Bem-vindo à Home! 🎉</p>
-                    <p style="font-size: 14px; color: #a8a8a8; text-align: left; line-height: 1.4;">Este é o feed geral do Clube. Em breve, as publicações das unidades e reflexões diárias aparecerão aqui.</p>
+                                <!-- ABA 1: FEED / HOME -->
+                <div id="sub-aba-feed" style="display: block;">
+
+                    <section class="feed-x-container">
+
+                        <!-- Cabeçalho interno do Feed -->
+                        <div class="feed-x-cabecalho">
+                            <h2>Publicações</h2>
+                        </div>
+
+                        <!-- Publicações serão carregadas aqui -->
+                        <div id="feed-publicacoes-lista">
+
+                            <!--
+                                PUBLICAÇÃO TEMPORÁRIA PARA TESTAR O LAYOUT.
+                                Ela será removida quando conectarmos o Firestore.
+                            -->
+                            <article class="feed-x-post" id="publicacao-demonstracao">
+
+                                <img
+                                    class="feed-x-avatar"
+                                    src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+                                    alt="Foto do Clube Guardiões"
+                                >
+
+                                <div class="feed-x-conteudo">
+
+                                    <div class="feed-x-autor">
+                                        <span class="feed-x-nome">
+                                            Clube Guardiões
+                                        </span>
+
+                                        <span class="feed-x-username">
+                                            @guardioes
+                                        </span>
+
+                                        <span class="feed-x-data">
+                                            · agora
+                                        </span>
+                                    </div>
+
+                                    <div class="feed-x-texto">
+Este será o novo formato das publicações do Clube Guardiões. Fotos, vídeos curtos e textos aparecerão desta forma.
+                                    </div>
+
+                                    <div class="feed-x-midia">
+                                        <div class="feed-x-midia-demonstracao">
+                                            A foto ou o vídeo da publicação aparecerá aqui.
+                                        </div>
+                                    </div>
+
+                                    <div class="feed-x-acoes">
+
+                                        <button
+                                            type="button"
+                                            class="feed-x-acao"
+                                            aria-label="Comentar"
+                                        >
+                                            💬
+                                            <span>0</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="feed-x-acao"
+                                            aria-label="Republicar"
+                                        >
+                                            ↻
+                                            <span>0</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="feed-x-acao"
+                                            aria-label="Curtir"
+                                        >
+                                            ♡
+                                            <span>0</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="feed-x-acao"
+                                            aria-label="Visualizações"
+                                        >
+                                            ◉
+                                            <span>0</span>
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            </article>
+
+                        </div>
+
+                    </section>
+
                 </div>
 
                 <!-- ABA 2: PERFIL DO USUÁRIO -->
@@ -617,7 +1042,122 @@
 
             </div> <!-- Fecha sub-aba-mensagens -->
 
-            </main>
+                        </main>
+
+            <!-- BOTÃO FLUTUANTE PARA CRIAR PUBLICAÇÃO -->
+            <button
+                type="button"
+                id="btn-criar-publicacao"
+                onclick="abrirCriadorPublicacao()"
+                aria-label="Criar publicação"
+                title="Criar publicação"
+            >
+                +
+            </button>
+
+            <!-- MODAL PARA CRIAR UMA NOVA PUBLICAÇÃO -->
+            <div
+                id="modal-criar-publicacao"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="titulo-criar-publicacao"
+            >
+                <div class="criador-publicacao-card">
+
+                    <!-- Cabeçalho -->
+                    <div class="criador-publicacao-header">
+
+                        <button
+                            type="button"
+                            onclick="fecharCriadorPublicacao()"
+                            style="background:none; border:none; color:#e7e9ea; font-size:15px; cursor:pointer; padding:8px 0;"
+                        >
+                            Cancelar
+                        </button>
+
+                        <h3 id="titulo-criar-publicacao">
+                            Nova publicação
+                        </h3>
+
+                        <button
+                            type="button"
+                            id="btn-confirmar-publicacao"
+                            class="btn-publicar-x"
+                            onclick="publicarPublicacao()"
+                            disabled
+                        >
+                            Publicar
+                        </button>
+
+                    </div>
+
+                    <!-- Conteúdo -->
+                    <div class="criador-publicacao-corpo">
+
+                        <img
+                            id="criador-publicacao-avatar"
+                            class="feed-x-avatar"
+                            src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+                            alt="Sua foto de perfil"
+                        >
+
+                        <div style="min-width:0;">
+
+                            <textarea
+                                id="publicacao-texto"
+                                maxlength="500"
+                                placeholder="O que está acontecendo no clube?"
+                                oninput="atualizarCriadorPublicacao()"
+                            ></textarea>
+
+                            <!-- Prévia da foto ou vídeo -->
+                            <div id="publicacao-previa-midia"></div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- Ferramentas -->
+                    <div class="criador-publicacao-rodape">
+
+                        <div style="display:flex; align-items:center; gap:10px;">
+
+                            <button
+                                type="button"
+                                onclick="selecionarMidiaPublicacao()"
+                                style="width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:none; border:none; border-radius:50%; color:#1d9bf0; font-size:22px; cursor:pointer;"
+                                aria-label="Adicionar foto ou vídeo"
+                                title="Adicionar foto ou vídeo"
+                            >
+                                ▧
+                            </button>
+
+                            <input
+                                type="file"
+                                id="publicacao-arquivo"
+                                accept="image/*,video/*"
+                                onchange="mostrarPreviaMidiaPublicacao(this)"
+                                style="display:none;"
+                            >
+
+                            <span
+                                id="publicacao-tipo-midia"
+                                style="color:#71767b; font-size:12px;"
+                            ></span>
+
+                        </div>
+
+                        <span
+                            id="publicacao-contador"
+                            style="color:#71767b; font-size:12px;"
+                        >
+                            0/500
+                        </span>
+
+                    </div>
+
+                </div>
+            </div>
 
 
             <!-- Barra de Navegação Inferior Fixa (Novo Ícone Mensagens) -->
