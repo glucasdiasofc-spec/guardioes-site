@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.80.0 - versão alpha";
+const VERSAO_ATUAL = "v0.81.0 - versão alpha";
 
 /*
  * =====================================================
@@ -282,43 +282,37 @@ function mudarSubAbaSite(abaAlvo) {
     const feedAba = document.getElementById("sub-aba-feed");
     const perfilAba = document.getElementById("sub-aba-perfil");
     const espAba = document.getElementById("sub-aba-especialidades");
-    const msgAba = document.getElementById("sub-aba-mensagens"); // Aba de Chat
+    const msgAba = document.getElementById("sub-aba-mensagens");
 
-    // Elementos dos botões da Navbar
     const btnFeed = document.getElementById("btn-sub-feed");
     const btnEsp = document.getElementById("btn-sub-especialidades");
     const btnMsg = document.getElementById("btn-sub-mensagens");
     const btnPerfil = document.getElementById("btn-sub-perfil");
 
-    // Reseta visibilidade de todas as abas
     if (feedAba) feedAba.style.display = "none";
     if (perfilAba) perfilAba.style.display = "none";
     if (espAba) espAba.style.display = "none";
     if (msgAba) msgAba.style.display = "none";
 
-    // Configura eventos, transições de crescimento e efeito neon dourado
     const configurarBotaoNavbar = (btn, isAtivo) => {
         if (!btn) return;
-        btn.style.transition = "all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
-        
-        if (isAtivo) {
-            btn.style.opacity = "1";
-            btn.style.transform = "scale(1.2)";
-            btn.style.filter = "drop-shadow(0 0 12px rgba(255, 215, 0, 1))";
-        } else {
-            btn.style.opacity = "0.5";
-            btn.style.transform = "scale(1)";
-            btn.style.filter = "none";
-        }
 
-        // Efeito Hover (Mouse passar por cima) e Mobile
+        btn.style.transition =
+            "all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)";
+        btn.style.opacity = isAtivo ? "1" : "0.5";
+        btn.style.transform = isAtivo ? "scale(1.2)" : "scale(1)";
+        btn.style.filter = isAtivo
+            ? "drop-shadow(0 0 12px rgba(255, 215, 0, 1))"
+            : "none";
+
         btn.onmouseenter = () => {
             if (!isAtivo) {
                 btn.style.transform = "scale(1.15)";
-                btn.style.filter = "drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))";
+                btn.style.filter =
+                    "drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))";
             }
         };
-        // Remove efeito quando o mouse sai
+
         btn.onmouseleave = () => {
             if (!isAtivo) {
                 btn.style.transform = "scale(1)";
@@ -327,49 +321,58 @@ function mudarSubAbaSite(abaAlvo) {
         };
     };
 
-    // Aplica o comportamento dinâmico aos ícones das abas
     configurarBotaoNavbar(btnFeed, abaAlvo === "feed");
     configurarBotaoNavbar(btnEsp, abaAlvo === "especialidades");
     configurarBotaoNavbar(btnMsg, abaAlvo === "mensagens");
     configurarBotaoNavbar(btnPerfil, abaAlvo === "perfil");
 
-    // Lógica de Animação da Logo do Cabeçalho
     const animarLogoParaEsquerda = (moverParaEsquerda) => {
         const logoImg = document.getElementById("site-logo-img");
         const logoTexto = document.getElementById("site-logo-texto");
-        
-        [logoImg, logoTexto].forEach(elemento => {
-            if (elemento && elemento.style.display !== "none") {
-                // Aplica a transição suave
-                elemento.style.transition = "transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)";
-                
-                if (moverParaEsquerda) {
-                    // Desloca de forma responsiva usando translate3d para ativar a GPU e evitar "pulos" de renderização
-                    elemento.style.transform = "translate3d(-35vw, 0, 0) scale(0.9)";
-                } else {
-                    // Retorna a logo ao centro exato cravando as coordenadas na placa de vídeo
-                    elemento.style.transform = "translate3d(0, 0, 0) scale(1)";
-                }
-            }
+
+        [logoImg, logoTexto].forEach((elemento) => {
+            if (!elemento || elemento.style.display === "none") return;
+
+            elemento.style.transition =
+                "transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)";
+
+            elemento.style.transform = moverParaEsquerda
+                ? "translate3d(-35vw, 0, 0) scale(0.9)"
+                : "translate3d(0, 0, 0) scale(1)";
         });
     };
 
-    // Executa a animação dinamicamente com base na aba clicada
     animarLogoParaEsquerda(abaAlvo === "perfil");
 
-    // Mostra a aba selecionada (a opacidade já foi cuidada acima)
     if (abaAlvo === "feed") {
         if (feedAba) feedAba.style.display = "block";
+
+        // Correção: carrega as publicações sempre que o Feed é aberto.
+        if (typeof carregarPublicacoesFeed === "function") {
+            carregarPublicacoesFeed();
+        }
     } else if (abaAlvo === "especialidades") {
         if (espAba) espAba.style.display = "block";
-        carregarEspecialidades(); 
-        if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite(); 
+
+        if (typeof carregarEspecialidades === "function") {
+            carregarEspecialidades();
+        }
+
+        if (typeof carregarAprovacoesSite === "function") {
+            carregarAprovacoesSite();
+        }
     } else if (abaAlvo === "mensagens") {
         if (msgAba) msgAba.style.display = "flex";
-        carregarListaDeContatosChat(); // Inicializa o chat
+
+        if (typeof carregarListaDeContatosChat === "function") {
+            carregarListaDeContatosChat();
+        }
     } else if (abaAlvo === "perfil") {
         if (perfilAba) perfilAba.style.display = "block";
-        carregarPerfilDoUsuario();
+
+        if (typeof carregarPerfilDoUsuario === "function") {
+            carregarPerfilDoUsuario();
+        }
     }
 }
 
