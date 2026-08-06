@@ -396,31 +396,277 @@
                 text-align: center;
             }
 
-            .feed-x-acoes {
+                        .feed-x-acoes {
                 display: flex;
-                justify-content: space-between;
+                align-items: center;
+                gap: 24px;
                 width: 100%;
-                max-width: 430px;
-                margin-top: 10px;
+                margin-top: 14px;
             }
 
             .feed-x-acao {
-                display: flex;
+                display: inline-flex;
                 align-items: center;
-                gap: 5px;
-                padding: 5px;
-                background: none;
-                border: none;
+                justify-content: center;
+                gap: 7px;
+                min-width: 54px;
+                min-height: 34px;
+                padding: 4px 10px;
+                background: transparent;
+                border: 0;
                 color: #71767b;
                 font-size: 13px;
                 cursor: pointer;
                 border-radius: 999px;
-                transition: 0.2s ease;
+                transition: color .2s ease, background .2s ease, transform .18s ease;
+                -webkit-tap-highlight-color: transparent;
             }
 
             .feed-x-acao:hover {
                 color: #1d9bf0;
-                background: rgba(29, 155, 240, 0.1);
+                background: rgba(29, 155, 240, .10);
+            }
+
+            .feed-x-acao:active {
+                transform: scale(.90);
+            }
+
+            .feed-x-icone {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 22px;
+                height: 22px;
+                font-size: 19px;
+                line-height: 1;
+            }
+
+            .feed-x-coracao {
+                font-size: 24px;
+                font-family: Arial, sans-serif;
+                transition: transform .22s cubic-bezier(.2, 1.6, .3, 1), color .2s ease;
+            }
+
+            .feed-x-acao-curtir.feed-x-curtido {
+                color: #f91880;
+            }
+
+            .feed-x-acao-curtir.feed-x-curtido .feed-x-coracao {
+                color: #f91880;
+                transform: scale(1.25);
+                animation: feedXCoracao .38s ease;
+            }
+
+            .feed-x-acao-curtir.feed-x-animando .feed-x-coracao {
+                animation: feedXCoracao .38s ease;
+            }
+
+            @keyframes feedXCoracao {
+                0% { transform: scale(1); }
+                45% { transform: scale(1.48) rotate(-8deg); }
+                75% { transform: scale(.88) rotate(5deg); }
+                100% { transform: scale(1.25) rotate(0); }
+            }
+
+            body.feed-x-modal-aberto {
+                overflow: hidden;
+            }
+
+            .feed-x-modal-comentarios {
+                position: fixed;
+                inset: 0;
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 18px;
+                background: rgba(0, 0, 0, .72);
+                animation: feedXModalEntrada .18s ease-out;
+            }
+
+            .feed-x-comentarios-card {
+                display: flex;
+                flex-direction: column;
+                width: min(600px, 100%);
+                max-height: min(760px, 88vh);
+                overflow: hidden;
+                background: #15202b;
+                border: 1px solid #38444d;
+                border-radius: 18px;
+                box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
+            }
+
+            .feed-x-comentarios-header {
+                display: grid;
+                grid-template-columns: 40px 1fr 40px;
+                align-items: center;
+                min-height: 58px;
+                padding: 0 16px;
+                border-bottom: 1px solid #38444d;
+                color: #e7e9ea;
+                text-align: center;
+            }
+
+            .feed-x-fechar-comentarios {
+                width: 34px;
+                height: 34px;
+                border: 0;
+                border-radius: 50%;
+                background: transparent;
+                color: #e7e9ea;
+                font-size: 27px;
+                line-height: 1;
+                cursor: pointer;
+            }
+
+            .feed-x-fechar-comentarios:hover {
+                background: rgba(239, 243, 244, .10);
+            }
+
+            .feed-x-comentarios-lista {
+                flex: 1;
+                overflow-y: auto;
+                min-height: 160px;
+                padding: 8px 18px;
+            }
+
+            .feed-x-comentario-item {
+                display: flex;
+                gap: 12px;
+                padding: 16px 0;
+                border-bottom: 1px solid rgba(56, 68, 77, .72);
+            }
+
+            .feed-x-comentario-avatar {
+                flex: 0 0 auto;
+                width: 42px;
+                height: 42px;
+                border-radius: 50%;
+                object-fit: cover;
+                background: #253341;
+            }
+
+            .feed-x-comentario-corpo {
+                min-width: 0;
+                flex: 1;
+            }
+
+            .feed-x-comentario-meta {
+                display: flex;
+                align-items: baseline;
+                gap: 7px;
+                color: #e7e9ea;
+            }
+
+            .feed-x-comentario-meta span {
+                overflow: hidden;
+                color: #71767b;
+                font-size: 13px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .feed-x-comentario-texto {
+                margin-top: 5px;
+                color: #e7e9ea;
+                line-height: 1.45;
+                white-space: pre-wrap;
+                overflow-wrap: anywhere;
+            }
+
+            .feed-x-comentario-form {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                border-top: 1px solid #38444d;
+            }
+
+            .feed-x-comentario-form .feed-x-comentario-avatar {
+                width: 38px;
+                height: 38px;
+            }
+
+            .feed-x-comentario-input {
+                flex: 1;
+                min-width: 0;
+                height: 40px;
+                padding: 0 14px;
+                border: 1px solid #38444d;
+                border-radius: 999px;
+                outline: none;
+                background: #253341;
+                color: #e7e9ea;
+                font-size: 14px;
+            }
+
+            .feed-x-comentario-input:focus {
+                border-color: #1d9bf0;
+                box-shadow: 0 0 0 1px #1d9bf0;
+            }
+
+            .feed-x-comentario-enviar {
+                height: 38px;
+                padding: 0 16px;
+                border: 0;
+                border-radius: 999px;
+                background: #1d9bf0;
+                color: #fff;
+                font-weight: 700;
+                cursor: pointer;
+                transition: filter .2s ease, transform .2s ease;
+            }
+
+            .feed-x-comentario-enviar:hover {
+                filter: brightness(1.12);
+            }
+
+            .feed-x-comentario-enviar:active {
+                transform: scale(.95);
+            }
+
+            .feed-x-comentarios-vazio,
+            .feed-x-comentarios-carregando,
+            .feed-x-comentarios-erro {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 210px;
+                gap: 8px;
+                color: #71767b;
+                text-align: center;
+            }
+
+            .feed-x-comentarios-vazio strong {
+                color: #e7e9ea;
+            }
+
+            .feed-x-comentarios-vazio-icone {
+                margin-bottom: 4px;
+                font-size: 32px;
+            }
+
+            @keyframes feedXModalEntrada {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+
+            @media (max-width: 560px) {
+                .feed-x-modal-comentarios {
+                    align-items: flex-end;
+                    padding: 0;
+                }
+
+                .feed-x-comentarios-card {
+                    width: 100%;
+                    max-height: 90vh;
+                    border-radius: 18px 18px 0 0;
+                }
+
+                .feed-x-comentario-enviar {
+                    padding: 0 12px;
+                }
             }
 
             /* Botão + acima da barra inferior */
@@ -671,41 +917,23 @@ Este será o novo formato das publicações do Clube Guardiões. Fotos, vídeos 
                                         </div>
                                     </div>
 
-                                    <div class="feed-x-acoes">
+                                                                        <div class="feed-x-acoes">
 
                                         <button
                                             type="button"
-                                            class="feed-x-acao"
+                                            class="feed-x-acao feed-x-acao-comentar"
                                             aria-label="Comentar"
                                         >
-                                            💬
+                                            <span class="feed-x-icone">💬</span>
                                             <span>0</span>
                                         </button>
 
                                         <button
                                             type="button"
-                                            class="feed-x-acao"
-                                            aria-label="Republicar"
-                                        >
-                                            ↻
-                                            <span>0</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            class="feed-x-acao"
+                                            class="feed-x-acao feed-x-acao-curtir"
                                             aria-label="Curtir"
                                         >
-                                            ♡
-                                            <span>0</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            class="feed-x-acao"
-                                            aria-label="Visualizações"
-                                        >
-                                            ◉
+                                            <span class="feed-x-icone feed-x-coracao">♡</span>
                                             <span>0</span>
                                         </button>
 

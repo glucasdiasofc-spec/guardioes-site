@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.85.0 - versão alpha";
+const VERSAO_ATUAL = "v0.86.0 - versão alpha";
 
 /*
  * =====================================================
@@ -8432,51 +8432,33 @@ function criarCardPublicacao(
 
                 ${blocoMidia}
 
-                <div class="feed-x-acoes">
+                                <div class="feed-x-acoes">
 
                     <button
                         type="button"
-                        class="feed-x-acao"
+                        class="feed-x-acao feed-x-acao-comentar"
+                        data-acao="comentarios"
+                        data-publicacao-id="${escaparHtml(doc.id)}"
                         aria-label="Comentar"
                         onclick="abrirComentariosPublicacao('${escaparHtml(doc.id)}')"
                     >
-                        💬
-                        <span>
+                        <span class="feed-x-icone">💬</span>
+                        <span class="feed-x-contador">
                             ${quantidadeComentarios}
                         </span>
                     </button>
 
                     <button
                         type="button"
-                        class="feed-x-acao"
-                        aria-label="Republicar"
-                    >
-                        ↻
-                        <span>
-                            0
-                        </span>
-                    </button>
-
-                    <button
-                        type="button"
-                        class="feed-x-acao"
+                        class="feed-x-acao feed-x-acao-curtir"
+                        data-acao="curtida"
+                        data-publicacao-id="${escaparHtml(doc.id)}"
                         aria-label="Curtir"
-                        onclick="curtirPublicacao('${escaparHtml(doc.id)}')"
+                        onclick="curtirPublicacao('${escaparHtml(doc.id)}', this)"
                     >
-                        ♡
-                        <span>
+                        <span class="feed-x-icone feed-x-coracao">♡</span>
+                        <span class="feed-x-contador">
                             ${quantidadeCurtidas}
-                        </span>
-                    </button>
-
-                    <button
-                        type="button"
-                        class="feed-x-acao"
-                        aria-label="Visualizações"
-                    >
-                        ◉
-                        <span>
-                            ${quantidadeVisualizacoes}
                         </span>
                     </button>
 
@@ -8946,103 +8928,92 @@ async function obterUsuarioInteracaoPublicacao() {
 
 
 async function curtirPublicacao(
-    idPublicacao
+    idPublicacao,
+    botao
 ) {
-    if (!idPublicacao) {
+    if (!idPublicacao || !botao || botao.dataset.processando === "true") {
         return;
     }
 
+    const usuario =
+        window.ClubeDB &&
+        window.ClubeDB.loginDB
+            ? window.ClubeDB.loginDB.currentUser
+            : null;
+
+    if (!usuario) {
+        alert("Sua sessão expirou. Faça login novamente.");
+        return;
+    }
+
+    const banco = window.ClubeDB.textoDB;
+    const referenciaPublicacao = banco
+        .collection("publicacoes")
+        .doc(idPublicacao);
+    const referenciaCurtida = referenciaPublicacao
+        .collection("curtidas")
+        .doc(usuario.uid);
+
+    botao.dataset.processando = "true";
+
     try {
-        const usuario =
-            await obterUsuarioInteracaoPublicacao();
+        let ficouCurtido = false;
+        let novoTotal = 0;
 
-        const banco =
-            window.ClubeDB.textoDB;
+        await banco.runTransaction(async (transacao) => {
+            const [documentoCurtida, documentoPublicacao] =
+                await Promise.all([
+                    transacao.get(referenciaCurtida),
+                    transacao.get(referenciaPublicacao)
+                ]);
 
-        const referenciaPublicacao = banco
-            .collection("publicacoes")
-            .doc(idPublicacao);
-
-        const referenciaCurtida = referenciaPublicacao
-            .collection("curtidas")
-            .doc(usuario.uid);
-
-        await banco.runTransaction(
-            async (transacao) => {
-                const curtida =
-                    await transacao.get(
-                        referenciaCurtida
-                    );
-
-                const publicacao =
-                    await transacao.get(
-                        referenciaPublicacao
-                    );
-
-                if (!publicacao.exists) {
-                    throw new Error(
-                        "Esta publicação não existe mais."
-                    );
-                }
-
-                const dadosPublicacao =
-                    publicacao.data() || {};
-
-                const curtidasAtuais = Math.max(
-                    0,
-                    Number(
-                        dadosPublicacao.curtidas || 0
-                    )
-                );
-
-                if (curtida.exists) {
-                    transacao.delete(
-                        referenciaCurtida
-                    );
-
-                    transacao.update(
-                        referenciaPublicacao,
-                        {
-                            curtidas:
-                                Math.max(
-                                    0,
-                                    curtidasAtuais - 1
-                                )
-                        }
-                    );
-                } else {
-                    transacao.set(
-                        referenciaCurtida,
-                        {
-                            uid: usuario.uid,
-                            criadoEm:
-                                firebase.firestore.FieldValue
-                                    .serverTimestamp()
-                        }
-                    );
-
-                    transacao.update(
-                        referenciaPublicacao,
-                        {
-                            curtidas:
-                                curtidasAtuais + 1
-                        }
-                    );
-                }
+            if (!documentoPublicacao.exists) {
+                throw new Error("Esta publicação não existe mais.");
             }
-        );
 
-        await carregarPublicacoesFeed();
+            const dados = documentoPublicacao.data() || {};
+            const totalAtual = Math.max(0, Number(dados.curtidas || 0));
+
+            if (documentoCurtida.exists) {
+                ficouCurtido = false;
+                novoTotal = Math.max(0, totalAtual - 1);
+                transacao.delete(referenciaCurtida);
+            } else {
+                ficouCurtido = true;
+                novoTotal = totalAtual + 1;
+                transacao.set(referenciaCurtida, {
+                    uid: usuario.uid,
+                    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+
+            transacao.update(referenciaPublicacao, {
+                curtidas: novoTotal
+            });
+        });
+
+        const contador = botao.querySelector(".feed-x-contador");
+        const coracao = botao.querySelector(".feed-x-coracao");
+
+        if (contador) {
+            contador.textContent = String(novoTotal);
+        }
+
+        botao.classList.toggle("feed-x-curtido", ficouCurtido);
+        botao.classList.add("feed-x-animando");
+
+        if (coracao) {
+            coracao.textContent = ficouCurtido ? "♥" : "♡";
+        }
+
+        setTimeout(() => {
+            botao.classList.remove("feed-x-animando");
+        }, 450);
     } catch (erro) {
-        console.error(
-            "Erro ao alterar curtida:",
-            erro
-        );
-
-        alert(
-            erro.message ||
-            "Não foi possível alterar a curtida."
-        );
+        console.error("Erro ao alterar curtida:", erro);
+        alert(erro.message || "Não foi possível alterar a curtida.");
+    } finally {
+        delete botao.dataset.processando;
     }
 }
 
@@ -9054,216 +9025,174 @@ async function abrirComentariosPublicacao(
         return;
     }
 
-    try {
-        const banco =
-            window.ClubeDB.textoDB;
+    const modalAnterior = document.getElementById(
+        "modal-comentarios-publicacao"
+    );
 
-        const referenciaPublicacao = banco
-            .collection("publicacoes")
-            .doc(idPublicacao);
+    if (modalAnterior) {
+        modalAnterior.remove();
+    }
 
-        const documentoPublicacao =
-            await referenciaPublicacao.get();
+    const modal = document.createElement("div");
+    modal.id = "modal-comentarios-publicacao";
+    modal.className = "feed-x-modal-comentarios";
+    modal.innerHTML = `
+        <div class="feed-x-comentarios-card" role="dialog" aria-modal="true" aria-label="Comentários">
+            <header class="feed-x-comentarios-header">
+                <button type="button" class="feed-x-fechar-comentarios" aria-label="Fechar">×</button>
+                <strong>Comentários</strong>
+                <span class="feed-x-header-espaco"></span>
+            </header>
+            <div class="feed-x-comentarios-lista">
+                <div class="feed-x-comentarios-carregando">Carregando comentários...</div>
+            </div>
+            <form class="feed-x-comentario-form">
+                <img class="feed-x-comentario-avatar" src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" alt="Seu avatar">
+                <input class="feed-x-comentario-input" type="text" maxlength="500" autocomplete="off" placeholder="Comente algo...">
+                <button class="feed-x-comentario-enviar" type="submit">Responder</button>
+            </form>
+        </div>
+    `;
 
-        if (!documentoPublicacao.exists) {
-            throw new Error(
-                "Esta publicação não existe mais."
-            );
+    document.body.appendChild(modal );
+    document.body.classList.add("feed-x-modal-aberto");
+
+    const fechar = () => {
+        modal.remove();
+        document.body.classList.remove("feed-x-modal-aberto");
+    };
+
+    modal.querySelector(".feed-x-fechar-comentarios").onclick = fechar;
+
+    modal.addEventListener("click", (evento) => {
+        if (evento.target === modal) {
+            fechar();
         }
+    });
 
-        const comentarios = await referenciaPublicacao
+    const lista = modal.querySelector(".feed-x-comentarios-lista");
+    const input = modal.querySelector(".feed-x-comentario-input");
+    const formulario = modal.querySelector(".feed-x-comentario-form");
+    const botaoEnviar = modal.querySelector(".feed-x-comentario-enviar");
+
+    try {
+        const comentarios = await window.ClubeDB.textoDB
+            .collection("publicacoes")
+            .doc(idPublicacao)
             .collection("comentarios")
             .orderBy("criadoEm", "asc")
             .get();
 
-        const modalAntigo = document.getElementById(
-            "modal-comentarios-publicacao"
-        );
-
-        if (modalAntigo) {
-            modalAntigo.remove();
-        }
-
-        const listaComentarios = comentarios.empty
-            ? `
-                <div id="lista-comentarios-publicacao"
-                    style="padding:24px 8px;text-align:center;color:#71767b;">
-                    Ainda não há comentários.
-                </div>
-            `
-            : `
-                <div id="lista-comentarios-publicacao"
-                    style="display:flex;flex-direction:column;gap:12px;">
-                    ${comentarios.docs
-                        .map((docComentario) => {
-                            const comentario =
-                                docComentario.data() || {};
-
-                            const nome = escaparHtml(
-                                comentario.autorNome ||
-                                comentario.autorUsername ||
-                                "Membro"
-                            );
-
-                            const username = escaparHtml(
-                                comentario.autorUsername ||
-                                "usuario"
-                            );
-
-                            const texto = escaparHtml(
-                                comentario.texto || ""
-                            );
-
-                            const data =
-                                formatarDataPublicacao(
-                                    comentario.criadoEm
-                                );
-
-                            return `
-                                <div style="border-bottom:1px solid #2f3336;padding:8px 0;">
-                                    <div style="font-weight:700;color:#e7e9ea;">
-                                        ${nome}
-                                        <span style="font-weight:400;color:#71767b;font-size:12px;">
-                                            @${username} · ${data}
-                                        </span>
-                                    </div>
-                                    <div style="color:#e7e9ea;margin-top:5px;white-space:pre-wrap;word-break:break-word;">
-                                        ${texto}
-                                    </div>
-                                </div>
-                            `;
-                        })
-                        .join("")}
+        if (comentarios.empty) {
+            lista.innerHTML = `
+                <div class="feed-x-comentarios-vazio">
+                    <div class="feed-x-comentarios-vazio-icone">💬</div>
+                    <strong>Seja o primeiro a comentar</strong>
+                    <span>Compartilhe o que você está pensando.</span>
                 </div>
             `;
+        } else {
+            lista.innerHTML = comentarios.docs.map((documento) => {
+                const comentario = documento.data() || {};
+                const nome = escaparHtml(
+                    comentario.autorNome || comentario.autorUsername || "Membro"
+                );
+                const username = escaparHtml(
+                    comentario.autorUsername || "usuario"
+                );
+                const texto = escaparHtml(comentario.texto || "");
+                const avatar = escaparHtml(
+                    normalizarUrlPublicacao(comentario.autorFotoUrl) ||
+                    "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+                 );
 
-        const modal = document.createElement("div");
-        modal.id = "modal-comentarios-publicacao";
-        modal.style.cssText = `
-            position:fixed;
-            inset:0;
-            z-index:10000;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            padding:16px;
-            background:rgba(0,0,0,.72);
-        `;
+                return `
+                    <article class="feed-x-comentario-item">
+                        <img class="feed-x-comentario-avatar" src="${avatar}" alt="Foto de ${nome}">
+                        <div class="feed-x-comentario-corpo">
+                            <div class="feed-x-comentario-meta">
+                                <strong>${nome}</strong>
+                                <span>@${username}</span>
+                            </div>
+                            <div class="feed-x-comentario-texto">${texto}</div>
+                        </div>
+                    </article>
+                `;
+            }).join("");
+        }
 
-        modal.innerHTML = `
-            <div style="width:min(560px,100%);max-height:85vh;display:flex;flex-direction:column;background:#15202b;border:1px solid #38444d;border-radius:16px;color:#e7e9ea;overflow:hidden;">
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #38444d;">
-                    <strong>Comentários</strong>
-                    <button id="fechar-modal-comentarios" type="button" style="border:0;background:none;color:#e7e9ea;font-size:22px;cursor:pointer;">×</button>
-                </div>
-                <div style="overflow:auto;padding:16px;">
-                    ${listaComentarios}
-                </div>
-                <form id="form-comentario-publicacao" style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid #38444d;">
-                    <input id="texto-comentario-publicacao" type="text" maxlength="500" autocomplete="off" placeholder="Escreva um comentário..." style="flex:1;min-width:0;border:1px solid #38444d;border-radius:999px;background:#253341;color:#e7e9ea;padding:10px 14px;outline:none;">
-                    <button type="submit" style="border:0;border-radius:999px;background:#1d9bf0;color:#fff;padding:0 16px;font-weight:700;cursor:pointer;">Enviar</button>
-                </form>
+        setTimeout(() => input.focus(), 100);
+    } catch (erro) {
+        console.error("Erro ao carregar comentários:", erro);
+        lista.innerHTML = `
+            <div class="feed-x-comentarios-erro">
+                Não foi possível carregar os comentários.
             </div>
         `;
-
-        document.body.appendChild(modal);
-
-        document.getElementById(
-            "fechar-modal-comentarios"
-        ).onclick = () => modal.remove();
-
-        modal.addEventListener(
-            "click",
-            (evento) => {
-                if (evento.target === modal) {
-                    modal.remove();
-                }
-            }
-        );
-
-        document.getElementById(
-            "form-comentario-publicacao"
-        ).addEventListener(
-            "submit",
-            async (evento) => {
-                evento.preventDefault();
-
-                const campo = document.getElementById(
-                    "texto-comentario-publicacao"
-                );
-
-                const botao = evento.submitter;
-                const texto = campo.value.trim();
-
-                if (!texto) {
-                    return;
-                }
-
-                try {
-                    if (botao) {
-                        botao.disabled = true;
-                        botao.textContent = "Enviando...";
-                    }
-
-                    const usuario =
-                        await obterUsuarioInteracaoPublicacao();
-
-                    const autor =
-                        await obterDadosAutorPublicacao();
-
-                    await referenciaPublicacao
-                        .collection("comentarios")
-                        .add({
-                            uid: usuario.uid,
-                            autorId: autor.uid,
-                            autorUsername: autor.username,
-                            autorNome: autor.nome,
-                            autorFotoUrl: autor.fotoUrl,
-                            texto: texto,
-                            criadoEm:
-                                firebase.firestore.FieldValue
-                                    .serverTimestamp()
-                        });
-
-                    await referenciaPublicacao.update({
-                        comentarios:
-                            firebase.firestore.FieldValue
-                                .increment(1)
-                    });
-
-                    campo.value = "";
-                    modal.remove();
-                    await carregarPublicacoesFeed();
-                    await abrirComentariosPublicacao(
-                        idPublicacao
-                    );
-                } catch (erro) {
-                    console.error(
-                        "Erro ao publicar comentário:",
-                        erro
-                    );
-
-                    alert(
-                        erro.message ||
-                        "Não foi possível publicar o comentário."
-                    );
-
-                    if (botao) {
-                        botao.disabled = false;
-                        botao.textContent = "Enviar";
-                    }
-                }
-            }
-        );
-    } catch (erro) {
-        console.error(
-            "Erro ao carregar comentários:",
-            erro
-        );
-
-        alert(
-            erro.message ||
-            "Não foi possível carregar os comentários."
-        );
     }
+
+    formulario.addEventListener("submit", async (evento) => {
+        evento.preventDefault();
+
+        const texto = input.value.trim();
+        if (!texto || botaoEnviar.disabled) {
+            return;
+        }
+
+        const usuario =
+            window.ClubeDB &&
+            window.ClubeDB.loginDB
+                ? window.ClubeDB.loginDB.currentUser
+                : null;
+
+        if (!usuario) {
+            alert("Sua sessão expirou. Faça login novamente.");
+            return;
+        }
+
+        botaoEnviar.disabled = true;
+        botaoEnviar.textContent = "Enviando...";
+
+        try {
+            const autor = await obterDadosAutorPublicacao();
+            const referencia = window.ClubeDB.textoDB
+                .collection("publicacoes")
+                .doc(idPublicacao);
+
+            await referencia.collection("comentarios").add({
+                uid: usuario.uid,
+                autorId: autor.uid,
+                autorNome: autor.nome,
+                autorUsername: autor.username,
+                autorFotoUrl: autor.fotoUrl,
+                texto: texto,
+                criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            await referencia.update({
+                comentarios: firebase.firestore.FieldValue.increment(1)
+            });
+
+            input.value = "";
+            fechar();
+
+            const card = document.querySelector(
+                `.feed-x-post[data-publicacao-id="${idPublicacao}"]`
+            );
+            const contador = card
+                ? card.querySelector('[data-acao="comentarios"] .feed-x-contador')
+                : null;
+
+            if (contador) {
+                contador.textContent = String(Number(contador.textContent || 0) + 1);
+            }
+
+            await abrirComentariosPublicacao(idPublicacao);
+        } catch (erro) {
+            console.error("Erro ao publicar comentário:", erro);
+            alert(erro.message || "Não foi possível publicar o comentário.");
+            botaoEnviar.disabled = false;
+            botaoEnviar.textContent = "Responder";
+        }
+    });
 }
