@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.84.0 - versão alpha";
+const VERSAO_ATUAL = "v0.85.0 - versão alpha";
 
 /*
  * =====================================================
@@ -8892,39 +8892,378 @@ async function publicarPublicacao() {
 
 /*
  * =====================================================
- * AÇÕES TEMPORÁRIAS DO FEED
+ * CURTIDAS E COMENTÁRIOS DAS PUBLICAÇÕES
  * =====================================================
- *
- * Ainda não estamos implementando curtidas/comentários.
- * Estas funções evitam erro ao clicar nos botões.
- *
- * A implementação real dessas ações será feita depois.
  */
 
-function curtirPublicacao(
-    idPublicacao
-) {
-    console.log(
-        "Curtir publicação:",
-        idPublicacao
-    );
+async function obterUsuarioInteracaoPublicacao() {
+    let usuario =
+        window.ClubeDB &&
+        window.ClubeDB.loginDB
+            ? window.ClubeDB.loginDB.currentUser
+            : null;
 
-    alert(
-        "O sistema de curtidas será ativado na próxima etapa."
-    );
+    if (
+        !usuario &&
+        window.ClubeDB &&
+        window.ClubeDB.loginDB &&
+        typeof window.ClubeDB.loginDB.onAuthStateChanged ===
+            "function"
+    ) {
+        usuario = await new Promise((resolver) => {
+            let finalizado = false;
+            let temporizador;
+
+            const concluir = (usuarioAtual) => {
+                if (finalizado) {
+                    return;
+                }
+
+                finalizado = true;
+                clearTimeout(temporizador);
+                resolver(usuarioAtual || null);
+            };
+
+            temporizador = setTimeout(
+                () => concluir(null),
+                10000
+            );
+
+            window.ClubeDB.loginDB.onAuthStateChanged(
+                concluir
+            );
+        });
+    }
+
+    if (!usuario) {
+        throw new Error(
+            "Sua sessão expirou. Faça login novamente."
+        );
+    }
+
+    return usuario;
 }
 
 
-function abrirComentariosPublicacao(
+async function curtirPublicacao(
     idPublicacao
 ) {
-    console.log(
-        "Abrir comentários:",
-        idPublicacao
-    );
+    if (!idPublicacao) {
+        return;
+    }
 
-    alert(
-        "O sistema de comentários será ativado na próxima etapa."
-    );
+    try {
+        const usuario =
+            await obterUsuarioInteracaoPublicacao();
+
+        const banco =
+            window.ClubeDB.textoDB;
+
+        const referenciaPublicacao = banco
+            .collection("publicacoes")
+            .doc(idPublicacao);
+
+        const referenciaCurtida = referenciaPublicacao
+            .collection("curtidas")
+            .doc(usuario.uid);
+
+        await banco.runTransaction(
+            async (transacao) => {
+                const curtida =
+                    await transacao.get(
+                        referenciaCurtida
+                    );
+
+                const publicacao =
+                    await transacao.get(
+                        referenciaPublicacao
+                    );
+
+                if (!publicacao.exists) {
+                    throw new Error(
+                        "Esta publicação não existe mais."
+                    );
+                }
+
+                const dadosPublicacao =
+                    publicacao.data() || {};
+
+                const curtidasAtuais = Math.max(
+                    0,
+                    Number(
+                        dadosPublicacao.curtidas || 0
+                    )
+                );
+
+                if (curtida.exists) {
+                    transacao.delete(
+                        referenciaCurtida
+                    );
+
+                    transacao.update(
+                        referenciaPublicacao,
+                        {
+                            curtidas:
+                                Math.max(
+                                    0,
+                                    curtidasAtuais - 1
+                                )
+                        }
+                    );
+                } else {
+                    transacao.set(
+                        referenciaCurtida,
+                        {
+                            uid: usuario.uid,
+                            criadoEm:
+                                firebase.firestore.FieldValue
+                                    .serverTimestamp()
+                        }
+                    );
+
+                    transacao.update(
+                        referenciaPublicacao,
+                        {
+                            curtidas:
+                                curtidasAtuais + 1
+                        }
+                    );
+                }
+            }
+        );
+
+        await carregarPublicacoesFeed();
+    } catch (erro) {
+        console.error(
+            "Erro ao alterar curtida:",
+            erro
+        );
+
+        alert(
+            erro.message ||
+            "Não foi possível alterar a curtida."
+        );
+    }
 }
 
+
+async function abrirComentariosPublicacao(
+    idPublicacao
+) {
+    if (!idPublicacao) {
+        return;
+    }
+
+    try {
+        const banco =
+            window.ClubeDB.textoDB;
+
+        const referenciaPublicacao = banco
+            .collection("publicacoes")
+            .doc(idPublicacao);
+
+        const documentoPublicacao =
+            await referenciaPublicacao.get();
+
+        if (!documentoPublicacao.exists) {
+            throw new Error(
+                "Esta publicação não existe mais."
+            );
+        }
+
+        const comentarios = await referenciaPublicacao
+            .collection("comentarios")
+            .orderBy("criadoEm", "asc")
+            .get();
+
+        const modalAntigo = document.getElementById(
+            "modal-comentarios-publicacao"
+        );
+
+        if (modalAntigo) {
+            modalAntigo.remove();
+        }
+
+        const listaComentarios = comentarios.empty
+            ? `
+                <div id="lista-comentarios-publicacao"
+                    style="padding:24px 8px;text-align:center;color:#71767b;">
+                    Ainda não há comentários.
+                </div>
+            `
+            : `
+                <div id="lista-comentarios-publicacao"
+                    style="display:flex;flex-direction:column;gap:12px;">
+                    ${comentarios.docs
+                        .map((docComentario) => {
+                            const comentario =
+                                docComentario.data() || {};
+
+                            const nome = escaparHtml(
+                                comentario.autorNome ||
+                                comentario.autorUsername ||
+                                "Membro"
+                            );
+
+                            const username = escaparHtml(
+                                comentario.autorUsername ||
+                                "usuario"
+                            );
+
+                            const texto = escaparHtml(
+                                comentario.texto || ""
+                            );
+
+                            const data =
+                                formatarDataPublicacao(
+                                    comentario.criadoEm
+                                );
+
+                            return `
+                                <div style="border-bottom:1px solid #2f3336;padding:8px 0;">
+                                    <div style="font-weight:700;color:#e7e9ea;">
+                                        ${nome}
+                                        <span style="font-weight:400;color:#71767b;font-size:12px;">
+                                            @${username} · ${data}
+                                        </span>
+                                    </div>
+                                    <div style="color:#e7e9ea;margin-top:5px;white-space:pre-wrap;word-break:break-word;">
+                                        ${texto}
+                                    </div>
+                                </div>
+                            `;
+                        })
+                        .join("")}
+                </div>
+            `;
+
+        const modal = document.createElement("div");
+        modal.id = "modal-comentarios-publicacao";
+        modal.style.cssText = `
+            position:fixed;
+            inset:0;
+            z-index:10000;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:16px;
+            background:rgba(0,0,0,.72);
+        `;
+
+        modal.innerHTML = `
+            <div style="width:min(560px,100%);max-height:85vh;display:flex;flex-direction:column;background:#15202b;border:1px solid #38444d;border-radius:16px;color:#e7e9ea;overflow:hidden;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #38444d;">
+                    <strong>Comentários</strong>
+                    <button id="fechar-modal-comentarios" type="button" style="border:0;background:none;color:#e7e9ea;font-size:22px;cursor:pointer;">×</button>
+                </div>
+                <div style="overflow:auto;padding:16px;">
+                    ${listaComentarios}
+                </div>
+                <form id="form-comentario-publicacao" style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid #38444d;">
+                    <input id="texto-comentario-publicacao" type="text" maxlength="500" autocomplete="off" placeholder="Escreva um comentário..." style="flex:1;min-width:0;border:1px solid #38444d;border-radius:999px;background:#253341;color:#e7e9ea;padding:10px 14px;outline:none;">
+                    <button type="submit" style="border:0;border-radius:999px;background:#1d9bf0;color:#fff;padding:0 16px;font-weight:700;cursor:pointer;">Enviar</button>
+                </form>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        document.getElementById(
+            "fechar-modal-comentarios"
+        ).onclick = () => modal.remove();
+
+        modal.addEventListener(
+            "click",
+            (evento) => {
+                if (evento.target === modal) {
+                    modal.remove();
+                }
+            }
+        );
+
+        document.getElementById(
+            "form-comentario-publicacao"
+        ).addEventListener(
+            "submit",
+            async (evento) => {
+                evento.preventDefault();
+
+                const campo = document.getElementById(
+                    "texto-comentario-publicacao"
+                );
+
+                const botao = evento.submitter;
+                const texto = campo.value.trim();
+
+                if (!texto) {
+                    return;
+                }
+
+                try {
+                    if (botao) {
+                        botao.disabled = true;
+                        botao.textContent = "Enviando...";
+                    }
+
+                    const usuario =
+                        await obterUsuarioInteracaoPublicacao();
+
+                    const autor =
+                        await obterDadosAutorPublicacao();
+
+                    await referenciaPublicacao
+                        .collection("comentarios")
+                        .add({
+                            uid: usuario.uid,
+                            autorId: autor.uid,
+                            autorUsername: autor.username,
+                            autorNome: autor.nome,
+                            autorFotoUrl: autor.fotoUrl,
+                            texto: texto,
+                            criadoEm:
+                                firebase.firestore.FieldValue
+                                    .serverTimestamp()
+                        });
+
+                    await referenciaPublicacao.update({
+                        comentarios:
+                            firebase.firestore.FieldValue
+                                .increment(1)
+                    });
+
+                    campo.value = "";
+                    modal.remove();
+                    await carregarPublicacoesFeed();
+                    await abrirComentariosPublicacao(
+                        idPublicacao
+                    );
+                } catch (erro) {
+                    console.error(
+                        "Erro ao publicar comentário:",
+                        erro
+                    );
+
+                    alert(
+                        erro.message ||
+                        "Não foi possível publicar o comentário."
+                    );
+
+                    if (botao) {
+                        botao.disabled = false;
+                        botao.textContent = "Enviar";
+                    }
+                }
+            }
+        );
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar comentários:",
+            erro
+        );
+
+        alert(
+            erro.message ||
+            "Não foi possível carregar os comentários."
+        );
+    }
+}
