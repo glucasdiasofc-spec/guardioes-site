@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.83.0 - versão alpha";
+const VERSAO_ATUAL = "v0.84.0 - versão alpha";
 
 /*
  * =====================================================
@@ -8622,100 +8622,81 @@ async function carregarPublicacoesFeed() {
  * 5. Recarrega o Feed.
  */
 async function publicarPublicacao() {
-    const btnPublicar =
-        document.getElementById(
-            "btn-confirmar-publicacao"
-        );
+    const btnPublicar = document.getElementById("btn-confirmar-publicacao");
+    const textarea = document.getElementById("publicacao-texto");
+    const inputArquivo = document.getElementById("publicacao-arquivo");
 
-    const textarea =
-        document.getElementById(
-            "publicacao-texto"
-        );
+    const texto = textarea ? textarea.value.trim() : "";
+    const arquivo = inputArquivo && inputArquivo.files && inputArquivo.files.length > 0
+        ? inputArquivo.files[0]
+        : null;
 
-    const inputArquivo =
-        document.getElementById(
-            "publicacao-arquivo"
-        );
-
-    const texto =
-        textarea
-            ? textarea.value.trim()
-            : "";
-
-    const arquivo =
-        inputArquivo &&
-        inputArquivo.files &&
-        inputArquivo.files.length > 0
-            ? inputArquivo.files[0]
-            : null;
-
-    if (
-        !texto &&
-        !arquivo
-    ) {
-        alert(
-            "Escreva algo ou adicione uma foto/vídeo."
-        );
-
+    if (!texto && !arquivo) {
+        alert("Escreva algo ou adicione uma foto/vídeo.");
         return;
     }
 
-    const usuarioFirebase =
+    let usuarioFirebase = window.ClubeDB && window.ClubeDB.loginDB
+        ? window.ClubeDB.loginDB.currentUser
+        : null;
+
+    if (
+        !usuarioFirebase &&
         window.ClubeDB &&
-        window.ClubeDB.loginDB
-            ? window.ClubeDB.loginDB.currentUser
-            : null;
+        window.ClubeDB.loginDB &&
+        typeof window.ClubeDB.loginDB.onAuthStateChanged === "function"
+    ) {
+        usuarioFirebase = await new Promise((resolver) => {
+            let finalizado = false;
+            let temporizador;
+
+            const encerrar = (usuario) => {
+                if (finalizado) return;
+                finalizado = true;
+                clearTimeout(temporizador);
+                resolver(usuario || null);
+            };
+
+            temporizador = setTimeout(
+                () => encerrar(null),
+                10000
+            );
+
+            window.ClubeDB.loginDB.onAuthStateChanged(encerrar);
+        });
+    }
 
     if (!usuarioFirebase) {
         alert(
-            "Sua sessão expirou. Faça login novamente."
+            "Sua sessão do Firebase ainda não foi carregada ou expirou. Recarregue a página e faça login novamente."
         );
-
         return;
     }
 
     if (arquivo) {
-        const ehImagem =
-            arquivo.type.startsWith(
-                "image/"
-            );
-
+        const ehImagem = arquivo.type.startsWith("image/");
         const ehVideo =
-            arquivo.type ===
-            "video/mp4";
+            arquivo.type === "video/mp4" ||
+            /\.mp4$/i.test(arquivo.name);
 
-        if (
-            !ehImagem &&
-            !ehVideo
-        ) {
-            alert(
-                "Selecione uma imagem ou um vídeo MP4."
-            );
-
+        if (!ehImagem && !ehVideo) {
+            alert("Selecione uma imagem ou um vídeo MP4.");
             return;
         }
 
         if (
             ehImagem &&
-            arquivo.size >
-                10 * 1024 * 1024
+            arquivo.size > 10 * 1024 * 1024
         ) {
-            alert(
-                "A imagem deve ter no máximo 10 MB."
-            );
-
+            alert("A imagem deve ter no máximo 10 MB.");
             return;
         }
 
         if (
             ehVideo &&
-            arquivo.size >
-                20 * 1024 * 1024
+            arquivo.size > 20 * 1024 * 1024
         ) {
-            alert(
-                "O vídeo deve ter no máximo 20 MB."
-            );
-
+            alert("O vídeo deve ter no máximo 20 MB.");
             return;
         }
     }
@@ -8725,92 +8706,42 @@ async function publicarPublicacao() {
     try {
         if (btnPublicar) {
             btnPublicar.disabled = true;
-            btnPublicar.textContent =
-                "Publicando...";
+            btnPublicar.textContent = "Publicando...";
         }
 
-        const autor =
-            await obterDadosAutorPublicacao();
+        const autor = await obterDadosAutorPublicacao();
 
-        referenciaPublicacao =
-            await window.ClubeDB.textoDB
-                .collection("publicacoes")
-                .add({
-                    autorId:
-                        autor.uid,
+        referenciaPublicacao = await window.ClubeDB.textoDB
+            .collection("publicacoes")
+            .add({
+                autorId: autor.uid,
+                autorUsername: autor.username,
+                autorNome: autor.nome,
+                autorCargo: autor.cargo,
+                autorFotoUrl: autor.fotoUrl,
+                texto: texto,
+                criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+                status: "processando",
+                tipoMidia: null,
+                telegramFileId: "",
+                telegramFileUniqueId: "",
+                telegramMessageId: null,
+                mimeType: "",
+                nomeOriginal: "",
+                tamanhoBytes: 0,
+                largura: null,
+                altura: null,
+                duracao: null,
+                curtidas: 0,
+                comentarios: 0,
+                visualizacoes: 0
+            });
 
-                    autorUsername:
-                        autor.username,
-
-                    autorNome:
-                        autor.nome,
-
-                    autorCargo:
-                        autor.cargo,
-
-                    autorFotoUrl:
-                        autor.fotoUrl,
-
-                    texto:
-                        texto,
-
-                    criadoEm:
-                        firebase.firestore.FieldValue
-                            .serverTimestamp(),
-
-                    status:
-                        "processando",
-
-                    tipoMidia:
-                        null,
-
-                    telegramFileId:
-                        "",
-
-                    telegramFileUniqueId:
-                        "",
-
-                    telegramMessageId:
-                        null,
-
-                    mimeType:
-                        "",
-
-                    nomeOriginal:
-                        "",
-
-                    tamanhoBytes:
-                        0,
-
-                    largura:
-                        null,
-
-                    altura:
-                        null,
-
-                    duracao:
-                        null,
-
-                    curtidas:
-                        0,
-
-                    comentarios:
-                        0,
-
-                    visualizacoes:
-                        0
-                });
-
-        let dadosMidia =
-            null;
+        let dadosMidia = null;
 
         if (arquivo) {
-            const idToken =
-                await usuarioFirebase
-                    .getIdToken(true);
-
-            const formData =
-                new FormData();
+            const idToken = await usuarioFirebase.getIdToken(true);
+            const formData = new FormData();
 
             formData.append(
                 "arquivo",
@@ -8828,225 +8759,108 @@ async function publicarPublicacao() {
                 autor.username
             );
 
-            let respostaWorker = null;
-            let resultadoWorker = null;
-            let erroWorker = "";
+            const controlador = new AbortController();
+            const temporizador = setTimeout(
+                () => controlador.abort(),
+                60000
+            );
 
-            for (
-                let tentativa = 1;
-                tentativa <= 3;
-                tentativa++
-            ) {
-                const controlador =
-                    new AbortController();
+            let respostaWorker;
+            let resultadoWorker;
 
-                const timeout =
-                    setTimeout(
-                        () => controlador.abort(),
-                        60000
-                    );
-
-                try {
-                    respostaWorker =
-                        await fetch(
-                            PUBLICACOES_WORKER_URL +
-                            "/upload",
-                            {
-                                method:
-                                    "POST",
-
-                                headers: {
-                                    "Authorization":
-                                        `Bearer ${idToken}`
-                                },
-
-                                body:
-                                    formData,
-
-                                cache:
-                                    "no-store",
-
-                                signal:
-                                    controlador.signal
-                            }
-                        );
-
-                    const textoResposta =
-                        await respostaWorker.text();
-
-                    try {
-                        resultadoWorker =
-                            textoResposta
-                                ? JSON.parse(
-                                    textoResposta
-                                )
-                                : {};
-                    } catch (erroJSON) {
-                        resultadoWorker = {
-                            ok: false,
-                            erro:
-                                textoResposta ||
-                                "Resposta inválida do Worker."
-                        };
-                    }
-
-                    if (
-                        respostaWorker.ok &&
-                        resultadoWorker.ok &&
-                        resultadoWorker.midia
-                    ) {
-                        break;
-                    }
-
-                    erroWorker =
-                        resultadoWorker.erro ||
-                        resultadoWorker.error ||
-                        `HTTP ${respostaWorker.status}`;
-
-                    const podeTentarNovamente =
-                        respostaWorker.status === 408 ||
-                        respostaWorker.status === 429 ||
-                        respostaWorker.status >= 500;
-
-                    if (
-                        !podeTentarNovamente ||
-                        tentativa === 3
-                    ) {
-                        throw new Error(
-                            `Falha no upload: HTTP ${respostaWorker.status} — ${erroWorker}`
-                        );
-                    }
-                } catch (erroEnvio) {
-                    if (
-                        erroEnvio.name ===
-                        "AbortError"
-                    ) {
-                        erroWorker =
-                            "O Worker demorou mais de 60 segundos para responder.";
-                    } else {
-                        erroWorker =
-                            erroEnvio.message ||
-                            "Falha de comunicação com o Worker.";
-                    }
-
-                    if (
-                        tentativa === 3
-                    ) {
-                        throw new Error(
-                            erroWorker
-                        );
-                    }
-                } finally {
-                    clearTimeout(
-                        timeout
-                    );
-                }
-
-                await new Promise(
-                    (resolver) => {
-                        setTimeout(
-                            resolver,
-                            tentativa * 2000
-                        );
+            try {
+                respostaWorker = await fetch(
+                    PUBLICACOES_WORKER_URL + "/upload",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${idToken}`
+                        },
+                        body: formData,
+                        cache: "no-store",
+                        signal: controlador.signal
                     }
                 );
+            } finally {
+                clearTimeout(temporizador);
+            }
+
+            const textoResposta =
+                await respostaWorker.text();
+
+            try {
+                resultadoWorker = textoResposta
+                    ? JSON.parse(textoResposta)
+                    : {};
+            } catch (erroJSON) {
+                resultadoWorker = {
+                    ok: false,
+                    erro:
+                        textoResposta ||
+                        "Resposta inválida do Worker."
+                };
             }
 
             if (
-                !respostaWorker ||
                 !respostaWorker.ok ||
-                !resultadoWorker ||
                 !resultadoWorker.ok ||
                 !resultadoWorker.midia
             ) {
                 throw new Error(
-                    erroWorker ||
-                    "O Worker não retornou os dados da mídia."
+                    resultadoWorker.erro ||
+                    resultadoWorker.error ||
+                    `Falha no upload: HTTP ${respostaWorker.status}`
                 );
             }
 
-            dadosMidia =
-                resultadoWorker.midia;
+            dadosMidia = resultadoWorker.midia;
         }
 
         await referenciaPublicacao.update({
-            status:
-                "publicada",
-
-            tipoMidia:
-                dadosMidia
-                    ? dadosMidia.tipo
-                    : null,
-
-            telegramFileId:
-                dadosMidia
-                    ? dadosMidia.telegramFileId
-                    : "",
-
-            telegramFileUniqueId:
-                dadosMidia
-                    ? dadosMidia.telegramFileUniqueId
-                    : "",
-
-            telegramMessageId:
-                dadosMidia
-                    ? dadosMidia.telegramMessageId
-                    : null,
-
-            mimeType:
-                dadosMidia
-                    ? dadosMidia.mimeType
-                    : "",
-
-            nomeOriginal:
-                dadosMidia
-                    ? dadosMidia.nomeOriginal
-                    : "",
-
-            tamanhoBytes:
-                dadosMidia
-                    ? dadosMidia.tamanhoBytes
-                    : 0,
-
-            largura:
-                dadosMidia
-                    ? dadosMidia.largura
-                    : null,
-
-            altura:
-                dadosMidia
-                    ? dadosMidia.altura
-                    : null,
-
-            duracao:
-                dadosMidia
-                    ? dadosMidia.duracao
-                    : null
+            status: "publicada",
+            tipoMidia: dadosMidia ? dadosMidia.tipo : null,
+            telegramFileId: dadosMidia
+                ? dadosMidia.telegramFileId
+                : "",
+            telegramFileUniqueId: dadosMidia
+                ? dadosMidia.telegramFileUniqueId
+                : "",
+            telegramMessageId: dadosMidia
+                ? dadosMidia.telegramMessageId
+                : null,
+            mimeType: dadosMidia
+                ? dadosMidia.mimeType
+                : "",
+            nomeOriginal: dadosMidia
+                ? dadosMidia.nomeOriginal
+                : "",
+            tamanhoBytes: dadosMidia
+                ? dadosMidia.tamanhoBytes
+                : 0,
+            largura: dadosMidia
+                ? dadosMidia.largura
+                : null,
+            altura: dadosMidia
+                ? dadosMidia.altura
+                : null,
+            duracao: dadosMidia
+                ? dadosMidia.duracao
+                : null
         });
 
         fecharCriadorPublicacao();
-
         await carregarPublicacoesFeed();
-
-        alert(
-            "Publicação criada com sucesso! 🎉"
-        );
+        alert("Publicação criada com sucesso!");
     } catch (erro) {
-        console.error(
-            "Erro ao publicar:",
-            erro
-        );
+        console.error("Erro ao publicar:", erro);
 
         if (referenciaPublicacao) {
             try {
                 await referenciaPublicacao.update({
-                    status:
-                        "erro",
-
+                    status: "erro",
                     erroPublicacao:
                         erro.message ||
                         "Erro desconhecido.",
-
                     atualizadoEm:
                         firebase.firestore.FieldValue
                             .serverTimestamp()
@@ -9069,8 +8883,7 @@ async function publicarPublicacao() {
     } finally {
         if (btnPublicar) {
             btnPublicar.disabled = false;
-            btnPublicar.textContent =
-                "Publicar";
+            btnPublicar.textContent = "Publicar";
         }
     }
 }
