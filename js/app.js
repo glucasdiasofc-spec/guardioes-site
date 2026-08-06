@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.86.0 - versão alpha";
+const VERSAO_ATUAL = "v0.87.0 - versão alpha";
 
 /*
  * =====================================================
@@ -9035,22 +9035,30 @@ async function abrirComentariosPublicacao(
 
     const modal = document.createElement("div");
     modal.id = "modal-comentarios-publicacao";
-    modal.className = "feed-x-modal-comentarios";
+    modal.className = "feed-x-modal-reels";
+
     modal.innerHTML = `
-        <div class="feed-x-comentarios-card" role="dialog" aria-modal="true" aria-label="Comentários">
-            <header class="feed-x-comentarios-header">
-                <button type="button" class="feed-x-fechar-comentarios" aria-label="Fechar">×</button>
-                <strong>Comentários</strong>
-                <span class="feed-x-header-espaco"></span>
-            </header>
-            <div class="feed-x-comentarios-lista">
-                <div class="feed-x-comentarios-carregando">Carregando comentários...</div>
+        <div class="feed-x-reels-card" role="dialog" aria-modal="true" aria-label="Comentários da publicação">
+            <div class="feed-x-reels-midia" id="feed-x-reels-midia">
+                <div class="feed-x-reels-carregando">Carregando publicação...</div>
             </div>
-            <form class="feed-x-comentario-form">
-                <img class="feed-x-comentario-avatar" src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" alt="Seu avatar">
-                <input class="feed-x-comentario-input" type="text" maxlength="500" autocomplete="off" placeholder="Comente algo...">
-                <button class="feed-x-comentario-enviar" type="submit">Responder</button>
-            </form>
+
+            <section class="feed-x-reels-comentarios">
+                <header class="feed-x-reels-header">
+                    <strong>Comentários</strong>
+                    <button type="button" class="feed-x-reels-fechar" aria-label="Fechar">×</button>
+                </header>
+
+                <div class="feed-x-reels-lista" id="feed-x-reels-lista">
+                    <div class="feed-x-reels-carregando">Carregando comentários...</div>
+                </div>
+
+                <form class="feed-x-reels-form" id="feed-x-reels-form">
+                    <img class="feed-x-reels-avatar" src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" alt="Seu avatar">
+                    <input class="feed-x-reels-input" id="feed-x-reels-input" type="text" maxlength="500" autocomplete="off" placeholder="Adicione um comentário...">
+                    <button class="feed-x-reels-enviar" type="submit">Publicar</button>
+                </form>
+            </section>
         </div>
     `;
 
@@ -9062,7 +9070,7 @@ async function abrirComentariosPublicacao(
         document.body.classList.remove("feed-x-modal-aberto");
     };
 
-    modal.querySelector(".feed-x-fechar-comentarios").onclick = fechar;
+    modal.querySelector(".feed-x-reels-fechar").onclick = fechar;
 
     modal.addEventListener("click", (evento) => {
         if (evento.target === modal) {
@@ -9070,72 +9078,120 @@ async function abrirComentariosPublicacao(
         }
     });
 
-    const lista = modal.querySelector(".feed-x-comentarios-lista");
-    const input = modal.querySelector(".feed-x-comentario-input");
-    const formulario = modal.querySelector(".feed-x-comentario-form");
-    const botaoEnviar = modal.querySelector(".feed-x-comentario-enviar");
+    const banco = window.ClubeDB.textoDB;
+    const referenciaPublicacao = banco
+        .collection("publicacoes")
+        .doc(idPublicacao);
+
+    const midiaEl = modal.querySelector("#feed-x-reels-midia");
+    const listaEl = modal.querySelector("#feed-x-reels-lista");
+    const inputEl = modal.querySelector("#feed-x-reels-input");
+    const formEl = modal.querySelector("#feed-x-reels-form");
+    const enviarEl = modal.querySelector(".feed-x-reels-enviar");
 
     try {
-        const comentarios = await window.ClubeDB.textoDB
-            .collection("publicacoes")
-            .doc(idPublicacao)
+        const documento = await referenciaPublicacao.get();
+
+        if (!documento.exists) {
+            throw new Error("Esta publicação não existe mais.");
+        }
+
+        const dados = documento.data() || {};
+        const autor = escaparHtml(
+            dados.autorNome || dados.autorUsername || "Membro"
+        );
+        const texto = escaparHtml(dados.texto || "");
+
+        let blocoMidia = "";
+
+        if (dados.telegramFileId) {
+            const urlMidia = escaparHtml(
+                criarUrlMidiaTelegram(dados.telegramFileId)
+            );
+
+            if (dados.tipoMidia === "video") {
+                blocoMidia = `
+                    <video class="feed-x-reels-video" src="${urlMidia}" controls playsinline preload="metadata"></video>
+                `;
+            } else {
+                blocoMidia = `
+                    <img class="feed-x-reels-imagem" src="${urlMidia}" alt="Publicação de ${autor}">
+                `;
+            }
+        } else {
+            blocoMidia = `
+                <div class="feed-x-reels-texto-sem-midia">
+                    ${texto || "Publicação sem mídia"}
+                </div>
+            `;
+        }
+
+        midiaEl.innerHTML = `
+            ${blocoMidia}
+            <div class="feed-x-reels-legenda">
+                <strong>${autor}</strong>
+                ${texto ? `<span>${texto}</span>` : ""}
+            </div>
+        `;
+
+        const comentarios = await referenciaPublicacao
             .collection("comentarios")
             .orderBy("criadoEm", "asc")
             .get();
 
         if (comentarios.empty) {
-            lista.innerHTML = `
-                <div class="feed-x-comentarios-vazio">
-                    <div class="feed-x-comentarios-vazio-icone">💬</div>
-                    <strong>Seja o primeiro a comentar</strong>
-                    <span>Compartilhe o que você está pensando.</span>
+            listaEl.innerHTML = `
+                <div class="feed-x-reels-vazio">
+                    <strong>Nenhum comentário ainda</strong>
+                    <span>Seja o primeiro a comentar.</span>
                 </div>
             `;
         } else {
-            lista.innerHTML = comentarios.docs.map((documento) => {
-                const comentario = documento.data() || {};
+            listaEl.innerHTML = comentarios.docs.map((docComentario) => {
+                const comentario = docComentario.data() || {};
                 const nome = escaparHtml(
                     comentario.autorNome || comentario.autorUsername || "Membro"
                 );
                 const username = escaparHtml(
                     comentario.autorUsername || "usuario"
                 );
-                const texto = escaparHtml(comentario.texto || "");
+                const textoComentario = escaparHtml(
+                    comentario.texto || ""
+                );
                 const avatar = escaparHtml(
                     normalizarUrlPublicacao(comentario.autorFotoUrl) ||
                     "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
                  );
 
                 return `
-                    <article class="feed-x-comentario-item">
-                        <img class="feed-x-comentario-avatar" src="${avatar}" alt="Foto de ${nome}">
-                        <div class="feed-x-comentario-corpo">
-                            <div class="feed-x-comentario-meta">
+                    <article class="feed-x-reels-comentario">
+                        <img class="feed-x-reels-avatar" src="${avatar}" alt="Foto de ${nome}">
+                        <div class="feed-x-reels-comentario-corpo">
+                            <div class="feed-x-reels-comentario-nome">
                                 <strong>${nome}</strong>
                                 <span>@${username}</span>
                             </div>
-                            <div class="feed-x-comentario-texto">${texto}</div>
+                            <div class="feed-x-reels-comentario-texto">${textoComentario}</div>
                         </div>
                     </article>
                 `;
             }).join("");
         }
 
-        setTimeout(() => input.focus(), 100);
+        setTimeout(() => inputEl.focus({ preventScroll: true }), 100);
     } catch (erro) {
         console.error("Erro ao carregar comentários:", erro);
-        lista.innerHTML = `
-            <div class="feed-x-comentarios-erro">
-                Não foi possível carregar os comentários.
-            </div>
+        midiaEl.innerHTML = "";
+        listaEl.innerHTML = `
+            <div class="feed-x-reels-erro">Não foi possível carregar esta publicação.</div>
         `;
     }
 
-    formulario.addEventListener("submit", async (evento) => {
+    formEl.addEventListener("submit", async (evento) => {
         evento.preventDefault();
 
-        const texto = input.value.trim();
-        if (!texto || botaoEnviar.disabled) {
+        const textoComentario = inputEl.value.trim();
+        if (!textoComentario || enviarEl.disabled) {
             return;
         }
 
@@ -9150,49 +9206,58 @@ async function abrirComentariosPublicacao(
             return;
         }
 
-        botaoEnviar.disabled = true;
-        botaoEnviar.textContent = "Enviando...";
+        enviarEl.disabled = true;
+        enviarEl.textContent = "Enviando...";
 
         try {
-            const autor = await obterDadosAutorPublicacao();
-            const referencia = window.ClubeDB.textoDB
-                .collection("publicacoes")
-                .doc(idPublicacao);
+            const autorComentario =
+                await obterDadosAutorPublicacao();
 
-            await referencia.collection("comentarios").add({
-                uid: usuario.uid,
-                autorId: autor.uid,
-                autorNome: autor.nome,
-                autorUsername: autor.username,
-                autorFotoUrl: autor.fotoUrl,
-                texto: texto,
-                criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            await referenciaPublicacao
+                .collection("comentarios")
+                .add({
+                    uid: usuario.uid,
+                    autorId: autorComentario.uid,
+                    autorNome: autorComentario.nome,
+                    autorUsername: autorComentario.username,
+                    autorFotoUrl: autorComentario.fotoUrl,
+                    texto: textoComentario,
+                    criadoEm:
+                        firebase.firestore.FieldValue
+                            .serverTimestamp()
+                });
+
+            await referenciaPublicacao.update({
+                comentarios:
+                    firebase.firestore.FieldValue.increment(1)
             });
-
-            await referencia.update({
-                comentarios: firebase.firestore.FieldValue.increment(1)
-            });
-
-            input.value = "";
-            fechar();
 
             const card = document.querySelector(
                 `.feed-x-post[data-publicacao-id="${idPublicacao}"]`
             );
+
             const contador = card
-                ? card.querySelector('[data-acao="comentarios"] .feed-x-contador')
+                ? card.querySelector(
+                    '[data-acao="comentarios"] .feed-x-contador'
+                )
                 : null;
 
             if (contador) {
-                contador.textContent = String(Number(contador.textContent || 0) + 1);
+                contador.textContent = String(
+                    Number(contador.textContent || 0) + 1
+                );
             }
 
+            fechar();
             await abrirComentariosPublicacao(idPublicacao);
         } catch (erro) {
             console.error("Erro ao publicar comentário:", erro);
-            alert(erro.message || "Não foi possível publicar o comentário.");
-            botaoEnviar.disabled = false;
-            botaoEnviar.textContent = "Responder";
+            alert(
+                erro.message ||
+                "Não foi possível publicar o comentário."
+            );
+            enviarEl.disabled = false;
+            enviarEl.textContent = "Publicar";
         }
     });
 }
