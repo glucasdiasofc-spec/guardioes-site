@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.77.0 - versão alpha";
+const VERSAO_ATUAL = "v0.78.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -41,48 +41,194 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Executa o login do administrador
-async function executarLoginMembro() {    
-    const usuarioInput = document.getElementById("login-username").value.trim();
-    const senhaInput = document.getElementById("login-senha").value;
-    const erroDisplay = document.getElementById("erro-login");
+async function executarLoginMembro() {
+    const usuarioInput =
+        document.getElementById("login-username").value.trim();
 
-    if (erroDisplay) erroDisplay.textContent = "Validando...";
+    const senhaInput =
+        document.getElementById("login-senha").value;
 
-    // 1. Acesso do Admin
-    if (usuarioInput === "admin" && senhaInput === "Alcopoes1") {
-        localStorage.setItem("sessaoAdminLogado", "true");
-        localStorage.setItem("usuarioLogado", "admin");
-        localStorage.setItem("usernameLogado", "admin");
-        
-        document.getElementById("tela-login").style.display = "none";
-        document.getElementById("tela-admin").style.display = "flex";
-        
-        document.getElementById("login-username").value = "";
-        document.getElementById("login-senha").value = "";
+    const erroDisplay =
+        document.getElementById("erro-login");
 
-        carregarUnidadesCadastradas();
-        carregarMembrosCadastrados();
-        if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite();
+    if (!usuarioInput || !senhaInput) {
+        if (erroDisplay) {
+            erroDisplay.textContent =
+                "Digite seu usuário e senha.";
+        }
+
         return;
     }
 
-    // 2. Acesso via Firebase Auth para membros comuns
+    if (erroDisplay) {
+        erroDisplay.textContent =
+            "Validando...";
+    }
+
+    /*
+     * =====================================================
+     * AUTENTICAÇÃO ÚNICA PELO FIREBASE AUTH
+     * =====================================================
+     *
+     * Agora tanto o administrador quanto os membros
+     * possuem uma sessão Firebase Authentication.
+     *
+     * Isso é importante porque o Cloudflare Worker
+     * precisa validar o Firebase ID Token antes de
+     * aceitar uma publicação.
+     */
+
     try {
-        const emailFirebase = `${usuarioInput.toLowerCase()}@guardioesdbv.com`;
-        await window.ClubeDB.loginDB.signInWithEmailAndPassword(emailFirebase, senhaInput);
-        
-        localStorage.setItem("sessaoAdminLogado", "true");
-        localStorage.setItem("usuarioLogado", "membro");
-        localStorage.setItem("usernameLogado", usuarioInput.toLowerCase());
-        
-        document.getElementById("tela-login").style.display = "none";
-        
-        // Membros comuns vão direto para o site!
+        /*
+         * Administrador:
+         *
+         * O campo de login continua sendo:
+         *
+         * admin
+         *
+         * Mas a autenticação real acontece por:
+         *
+         * admin@guardioesdbv.com
+         */
+        const ehAdministrador =
+            usuarioInput.toLowerCase() === "admin";
+
+        const emailFirebase =
+            ehAdministrador
+                ? "admin@guardioesdbv.com"
+                : `${usuarioInput.toLowerCase()}@guardioesdbv.com`;
+
+        /*
+         * Faz login real no Firebase Authentication.
+         */
+        await window.ClubeDB.loginDB
+            .signInWithEmailAndPassword(
+                emailFirebase,
+                senhaInput
+            );
+
+        /*
+         * Salva a sessão local utilizada
+         * pelo restante do seu site.
+         */
+        localStorage.setItem(
+            "sessaoAdminLogado",
+            "true"
+        );
+
+        localStorage.setItem(
+            "usuarioLogado",
+            ehAdministrador
+                ? "admin"
+                : "membro"
+        );
+
+        localStorage.setItem(
+            "usernameLogado",
+            ehAdministrador
+                ? "admin"
+                : usuarioInput.toLowerCase()
+        );
+
+        /*
+         * Limpa os campos de login.
+         */
+        document.getElementById(
+            "login-username"
+        ).value = "";
+
+        document.getElementById(
+            "login-senha"
+        ).value = "";
+
+        /*
+         * =====================================================
+         * FLUXO DO ADMINISTRADOR
+         * =====================================================
+         */
+        if (ehAdministrador) {
+            document.getElementById(
+                "tela-login"
+            ).style.display = "none";
+
+            document.getElementById(
+                "tela-admin"
+            ).style.display = "flex";
+
+            carregarUnidadesCadastradas();
+
+            carregarMembrosCadastrados();
+
+            if (
+                typeof carregarAprovacoesSite ===
+                "function"
+            ) {
+                carregarAprovacoesSite();
+            }
+
+            return;
+        }
+
+        /*
+         * =====================================================
+         * FLUXO DOS MEMBROS
+         * =====================================================
+         *
+         * O membro continua indo diretamente para o site.
+         */
+        document.getElementById(
+            "tela-login"
+        ).style.display = "none";
+
         irParaSite();
-        
+
     } catch (erro) {
-        console.error("Erro de login:", erro);
-        if (erroDisplay) erroDisplay.textContent = "Usuário ou senha incorretos.";
+
+        console.error(
+            "Erro de login:",
+            erro
+        );
+
+        /*
+         * Trata especificamente alguns erros comuns
+         * para facilitar a identificação do problema.
+         */
+        if (
+            erro &&
+            erro.code ===
+                "auth/user-not-found"
+        ) {
+            if (erroDisplay) {
+                erroDisplay.textContent =
+                    "Usuário não encontrado.";
+            }
+
+        } else if (
+            erro &&
+            erro.code ===
+                "auth/wrong-password"
+        ) {
+            if (erroDisplay) {
+                erroDisplay.textContent =
+                    "Senha incorreta.";
+            }
+
+        } else if (
+            erro &&
+            erro.code ===
+                "auth/invalid-credential"
+        ) {
+            if (erroDisplay) {
+                erroDisplay.textContent =
+                    "Usuário ou senha incorretos.";
+            }
+
+        } else {
+            if (erroDisplay) {
+                erroDisplay.textContent =
+                    "Não foi possível entrar. Verifique usuário e senha.";
+            }
+        }
     }
 }
 
