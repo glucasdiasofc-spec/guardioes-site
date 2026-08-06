@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.87.0 - versão alpha";
+const VERSAO_ATUAL = "v0.88.0 - versão alpha";
 
 /*
  * =====================================================
@@ -1689,7 +1689,7 @@ async function carregarPerfilDoUsuario() {
     const vazioEl = document.getElementById("perfil-publicacoes-vazio");
     const avatarPadrao = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
 
-    mudarSubTabPerfil("publicacoes" );
+    mudarSubTabPerfil("publicacoes");
 
     if (tipoUsuario === "admin") {
         if (nomeEl) nomeEl.textContent = "Administrador";
@@ -1734,7 +1734,10 @@ async function carregarPerfilDoUsuario() {
         if (nascimentoEl) {
             if (dados.dataNascimento) {
                 const partesData = String(dados.dataNascimento).split("-");
-                nascimentoEl.textContent = "Nascido em: " + (partesData[2] || "--") + "/" + (partesData[1] || "--") + "/" + (partesData[0] || "--");
+                nascimentoEl.textContent = "Nascido em: " +
+                    (partesData[2] || "--") + "/" +
+                    (partesData[1] || "--") + "/" +
+                    (partesData[0] || "--");
             } else {
                 nascimentoEl.textContent = "Nascido em: --/--/----";
             }
@@ -1749,7 +1752,9 @@ async function carregarPerfilDoUsuario() {
         const mestrados = Array.isArray(dados.mestrados) ? dados.mestrados : [];
 
         if (contadorEl) {
-            contadorEl.textContent = String(classes.length + especialidades.length + mestrados.length);
+            contadorEl.textContent = String(
+                classes.length + especialidades.length + mestrados.length
+            );
         }
 
         if (tClasses) tClasses.textContent = "🎒 Classes Regulares (" + classes.length + ")";
@@ -1759,26 +1764,37 @@ async function carregarPerfilDoUsuario() {
                     return "<div>• " + escaparHtml(classe) + "</div>";
                 }).join("");
             } else {
-                classesEl.textContent = "• Classe Vinculada: " + (dados.tipo === "Desbravador" ? "Classe Regular" : "Classe de Líder");
+                classesEl.textContent = "• Classe Vinculada: " +
+                    (dados.tipo === "Desbravador" ? "Classe Regular" : "Classe de Líder");
             }
         }
 
-        if (tEspecialidades) tEspecialidades.textContent = "🏅 Especialidades Adquiridas (" + especialidades.length + ")";
+        if (tEspecialidades) {
+            tEspecialidades.textContent = "🏅 Especialidades Adquiridas (" + especialidades.length + ")";
+        }
+
         if (especialidadesEl) {
             if (especialidades.length > 0) {
                 especialidadesEl.innerHTML = especialidades.map(function (especialidade) {
-                    return "<span style=\"background:#262626;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;white-space:normal;word-break:break-word;display:inline-block;margin:2px;\">🎖️ " + escaparHtml(especialidade) + "</span>";
+                    return "<span style=\"background:#262626;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;white-space:normal;word-break:break-word;display:inline-block;margin:2px;\">🎖️ " +
+                        escaparHtml(especialidade) +
+                        "</span>";
                 }).join("");
             } else {
                 especialidadesEl.textContent = "Nenhuma especialidade validada.";
             }
         }
 
-        if (tMestrados) tMestrados.textContent = "🏆 Mestrados Adquiridos (" + mestrados.length + ")";
+        if (tMestrados) {
+            tMestrados.textContent = "🏆 Mestrados Adquiridos (" + mestrados.length + ")";
+        }
+
         if (mestradosEl) {
             if (mestrados.length > 0) {
                 mestradosEl.innerHTML = mestrados.map(function (mestrado) {
-                    return "<span style=\"background:#1e3a1e;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;white-space:normal;word-break:break-word;display:inline-block;margin:2px;border:1px solid #2e5a2e;\">🏆 " + escaparHtml(mestrado) + "</span>";
+                    return "<span style=\"background:#1e3a1e;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;white-space:normal;word-break:break-word;display:inline-block;margin:2px;border:1px solid #2e5a2e;\">🏆 " +
+                        escaparHtml(mestrado) +
+                        "</span>";
                 }).join("");
             } else {
                 mestradosEl.textContent = "Nenhum mestrado concluído ainda.";
@@ -1801,39 +1817,97 @@ async function carregarPerfilDoUsuario() {
                 .get();
         }
 
-        if (gridEl) gridEl.innerHTML = "";
+        if (gridEl) {
+            gridEl.innerHTML = "";
+        }
 
         if (!snapshotPublicacoes.empty && gridEl) {
-            gridEl.style.display = "grid";
+            const publicacoesOrdenadas = snapshotPublicacoes.docs.slice().sort(function (a, b) {
+                const dataA = a.data().criadoEm;
+                const dataB = b.data().criadoEm;
 
-            gridEl.innerHTML = snapshotPublicacoes.docs.map(function (documento) {
+                const tempoA = dataA && typeof dataA.toMillis === "function"
+                    ? dataA.toMillis()
+                    : (dataA && dataA.seconds ? dataA.seconds * 1000 : 0);
+
+                const tempoB = dataB && typeof dataB.toMillis === "function"
+                    ? dataB.toMillis()
+                    : (dataB && dataB.seconds ? dataB.seconds * 1000 : 0);
+
+                return tempoB - tempoA;
+            });
+
+            gridEl.style.display = "grid";
+            gridEl.style.gridTemplateColumns = "repeat(3, minmax(0, 1fr))";
+            gridEl.style.gap = "2px";
+            gridEl.style.width = "100%";
+
+            gridEl.innerHTML = publicacoesOrdenadas.map(function (documento) {
                 const publicacao = documento.data() || {};
-                const texto = escaparHtml(publicacao.texto || "");
+                const idPublicacao = escaparHtml(documento.id);
+                const texto = escaparHtml(publicacao.texto || "Publicação");
                 const fileId = publicacao.telegramFileId || "";
+
+                let conteudo = `
+                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;background:#121212;color:#fff;font-size:12px;line-height:1.35;text-align:left;white-space:pre-wrap;overflow:hidden;">
+                        ${texto}
+                    </div>
+                `;
 
                 if (fileId) {
                     const urlMidia = escaparHtml(criarUrlMidiaTelegram(fileId));
 
                     if (publicacao.tipoMidia === "video") {
-                        return "<div style=\"aspect-ratio:1;background:#121212;overflow:hidden;\"><video src=\"" + urlMidia + "\" muted playsinline preload=\"metadata\" style=\"width:100%;height:100%;object-fit:cover;\"></video></div>";
+                        conteudo = `
+                            <video
+                                src="${urlMidia}"
+                                muted
+                                playsinline
+                                preload="metadata"
+                                style="width:100%;height:100%;object-fit:cover;"
+                            ></video>
+                            <span style="position:absolute;right:8px;top:8px;background:rgba(0,0,0,.65);color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;">▶</span>
+                        `;
+                    } else {
+                        conteudo = `
+                            <img
+                                src="${urlMidia}"
+                                alt="Publicação"
+                                loading="lazy"
+                                style="width:100%;height:100%;object-fit:cover;"
+                            >
+                        `;
                     }
-
-                    return "<div style=\"aspect-ratio:1;background:#121212;overflow:hidden;\"><img src=\"" + urlMidia + "\" alt=\"Publicação\" loading=\"lazy\" style=\"width:100%;height:100%;object-fit:cover;\"></div>";
                 }
 
-                return "<div style=\"aspect-ratio:1;background:#121212;overflow:hidden;padding:12px;box-sizing:border-box;color:#fff;font-size:12px;line-height:1.35;text-align:left;white-space:pre-wrap;\">" + texto + "</div>";
+                return `
+                    <button
+                        type="button"
+                        onclick="abrirPublicacaoDoPerfil('${idPublicacao}')"
+                        aria-label="Abrir publicação"
+                        style="position:relative;display:block;aspect-ratio:1;overflow:hidden;border:0;padding:0;background:#121212;cursor:pointer;"
+                    >
+                        ${conteudo}
+                    </button>
+                `;
             }).join("");
 
-            if (vazioEl) vazioEl.style.display = "none";
+            if (vazioEl) {
+                vazioEl.style.display = "none";
+            }
         } else {
-            if (gridEl) gridEl.style.display = "none";
-            if (vazioEl) vazioEl.style.display = "block";
+            if (gridEl) {
+                gridEl.style.display = "none";
+            }
+
+            if (vazioEl) {
+                vazioEl.style.display = "block";
+            }
         }
     } catch (erro) {
         console.error("Erro ao carregar dados do perfil:", erro);
     }
 }
-
 
 // Alternar sub-abas do próprio perfil (Publicações vs Conquistas)
 function mudarSubTabPerfil(subAba) {
@@ -1842,24 +1916,28 @@ function mudarSubTabPerfil(subAba) {
     const tabPubsBtn = document.getElementById("tab-perfil-publicacoes");
     const tabConqBtn = document.getElementById("tab-perfil-conquistas");
 
-    if (subAba === 'publicacoes') {
+    if (subAba === "publicacoes") {
         if (abaPubs) abaPubs.style.display = "block";
         if (abaConq) abaConq.style.display = "none";
+
         if (tabPubsBtn) {
             tabPubsBtn.style.color = "#fff";
             tabPubsBtn.style.borderTop = "1.5px solid #fff";
         }
+
         if (tabConqBtn) {
             tabConqBtn.style.color = "#8e8e8e";
             tabConqBtn.style.borderTop = "1.5px solid transparent";
         }
-    } else if (subAba === 'conquistas') {
+    } else if (subAba === "conquistas") {
         if (abaPubs) abaPubs.style.display = "none";
         if (abaConq) abaConq.style.display = "block";
+
         if (tabPubsBtn) {
             tabPubsBtn.style.color = "#8e8e8e";
             tabPubsBtn.style.borderTop = "1.5px solid transparent";
         }
+
         if (tabConqBtn) {
             tabConqBtn.style.color = "#fff";
             tabConqBtn.style.borderTop = "1.5px solid #fff";
@@ -1867,6 +1945,96 @@ function mudarSubTabPerfil(subAba) {
     }
 }
 
+async function abrirPublicacaoDoPerfil(idPublicacao) {
+    if (!idPublicacao || !window.ClubeDB || !window.ClubeDB.textoDB) {
+        return;
+    }
+
+    const modalAnterior = document.getElementById("modal-publicacao-perfil");
+
+    if (modalAnterior) {
+        modalAnterior.remove();
+    }
+
+    const modal = document.createElement("div");
+    modal.id = "modal-publicacao-perfil";
+    modal.style.cssText = `
+        position:fixed;
+        inset:0;
+        z-index:10001;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:16px;
+        box-sizing:border-box;
+        background:rgba(0,0,0,.82);
+    `;
+
+    modal.innerHTML = `
+        <div style="position:relative;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;background:#000;border:1px solid #262626;border-radius:12px;">
+            <button
+                type="button"
+                aria-label="Fechar publicação"
+                style="position:sticky;top:10px;float:right;z-index:2;margin:10px 10px -45px 0;width:34px;height:34px;border:0;border-radius:50%;background:rgba(0,0,0,.72);color:#fff;font-size:24px;cursor:pointer;"
+            >×</button>
+            <div id="conteudo-modal-publicacao-perfil" style="min-height:180px;display:flex;align-items:center;justify-content:center;color:#8e8e8e;">
+                Carregando publicação...
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const fechar = function () {
+        modal.remove();
+        document.removeEventListener("keydown", fecharComEscape);
+    };
+
+    const fecharComEscape = function (evento) {
+        if (evento.key === "Escape") {
+            fechar();
+        }
+    };
+
+    modal.querySelector("button").onclick = fechar;
+
+    modal.addEventListener("click", function (evento) {
+        if (evento.target === modal) {
+            fechar();
+        }
+    });
+
+    document.addEventListener("keydown", fecharComEscape);
+
+    try {
+        const documento = await window.ClubeDB.textoDB
+            .collection("publicacoes")
+            .doc(idPublicacao)
+            .get();
+
+        if (!documento.exists) {
+            throw new Error("Esta publicação não existe mais.");
+        }
+
+        const conteudo = document.getElementById("conteudo-modal-publicacao-perfil");
+
+        if (conteudo) {
+            conteudo.innerHTML = criarCardPublicacao(documento);
+        }
+    } catch (erro) {
+        console.error("Erro ao abrir publicação do perfil:", erro);
+
+        const conteudo = document.getElementById("conteudo-modal-publicacao-perfil");
+
+        if (conteudo) {
+            conteudo.innerHTML = `
+                <div style="padding:30px;text-align:center;color:#ff6b6b;">
+                    Não foi possível carregar esta publicação.
+                </div>
+            `;
+        }
+    }
+}
 // Controladores do Modal de Foto de Perfil
 function abrirModalFoto() {
     const modal = document.getElementById("modal-foto-perfil");
