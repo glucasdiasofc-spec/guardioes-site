@@ -3,7 +3,21 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.79.0 - versão alpha";
+const VERSAO_ATUAL = "v0.78.0 - versão alpha";
+
+/*
+ * =====================================================
+ * CONFIGURAÇÃO DAS PUBLICAÇÕES
+ * =====================================================
+ *
+ * URL pública do Cloudflare Worker responsável por:
+ *
+ * - receber a foto ou vídeo;
+ * - enviar a mídia para o Telegram;
+ * - fornecer a mídia posteriormente pelo endpoint /media.
+ */
+const PUBLICACOES_WORKER_URL =
+    "https://telegram.glucasdiasofc.workers.dev";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
