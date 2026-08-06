@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.82.0 - versão alpha";
+const VERSAO_ATUAL = "v0.83.0 - versão alpha";
 
 /*
  * =====================================================
@@ -8649,9 +8649,6 @@ async function publicarPublicacao() {
             ? inputArquivo.files[0]
             : null;
 
-    /*
-     * Não permite publicar vazio.
-     */
     if (
         !texto &&
         !arquivo
@@ -8663,9 +8660,6 @@ async function publicarPublicacao() {
         return;
     }
 
-    /*
-     * Verifica a sessão Firebase.
-     */
     const usuarioFirebase =
         window.ClubeDB &&
         window.ClubeDB.loginDB
@@ -8680,12 +8674,7 @@ async function publicarPublicacao() {
         return;
     }
 
-    /*
-     * Validação de mídia no navegador
-     * antes de enviar ao Worker.
-     */
     if (arquivo) {
-
         const ehImagem =
             arquivo.type.startsWith(
                 "image/"
@@ -8731,28 +8720,19 @@ async function publicarPublicacao() {
         }
     }
 
+    let referenciaPublicacao = null;
+
     try {
-
         if (btnPublicar) {
-            btnPublicar.disabled =
-                true;
-
+            btnPublicar.disabled = true;
             btnPublicar.textContent =
                 "Publicando...";
         }
 
-        /*
-         * Carrega os dados do autor.
-         */
         const autor =
             await obterDadosAutorPublicacao();
 
-        /*
-         * Cria primeiro o documento no Firestore.
-         *
-         * A mídia pesada NÃO vai para o Firestore.
-         */
-        const referenciaPublicacao =
+        referenciaPublicacao =
             await window.ClubeDB.textoDB
                 .collection("publicacoes")
                 .add({
@@ -8824,15 +8804,10 @@ async function publicarPublicacao() {
         let dadosMidia =
             null;
 
-        /*
-         * Se existir mídia, envia para
-         * o Cloudflare Worker.
-         */
         if (arquivo) {
-
             const idToken =
                 await usuarioFirebase
-                    .getIdToken();
+                    .getIdToken(true);
 
             const formData =
                 new FormData();
@@ -8853,75 +8828,148 @@ async function publicarPublicacao() {
                 autor.username
             );
 
-            const respostaWorker =
-                await fetch(
-                    PUBLICACOES_WORKER_URL +
-                    "/upload",
-                    {
-                        method:
-                            "POST",
+            let respostaWorker = null;
+            let resultadoWorker = null;
+            let erroWorker = "";
 
-                        headers: {
-                            "Authorization":
-                                `Bearer ${idToken}`
-                        },
+            for (
+                let tentativa = 1;
+                tentativa <= 3;
+                tentativa++
+            ) {
+                const controlador =
+                    new AbortController();
 
-                        body:
-                            formData
+                const timeout =
+                    setTimeout(
+                        () => controlador.abort(),
+                        60000
+                    );
+
+                try {
+                    respostaWorker =
+                        await fetch(
+                            PUBLICACOES_WORKER_URL +
+                            "/upload",
+                            {
+                                method:
+                                    "POST",
+
+                                headers: {
+                                    "Authorization":
+                                        `Bearer ${idToken}`
+                                },
+
+                                body:
+                                    formData,
+
+                                cache:
+                                    "no-store",
+
+                                signal:
+                                    controlador.signal
+                            }
+                        );
+
+                    const textoResposta =
+                        await respostaWorker.text();
+
+                    try {
+                        resultadoWorker =
+                            textoResposta
+                                ? JSON.parse(
+                                    textoResposta
+                                )
+                                : {};
+                    } catch (erroJSON) {
+                        resultadoWorker = {
+                            ok: false,
+                            erro:
+                                textoResposta ||
+                                "Resposta inválida do Worker."
+                        };
+                    }
+
+                    if (
+                        respostaWorker.ok &&
+                        resultadoWorker.ok &&
+                        resultadoWorker.midia
+                    ) {
+                        break;
+                    }
+
+                    erroWorker =
+                        resultadoWorker.erro ||
+                        resultadoWorker.error ||
+                        `HTTP ${respostaWorker.status}`;
+
+                    const podeTentarNovamente =
+                        respostaWorker.status === 408 ||
+                        respostaWorker.status === 429 ||
+                        respostaWorker.status >= 500;
+
+                    if (
+                        !podeTentarNovamente ||
+                        tentativa === 3
+                    ) {
+                        throw new Error(
+                            `Falha no upload: HTTP ${respostaWorker.status} — ${erroWorker}`
+                        );
+                    }
+                } catch (erroEnvio) {
+                    if (
+                        erroEnvio.name ===
+                        "AbortError"
+                    ) {
+                        erroWorker =
+                            "O Worker demorou mais de 60 segundos para responder.";
+                    } else {
+                        erroWorker =
+                            erroEnvio.message ||
+                            "Falha de comunicação com o Worker.";
+                    }
+
+                    if (
+                        tentativa === 3
+                    ) {
+                        throw new Error(
+                            erroWorker
+                        );
+                    }
+                } finally {
+                    clearTimeout(
+                        timeout
+                    );
+                }
+
+                await new Promise(
+                    (resolver) => {
+                        setTimeout(
+                            resolver,
+                            tentativa * 2000
+                        );
                     }
                 );
+            }
 
-            const corpoRespostaWorker =
-    await respostaWorker.text();
-
-let resultadoWorker = {};
-
-try {
-    resultadoWorker = corpoRespostaWorker
-        ? JSON.parse(corpoRespostaWorker)
-        : {};
-} catch (erroParse) {
-    console.error(
-        "O Worker retornou uma resposta que não é JSON:",
-        corpoRespostaWorker
-    );
-
-    throw new Error(
-        `Resposta inválida do Worker (HTTP ${respostaWorker.status}).`
-    );
-}
-
-if (
-    !respostaWorker.ok ||
-    !resultadoWorker.ok ||
-    !resultadoWorker.midia
-) {
-    console.error("Resposta completa do Worker:", {
-        url: PUBLICACOES_WORKER_URL + "/upload",
-        status: respostaWorker.status,
-        corpo: resultadoWorker
-    });
-
-    throw new Error(
-        resultadoWorker.erro ||
-        resultadoWorker.error ||
-        `Worker retornou HTTP ${respostaWorker.status}.`
-    );
-}
-
+            if (
+                !respostaWorker ||
+                !respostaWorker.ok ||
+                !resultadoWorker ||
+                !resultadoWorker.ok ||
+                !resultadoWorker.midia
+            ) {
+                throw new Error(
+                    erroWorker ||
+                    "O Worker não retornou os dados da mídia."
+                );
+            }
 
             dadosMidia =
                 resultadoWorker.midia;
         }
 
-        /*
-         * Atualiza o documento com os metadados.
-         *
-         * As fotos e vídeos continuam armazenados no Telegram.
-         * O Firestore guarda apenas os identificadores.
-         */
         await referenciaPublicacao.update({
-
             status:
                 "publicada",
 
@@ -8976,26 +9024,40 @@ if (
                     : null
         });
 
-        /*
-         * Fecha o modal.
-         */
         fecharCriadorPublicacao();
 
-        /*
-         * Recarrega o Feed.
-         */
         await carregarPublicacoesFeed();
 
         alert(
             "Publicação criada com sucesso! 🎉"
         );
-
     } catch (erro) {
-
         console.error(
             "Erro ao publicar:",
             erro
         );
+
+        if (referenciaPublicacao) {
+            try {
+                await referenciaPublicacao.update({
+                    status:
+                        "erro",
+
+                    erroPublicacao:
+                        erro.message ||
+                        "Erro desconhecido.",
+
+                    atualizadoEm:
+                        firebase.firestore.FieldValue
+                            .serverTimestamp()
+                });
+            } catch (erroAtualizacao) {
+                console.error(
+                    "Não foi possível atualizar o status da publicação:",
+                    erroAtualizacao
+                );
+            }
+        }
 
         alert(
             "Não foi possível publicar: " +
@@ -9004,18 +9066,15 @@ if (
                 "Erro desconhecido."
             )
         );
-
     } finally {
-
         if (btnPublicar) {
-            btnPublicar.disabled =
-                false;
-
+            btnPublicar.disabled = false;
             btnPublicar.textContent =
                 "Publicar";
         }
     }
 }
+
 
 
 /*
