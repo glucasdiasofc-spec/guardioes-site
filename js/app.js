@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.81.0 - versão alpha";
+const VERSAO_ATUAL = "v0.82.0 - versão alpha";
 
 /*
  * =====================================================
@@ -8871,19 +8871,44 @@ async function publicarPublicacao() {
                     }
                 );
 
-            const resultadoWorker =
-                await respostaWorker.json();
+            const corpoRespostaWorker =
+    await respostaWorker.text();
 
-            if (
-                !respostaWorker.ok ||
-                !resultadoWorker.ok ||
-                !resultadoWorker.midia
-            ) {
-                throw new Error(
-                    resultadoWorker.erro ||
-                    "O servidor não conseguiu enviar a mídia."
-                );
-            }
+let resultadoWorker = {};
+
+try {
+    resultadoWorker = corpoRespostaWorker
+        ? JSON.parse(corpoRespostaWorker)
+        : {};
+} catch (erroParse) {
+    console.error(
+        "O Worker retornou uma resposta que não é JSON:",
+        corpoRespostaWorker
+    );
+
+    throw new Error(
+        `Resposta inválida do Worker (HTTP ${respostaWorker.status}).`
+    );
+}
+
+if (
+    !respostaWorker.ok ||
+    !resultadoWorker.ok ||
+    !resultadoWorker.midia
+) {
+    console.error("Resposta completa do Worker:", {
+        url: PUBLICACOES_WORKER_URL + "/upload",
+        status: respostaWorker.status,
+        corpo: resultadoWorker
+    });
+
+    throw new Error(
+        resultadoWorker.erro ||
+        resultadoWorker.error ||
+        `Worker retornou HTTP ${respostaWorker.status}.`
+    );
+}
+
 
             dadosMidia =
                 resultadoWorker.midia;
