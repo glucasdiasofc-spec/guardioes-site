@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.78.0 - versão alpha";
+const VERSAO_ATUAL = "v0.79.0 - versão alpha";
 
 // Função de compatibilidade global para resolver o erro de processamento de aprovação
 function carregarPendenciasAprovacaoAdmin() {
@@ -7953,13 +7953,1064 @@ function atualizarCriadorPublicacao() {
 }
 
 
-function publicarPublicacao() {
+// =====================================================
+// PUBLICAÇÕES — INTEGRAÇÃO FIRESTORE + TELEGRAM
+// =====================================================
+
+/*
+ * Escapa texto antes de colocá-lo dentro de HTML.
+ * Isso evita que o texto digitado pelo usuário seja
+ * interpretado como código HTML.
+ */
+function escaparHtml(valor) {
+    return String(valor || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+/*
+ * Garante que uma URL exibida pelo site seja HTTP/HTTPS.
+ */
+function normalizarUrlPublicacao(url) {
+    const valor =
+        String(url || "").trim();
+
+    if (
+        valor.startsWith("https://") ||
+        valor.startsWith("http://")
+    ) {
+        return valor;
+    }
+
+    return "";
+}
+
+
+/*
+ * Converte o Timestamp do Firestore para uma
+ * apresentação amigável no Feed.
+ */
+function formatarDataPublicacao(valor) {
+    try {
+        let data = null;
+
+        if (
+            valor &&
+            typeof valor.toDate === "function"
+        ) {
+            data = valor.toDate();
+
+        } else if (
+            valor instanceof Date
+        ) {
+            data = valor;
+
+        } else if (
+            typeof valor === "string" ||
+            typeof valor === "number"
+        ) {
+            data = new Date(valor);
+        }
+
+        if (
+            !data ||
+            Number.isNaN(data.getTime())
+        ) {
+            return "agora";
+        }
+
+        const agora =
+            new Date();
+
+        const diferenca =
+            agora.getTime() -
+            data.getTime();
+
+        const segundos =
+            Math.floor(
+                diferenca / 1000
+            );
+
+        if (segundos < 60) {
+            return "agora";
+        }
+
+        const minutos =
+            Math.floor(
+                segundos / 60
+            );
+
+        if (minutos < 60) {
+            return `há ${minutos} min`;
+        }
+
+        const horas =
+            Math.floor(
+                minutos / 60
+            );
+
+        if (horas < 24) {
+            return `há ${horas} h`;
+        }
+
+        const dias =
+            Math.floor(
+                horas / 24
+            );
+
+        if (dias < 7) {
+            return `há ${dias} d`;
+        }
+
+        return data.toLocaleDateString(
+            "pt-BR",
+            {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric"
+            }
+        );
+
+    } catch (erro) {
+        console.error(
+            "Erro ao formatar data:",
+            erro
+        );
+
+        return "agora";
+    }
+}
+
+
+/*
+ * Monta a URL pública usada para visualizar
+ * uma mídia armazenada no Telegram.
+ *
+ * Exemplo:
+ *
+ * Telegram
+ *     ↓
+ * telegramFileId
+ *     ↓
+ * Cloudflare Worker /media
+ *     ↓
+ * navegador
+ */
+function criarUrlMidiaTelegram(
+    telegramFileId
+) {
+    if (!telegramFileId) {
+        return "";
+    }
+
+    return (
+        PUBLICACOES_WORKER_URL +
+        "/media?file_id=" +
+        encodeURIComponent(
+            telegramFileId
+        )
+    );
+}
+
+
+/*
+ * Busca os dados do autor no Firestore.
+ *
+ * Para o admin, como ele não necessariamente possui
+ * documento na coleção "usuarios", usamos dados fixos.
+ *
+ * Para membros, usamos o documento correspondente
+ * ao username logado.
+ */
+async function obterDadosAutorPublicacao() {
+    const usernameLogado =
+        localStorage.getItem(
+            "usernameLogado"
+        );
+
+    const tipoUsuario =
+        localStorage.getItem(
+            "usuarioLogado"
+        );
+
+    const usuarioFirebase =
+        window.ClubeDB &&
+        window.ClubeDB.loginDB
+            ? window.ClubeDB.loginDB.currentUser
+            : null;
+
+    const dadosAutor = {
+        uid:
+            usuarioFirebase
+                ? usuarioFirebase.uid
+                : "",
+
+        username:
+            usernameLogado ||
+            "usuario",
+
+        nome:
+            usernameLogado ||
+            "Membro",
+
+        cargo:
+            "Membro",
+
+        fotoUrl:
+            "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+    };
+
     /*
-     * Nesta primeira etapa, ainda não enviamos dados
-     * para o Firestore nem arquivos para o Telegram.
+     * Dados padrão do administrador.
      */
+    if (
+        tipoUsuario === "admin"
+    ) {
+        dadosAutor.uid =
+            usuarioFirebase
+                ? usuarioFirebase.uid
+                : "admin";
+
+        dadosAutor.username =
+            "admin";
+
+        dadosAutor.nome =
+            "Administrador";
+
+        dadosAutor.cargo =
+            "Liderança Geral";
+
+        return dadosAutor;
+    }
+
+    if (!usernameLogado) {
+        return dadosAutor;
+    }
+
+    try {
+        const snapshot =
+            await window.ClubeDB.textoDB
+                .collection("usuarios")
+                .where(
+                    "username",
+                    "==",
+                    usernameLogado
+                )
+                .limit(1)
+                .get();
+
+        if (
+            !snapshot.empty
+        ) {
+            const dados =
+                snapshot.docs[0].data();
+
+            dadosAutor.nome =
+                dados.nomeReal ||
+                dados.username ||
+                usernameLogado;
+
+            dadosAutor.username =
+                dados.username ||
+                usernameLogado;
+
+            dadosAutor.cargo =
+                dados.cargo ||
+                dados.tipo ||
+                "Membro";
+
+            dadosAutor.fotoUrl =
+                normalizarUrlPublicacao(
+                    dados.fotoUrl
+                ) ||
+                dadosAutor.fotoUrl;
+        }
+
+    } catch (erro) {
+        console.warn(
+            "Não foi possível carregar os dados do autor:",
+            erro
+        );
+    }
+
+    return dadosAutor;
+}
+
+
+/*
+ * Renderiza uma publicação individual.
+ */
+function criarCardPublicacao(
+    doc
+) {
+    const dados =
+        doc.data() || {};
+
+    const autorNome =
+        escaparHtml(
+            dados.autorNome ||
+            dados.autorUsername ||
+            "Membro"
+        );
+
+    const autorUsername =
+        escaparHtml(
+            dados.autorUsername ||
+            "usuario"
+        );
+
+    const autorCargo =
+        escaparHtml(
+            dados.autorCargo ||
+            "Membro"
+        );
+
+    const avatar =
+        normalizarUrlPublicacao(
+            dados.autorFotoUrl
+        ) ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+    const texto =
+        escaparHtml(
+            dados.texto || ""
+        );
+
+    const dataPublicacao =
+        formatarDataPublicacao(
+            dados.criadoEm
+        );
+
+    const quantidadeCurtidas =
+        Number(
+            dados.curtidas || 0
+        );
+
+    const quantidadeComentarios =
+        Number(
+            dados.comentarios || 0
+        );
+
+    const quantidadeVisualizacoes =
+        Number(
+            dados.visualizacoes || 0
+        );
+
+    let blocoMidia =
+        "";
+
+    /*
+     * Se existir uma mídia do Telegram,
+     * ela será exibida através do Worker.
+     */
+    if (
+        dados.telegramFileId
+    ) {
+        const urlMidia =
+            criarUrlMidiaTelegram(
+                dados.telegramFileId
+            );
+
+        if (
+            dados.tipoMidia ===
+            "imagem"
+        ) {
+            blocoMidia = `
+                <div class="feed-x-midia">
+                    <img
+                        src="${escaparHtml(urlMidia)}"
+                        alt="Imagem da publicação de ${autorNome}"
+                        loading="lazy"
+                    >
+                </div>
+            `;
+
+        } else if (
+            dados.tipoMidia ===
+            "video"
+        ) {
+            blocoMidia = `
+                <div class="feed-x-midia">
+                    <video
+                        src="${escaparHtml(urlMidia)}"
+                        controls
+                        playsinline
+                        preload="metadata"
+                    ></video>
+                </div>
+            `;
+        }
+    }
+
+    /*
+     * Caso seja uma publicação somente de texto,
+     * não cria espaço vazio para mídia.
+     */
+    return `
+        <article
+            class="feed-x-post"
+            data-publicacao-id="${escaparHtml(doc.id)}"
+        >
+
+            <img
+                class="feed-x-avatar"
+                src="${escaparHtml(avatar)}"
+                alt="Foto de ${autorNome}"
+                loading="lazy"
+            >
+
+            <div class="feed-x-conteudo">
+
+                <div class="feed-x-autor">
+
+                    <span
+                        class="feed-x-nome"
+                        title="${autorNome}"
+                    >
+                        ${autorNome}
+                    </span>
+
+                    <span
+                        class="feed-x-username"
+                        title="@${autorUsername}"
+                    >
+                        @${autorUsername}
+                    </span>
+
+                    <span class="feed-x-data">
+                        · ${dataPublicacao}
+                    </span>
+
+                </div>
+
+                ${
+                    autorCargo
+                        ? `
+                            <div
+                                style="
+                                    color:#71767b;
+                                    font-size:13px;
+                                    margin-bottom:4px;
+                                "
+                            >
+                                ${autorCargo}
+                            </div>
+                        `
+                        : ""
+                }
+
+                ${
+                    texto
+                        ? `
+                            <div class="feed-x-texto">
+                                ${texto}
+                            </div>
+                        `
+                        : ""
+                }
+
+                ${blocoMidia}
+
+                <div class="feed-x-acoes">
+
+                    <button
+                        type="button"
+                        class="feed-x-acao"
+                        aria-label="Comentar"
+                        onclick="abrirComentariosPublicacao('${escaparHtml(doc.id)}')"
+                    >
+                        💬
+                        <span>
+                            ${quantidadeComentarios}
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="feed-x-acao"
+                        aria-label="Republicar"
+                    >
+                        ↻
+                        <span>
+                            0
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="feed-x-acao"
+                        aria-label="Curtir"
+                        onclick="curtirPublicacao('${escaparHtml(doc.id)}')"
+                    >
+                        ♡
+                        <span>
+                            ${quantidadeCurtidas}
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="feed-x-acao"
+                        aria-label="Visualizações"
+                    >
+                        ◉
+                        <span>
+                            ${quantidadeVisualizacoes}
+                        </span>
+                    </button>
+
+                </div>
+
+            </div>
+
+        </article>
+    `;
+}
+
+
+/*
+ * Carrega o Feed real do Firestore.
+ */
+async function carregarPublicacoesFeed() {
+    const container =
+        document.getElementById(
+            "feed-publicacoes-lista"
+        );
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = `
+        <div
+            style="
+                padding:30px 20px;
+                text-align:center;
+                color:#71767b;
+                font-size:14px;
+            "
+        >
+            Carregando publicações...
+        </div>
+    `;
+
+    try {
+        const snapshot =
+            await window.ClubeDB.textoDB
+                .collection("publicacoes")
+                .orderBy(
+                    "criadoEm",
+                    "desc"
+                )
+                .limit(50)
+                .get();
+
+        if (
+            snapshot.empty
+        ) {
+            container.innerHTML = `
+                <div
+                    style="
+                        padding:50px 20px;
+                        text-align:center;
+                        color:#71767b;
+                        font-size:14px;
+                    "
+                >
+                    Ainda não há publicações.
+                    <br>
+                    <span
+                        style="
+                            display:block;
+                            margin-top:6px;
+                            font-size:13px;
+                        "
+                    >
+                        Seja o primeiro a publicar!
+                    </span>
+                </div>
+            `;
+
+            return;
+        }
+
+        container.innerHTML =
+            snapshot.docs
+                .map(
+                    doc =>
+                        criarCardPublicacao(
+                            doc
+                        )
+                )
+                .join("");
+
+    } catch (erro) {
+
+        console.error(
+            "Erro ao carregar publicações:",
+            erro
+        );
+
+        container.innerHTML = `
+            <div
+                style="
+                    padding:40px 20px;
+                    text-align:center;
+                    color:#ff6b6b;
+                    font-size:14px;
+                "
+            >
+                Não foi possível carregar as publicações.
+                <br>
+                <button
+                    type="button"
+                    onclick="carregarPublicacoesFeed()"
+                    style="
+                        margin-top:12px;
+                        padding:8px 16px;
+                        border:none;
+                        border-radius:999px;
+                        background:#1d9bf0;
+                        color:#fff;
+                        cursor:pointer;
+                        font-weight:600;
+                    "
+                >
+                    Tentar novamente
+                </button>
+            </div>
+        `;
+    }
+}
+
+
+/*
+ * Publica uma nova publicação.
+ *
+ * Fluxo:
+ *
+ * 1. Valida o usuário Firebase.
+ * 2. Cria o documento da publicação no Firestore.
+ * 3. Se houver mídia:
+ *      Site
+ *        ↓
+ *      Cloudflare Worker
+ *        ↓
+ *      Telegram
+ * 4. Salva o telegramFileId no Firestore.
+ * 5. Recarrega o Feed.
+ */
+async function publicarPublicacao() {
+    const btnPublicar =
+        document.getElementById(
+            "btn-confirmar-publicacao"
+        );
+
+    const textarea =
+        document.getElementById(
+            "publicacao-texto"
+        );
+
+    const inputArquivo =
+        document.getElementById(
+            "publicacao-arquivo"
+        );
+
+    const texto =
+        textarea
+            ? textarea.value.trim()
+            : "";
+
+    const arquivo =
+        inputArquivo &&
+        inputArquivo.files &&
+        inputArquivo.files.length > 0
+            ? inputArquivo.files[0]
+            : null;
+
+    /*
+     * Não permite publicar vazio.
+     */
+    if (
+        !texto &&
+        !arquivo
+    ) {
+        alert(
+            "Escreva algo ou adicione uma foto/vídeo."
+        );
+
+        return;
+    }
+
+    /*
+     * Verifica a sessão Firebase.
+     */
+    const usuarioFirebase =
+        window.ClubeDB &&
+        window.ClubeDB.loginDB
+            ? window.ClubeDB.loginDB.currentUser
+            : null;
+
+    if (!usuarioFirebase) {
+        alert(
+            "Sua sessão expirou. Faça login novamente."
+        );
+
+        return;
+    }
+
+    /*
+     * Validação de mídia no navegador
+     * antes de enviar ao Worker.
+     */
+    if (arquivo) {
+
+        const ehImagem =
+            arquivo.type.startsWith(
+                "image/"
+            );
+
+        const ehVideo =
+            arquivo.type ===
+            "video/mp4";
+
+        if (
+            !ehImagem &&
+            !ehVideo
+        ) {
+            alert(
+                "Selecione uma imagem ou um vídeo MP4."
+            );
+
+            return;
+        }
+
+        if (
+            ehImagem &&
+            arquivo.size >
+                10 * 1024 * 1024
+        ) {
+            alert(
+                "A imagem deve ter no máximo 10 MB."
+            );
+
+            return;
+        }
+
+        if (
+            ehVideo &&
+            arquivo.size >
+                20 * 1024 * 1024
+        ) {
+            alert(
+                "O vídeo deve ter no máximo 20 MB."
+            );
+
+            return;
+        }
+    }
+
+    try {
+
+        if (btnPublicar) {
+            btnPublicar.disabled =
+                true;
+
+            btnPublicar.textContent =
+                "Publicando...";
+        }
+
+        /*
+         * Carrega os dados do autor.
+         */
+        const autor =
+            await obterDadosAutorPublicacao();
+
+        /*
+         * Cria primeiro o documento no Firestore.
+         *
+         * A mídia pesada NÃO vai para o Firestore.
+         */
+        const referenciaPublicacao =
+            await window.ClubeDB.textoDB
+                .collection("publicacoes")
+                .add({
+                    autorId:
+                        autor.uid,
+
+                    autorUsername:
+                        autor.username,
+
+                    autorNome:
+                        autor.nome,
+
+                    autorCargo:
+                        autor.cargo,
+
+                    autorFotoUrl:
+                        autor.fotoUrl,
+
+                    texto:
+                        texto,
+
+                    criadoEm:
+                        firebase.firestore.FieldValue
+                            .serverTimestamp(),
+
+                    status:
+                        "processando",
+
+                    tipoMidia:
+                        null,
+
+                    telegramFileId:
+                        "",
+
+                    telegramFileUniqueId:
+                        "",
+
+                    telegramMessageId:
+                        null,
+
+                    mimeType:
+                        "",
+
+                    nomeOriginal:
+                        "",
+
+                    tamanhoBytes:
+                        0,
+
+                    largura:
+                        null,
+
+                    altura:
+                        null,
+
+                    duracao:
+                        null,
+
+                    curtidas:
+                        0,
+
+                    comentarios:
+                        0,
+
+                    visualizacoes:
+                        0
+                });
+
+        let dadosMidia =
+            null;
+
+        /*
+         * Se existir mídia, envia para
+         * o Cloudflare Worker.
+         */
+        if (arquivo) {
+
+            const idToken =
+                await usuarioFirebase
+                    .getIdToken();
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                "arquivo",
+                arquivo,
+                arquivo.name
+            );
+
+            formData.append(
+                "texto",
+                texto
+            );
+
+            formData.append(
+                "autorUsername",
+                autor.username
+            );
+
+            const respostaWorker =
+                await fetch(
+                    PUBLICACOES_WORKER_URL +
+                    "/upload",
+                    {
+                        method:
+                            "POST",
+
+                        headers: {
+                            "Authorization":
+                                `Bearer ${idToken}`
+                        },
+
+                        body:
+                            formData
+                    }
+                );
+
+            const resultadoWorker =
+                await respostaWorker.json();
+
+            if (
+                !respostaWorker.ok ||
+                !resultadoWorker.ok ||
+                !resultadoWorker.midia
+            ) {
+                throw new Error(
+                    resultadoWorker.erro ||
+                    "O servidor não conseguiu enviar a mídia."
+                );
+            }
+
+            dadosMidia =
+                resultadoWorker.midia;
+        }
+
+        /*
+         * Atualiza o documento com os metadados.
+         *
+         * As fotos e vídeos continuam armazenados no Telegram.
+         * O Firestore guarda apenas os identificadores.
+         */
+        await referenciaPublicacao.update({
+
+            status:
+                "publicada",
+
+            tipoMidia:
+                dadosMidia
+                    ? dadosMidia.tipo
+                    : null,
+
+            telegramFileId:
+                dadosMidia
+                    ? dadosMidia.telegramFileId
+                    : "",
+
+            telegramFileUniqueId:
+                dadosMidia
+                    ? dadosMidia.telegramFileUniqueId
+                    : "",
+
+            telegramMessageId:
+                dadosMidia
+                    ? dadosMidia.telegramMessageId
+                    : null,
+
+            mimeType:
+                dadosMidia
+                    ? dadosMidia.mimeType
+                    : "",
+
+            nomeOriginal:
+                dadosMidia
+                    ? dadosMidia.nomeOriginal
+                    : "",
+
+            tamanhoBytes:
+                dadosMidia
+                    ? dadosMidia.tamanhoBytes
+                    : 0,
+
+            largura:
+                dadosMidia
+                    ? dadosMidia.largura
+                    : null,
+
+            altura:
+                dadosMidia
+                    ? dadosMidia.altura
+                    : null,
+
+            duracao:
+                dadosMidia
+                    ? dadosMidia.duracao
+                    : null
+        });
+
+        /*
+         * Fecha o modal.
+         */
+        fecharCriadorPublicacao();
+
+        /*
+         * Recarrega o Feed.
+         */
+        await carregarPublicacoesFeed();
+
+        alert(
+            "Publicação criada com sucesso! 🎉"
+        );
+
+    } catch (erro) {
+
+        console.error(
+            "Erro ao publicar:",
+            erro
+        );
+
+        alert(
+            "Não foi possível publicar: " +
+            (
+                erro.message ||
+                "Erro desconhecido."
+            )
+        );
+
+    } finally {
+
+        if (btnPublicar) {
+            btnPublicar.disabled =
+                false;
+
+            btnPublicar.textContent =
+                "Publicar";
+        }
+    }
+}
+
+
+/*
+ * =====================================================
+ * AÇÕES TEMPORÁRIAS DO FEED
+ * =====================================================
+ *
+ * Ainda não estamos implementando curtidas/comentários.
+ * Estas funções evitam erro ao clicar nos botões.
+ *
+ * A implementação real dessas ações será feita depois.
+ */
+
+function curtirPublicacao(
+    idPublicacao
+) {
+    console.log(
+        "Curtir publicação:",
+        idPublicacao
+    );
+
     alert(
-        "A tela de publicação está funcionando. No próximo passo conectaremos os dados ao Firestore."
+        "O sistema de curtidas será ativado na próxima etapa."
+    );
+}
+
+
+function abrirComentariosPublicacao(
+    idPublicacao
+) {
+    console.log(
+        "Abrir comentários:",
+        idPublicacao
+    );
+
+    alert(
+        "O sistema de comentários será ativado na próxima etapa."
     );
 }
 
