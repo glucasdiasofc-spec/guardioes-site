@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.86.0 - versão alpha";
+const VERSAO_ATUAL = "v0.87.0 - versão alpha";
 
 /*
  * =====================================================
@@ -1672,7 +1672,7 @@ async function enviarMensagemChat() {
 async function carregarPerfilDoUsuario() {
     const username = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado");
-
+    
     const nomeEl = document.getElementById("perfil-usuario-nome");
     const cargoEl = document.getElementById("perfil-usuario-cargo");
     const unidadeEl = document.getElementById("perfil-usuario-unidade-status");
@@ -1682,163 +1682,126 @@ async function carregarPerfilDoUsuario() {
     const especialidadesEl = document.getElementById("perfil-conquistas-especialidades");
     const mestradosEl = document.getElementById("perfil-conquistas-mestrados");
     const contadorEl = document.getElementById("perfil-usuario-conquistas-status");
+
     const tClasses = document.getElementById("titulo-conquistas-classes");
     const tEspecialidades = document.getElementById("titulo-conquistas-especialidades");
     const tMestrados = document.getElementById("titulo-conquistas-mestrados");
+    
     const gridEl = document.getElementById("perfil-usuario-grid");
     const vazioEl = document.getElementById("perfil-publicacoes-vazio");
 
-    mudarSubTabPerfil("publicacoes");
+    // Reset de sub-abas do perfil para iniciar na principal
+    mudarSubTabPerfil('publicacoes');
 
-    if (!username) {
+    // Se for o admin visualizando o site
+    if (tipoUsuario === "admin") {
+        if (nomeEl) nomeEl.textContent = "Administrador";
+        if (cargoEl) cargoEl.textContent = "Liderança Geral";
+        if (unidadeEl) unidadeEl.textContent = "Geral";
+        if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
+        if (avatarEl) avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        if (contadorEl) contadorEl.textContent = "∞";
+        
+        if (classesEl) classesEl.innerHTML = "• Classe: Administrador Geral";
+        if (especialidadesEl) especialidadesEl.innerHTML = "<span style='color: #8e8e8e;'>Acesso Irrestrito</span>";
+        if (mestradosEl) mestradosEl.innerHTML = "<span style='color: #8e8e8e;'>Acesso Irrestrito</span>";
+        if (gridEl) gridEl.style.display = "none";
+        if (vazioEl) vazioEl.style.display = "block";
         return;
     }
 
+    if (!username) return;
+
     try {
-        const snapshotUsuario = await window.ClubeDB.textoDB
-            .collection("usuarios")
-            .where("username", "==", username)
-            .limit(1)
-            .get();
-
-        const dados = snapshotUsuario.empty
-            ? {}
-            : snapshotUsuario.docs[0].data() || {};
-
-        if (nomeEl) {
-            nomeEl.textContent = tipoUsuario === "admin"
-                ? "Administrador"
-                : (dados.nomeReal || dados.username || username);
-        }
-
-        if (cargoEl) {
-            cargoEl.textContent = tipoUsuario === "admin"
-                ? "Liderança Geral"
-                : (dados.cargo || "Membro");
-        }
-
-        if (unidadeEl) {
-            unidadeEl.textContent = tipoUsuario === "admin"
-                ? "Geral"
-                : (dados.unidade || "Sem Unidade");
-        }
-
-        if (nascimentoEl) {
+        const snapshot = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
+        if (!snapshot.empty) {
+            const dados = snapshot.docs[0].data();
+            
+            if (nomeEl) nomeEl.textContent = dados.nomeReal || dados.username;
+            if (cargoEl) cargoEl.textContent = dados.cargo || "Membro";
+            if (unidadeEl) unidadeEl.textContent = dados.unidade || "Sem Unidade";
+            
             if (dados.dataNascimento) {
                 const [ano, mes, dia] = dados.dataNascimento.split("-");
-                nascimentoEl.textContent = `Nascido em: ${dia}/${mes}/${ano}`;
+                if (nascimentoEl) nascimentoEl.textContent = `Nascido em: ${dia}/${mes}/${ano}`;
             } else {
-                nascimentoEl.textContent = "Nascido em: --/--/----";
-            }
-        }
-
-        if (avatarEl) {
-            avatarEl.src = normalizarUrlPublicacao(dados.fotoUrl) ||
-                "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
-        }
-
-        const qtdClasses = (dados.classesConcluidas || [] ).length;
-        const qtdEspecialidades = (dados.especialidades || []).length;
-        const qtdMestrados = (dados.mestrados || []).length;
-
-        if (contadorEl) {
-            contadorEl.textContent = tipoUsuario === "admin"
-                ? "∞"
-                : String(qtdClasses + qtdEspecialidades + qtdMestrados);
-        }
-
-        if (tClasses) {
-            tClasses.textContent = `🎒 Classes Regulares (${qtdClasses})`;
-        }
-
-        if (classesEl) {
-            classesEl.innerHTML = qtdClasses
-                ? dados.classesConcluidas.map((item) => `• ${escaparHtml(item)}`).join("  
-")
-                : "• Nenhuma classe registrada";
-        }
-
-        if (tEspecialidades) {
-            tEspecialidades.textContent = `🏅 Especialidades Adquiridas (${qtdEspecialidades})`;
-        }
-
-        if (especialidadesEl) {
-            especialidadesEl.innerHTML = qtdEspecialidades
-                ? dados.especialidades.map((item) => `<span style="background:#262626;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;display:inline-block;margin:2px;">🎖️ ${escaparHtml(item)}</span>`).join("")
-                : `<span style="color:#8e8e8e;">Nenhuma especialidade validada.</span>`;
-        }
-
-        if (tMestrados) {
-            tMestrados.textContent = `🏆 Mestrados Adquiridos (${qtdMestrados})`;
-        }
-
-        if (mestradosEl) {
-            mestradosEl.innerHTML = qtdMestrados
-                ? dados.mestrados.map((item) => `<span style="background:#1e3a1e;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;display:inline-block;margin:2px;">🏆 ${escaparHtml(item)}</span>`).join("")
-                : `<span style="color:#8e8e8e;">Nenhum mestrado concluído ainda.</span>`;
-        }
-
-        const publicacoes = await window.ClubeDB.textoDB
-            .collection("publicacoes")
-            .where("autorUsername", "==", username)
-            .get();
-
-        const publicacoesOrdenadas = publicacoes.docs.sort((a, b) => {
-            const dataA = a.data().criadoEm && a.data().criadoEm.toMillis
-                ? a.data().criadoEm.toMillis()
-                : 0;
-            const dataB = b.data().criadoEm && b.data().criadoEm.toMillis
-                ? b.data().criadoEm.toMillis()
-                : 0;
-            return dataB - dataA;
-        });
-
-        if (!gridEl || !vazioEl) {
-            return;
-        }
-
-        if (publicacoesOrdenadas.length === 0) {
-            gridEl.innerHTML = "";
-            gridEl.style.display = "none";
-            vazioEl.style.display = "block";
-            return;
-        }
-
-        gridEl.style.display = "grid";
-        vazioEl.style.display = "none";
-        gridEl.innerHTML = publicacoesOrdenadas.map((documento) => {
-            const publicacao = documento.data() || {};
-            const id = escaparHtml(documento.id);
-            const texto = escaparHtml(publicacao.texto || "");
-            const url = publicacao.telegramFileId
-                ? escaparHtml(criarUrlMidiaTelegram(publicacao.telegramFileId))
-                : "";
-
-            if (publicacao.tipoMidia === "video" && url) {
-                return `
-                    <button type="button" class="perfil-publicacao-item" onclick="abrirComentariosPublicacao('${id}')" aria-label="Abrir publicação">
-                        <video src="${url}" muted playsinline preload="metadata"></video>
-                        <span class="perfil-publicacao-contador">💬 ${Number(publicacao.comentarios || 0)}</span>
-                    </button>
-                `;
+                if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
             }
 
-            if (url) {
-                return `
-                    <button type="button" class="perfil-publicacao-item" onclick="abrirComentariosPublicacao('${id}')" aria-label="Abrir publicação">
-                        <img src="${url}" alt="Publicação de ${escaparHtml(publicacao.autorNome || username)}" loading="lazy">
-                        <span class="perfil-publicacao-contador">💬 ${Number(publicacao.comentarios || 0)}</span>
-                    </button>
-                `;
+            if (dados.fotoUrl && avatarEl) {
+                avatarEl.src = dados.fotoUrl;
+            } else if (avatarEl) {
+                avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
             }
 
-            return `
-                <button type="button" class="perfil-publicacao-item perfil-publicacao-texto" onclick="abrirComentariosPublicacao('${id}')" aria-label="Abrir publicação">
-                    <span>${texto || "Publicação"}</span>
-                    <small>💬 ${Number(publicacao.comentarios || 0)}</small>
-                </button>
-            `;
-        }).join("");
+            // Cálculo dinâmico do contador centralizado de conquistas
+            const qtdClasses = (dados.classesConcluidas || []).length;
+            const qtdEspecialidades = (dados.especialidades || []).length;
+            const qtdMestrados = (dados.mestrados || []).length;
+            if (contadorEl) contadorEl.textContent = (qtdClasses + qtdEspecialidades + qtdMestrados);
+
+            // Exibição condicional do Grid de Publicações
+            if (dados.publicacoes && dados.publicacoes.length > 0) {
+                if (gridEl) {
+                    gridEl.style.display = "grid";
+                    gridEl.innerHTML = dados.publicacoes.map(pubUrl => `
+                        <div style="aspect-ratio: 1; background-color: #121212;">
+                            <img src="${pubUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                    `).join("");
+                }
+                if (vazioEl) vazioEl.style.display = "none";
+            } else {
+                if (gridEl) gridEl.style.display = "none";
+                if (vazioEl) vazioEl.style.display = "block";
+            }
+
+            // Renderização Detalhada: Classes Regulares
+            if (tClasses) tClasses.textContent = `🎒 Classes Regulares (${qtdClasses})`;
+            if (classesEl) {
+                if (qtdClasses > 0) {
+                    classesEl.innerHTML = dados.classesConcluidas.map(c => `• ${c}`).join("<br>");
+                } else {
+                    classesEl.innerHTML = `• Classe Vinculada: ${dados.tipo === 'Desbravador' ? 'Classe Regular' : 'Classe de Líder'}`;
+                }
+            }
+
+            // Renderização Detalhada: Especialidades
+            if (tEspecialidades) tEspecialidades.textContent = `🏅 Especialidades Adquiridas (${qtdEspecialidades})`;
+            if (especialidadesEl) {
+                if (qtdEspecialidades > 0) {
+                    especialidadesEl.innerHTML = dados.especialidades.map(esp => `
+                        <span style="background: #262626; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word;">
+                            🎖️ ${esp}
+                        </span>
+                    `).join("");
+                } else {
+                    especialidadesEl.innerHTML = `
+                        <span style="color: #8e8e8e; font-style: italic; font-size: 12px;">
+                            Nenhuma especialidade validada. Envie itens para avaliação na aba de alvos!
+                        </span>
+                    `;
+                }
+            }
+
+            // Renderização Detalhada: Mestrados
+            if (tMestrados) tMestrados.textContent = `🏆 Mestrados Adquiridos (${qtdMestrados})`;
+            if (mestradosEl) {
+                if (qtdMestrados > 0) {
+                    mestradosEl.innerHTML = dados.mestrados.map(mest => `
+                        <span style="background: #1e3a1e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word; border: 1px solid #2e5a2e;">
+                            🏆 ${mest}
+                        </span>
+                    `).join("");
+                } else {
+                    mestradosEl.innerHTML = `
+                        <span style="color: #8e8e8e; font-style: italic; font-size: 12px;">
+                            Nenhum mestrado concluído ainda.
+                        </span>
+                    `;
+                }
+            }
+        }
     } catch (erro) {
         console.error("Erro ao carregar dados do perfil:", erro);
     }
