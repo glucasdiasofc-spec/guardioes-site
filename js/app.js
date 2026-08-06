@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.86.0 - versão alpha";
+const VERSAO_ATUAL = "v0.87.0 - versão alpha";
 
 /*
  * =====================================================
@@ -1672,7 +1672,7 @@ async function enviarMensagemChat() {
 async function carregarPerfilDoUsuario() {
     const username = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado");
-    
+
     const nomeEl = document.getElementById("perfil-usuario-nome");
     const cargoEl = document.getElementById("perfil-usuario-cargo");
     const unidadeEl = document.getElementById("perfil-usuario-unidade-status");
@@ -1686,126 +1686,253 @@ async function carregarPerfilDoUsuario() {
     const tClasses = document.getElementById("titulo-conquistas-classes");
     const tEspecialidades = document.getElementById("titulo-conquistas-especialidades");
     const tMestrados = document.getElementById("titulo-conquistas-mestrados");
-    
+
     const gridEl = document.getElementById("perfil-usuario-grid");
     const vazioEl = document.getElementById("perfil-publicacoes-vazio");
 
-    // Reset de sub-abas do perfil para iniciar na principal
-    mudarSubTabPerfil('publicacoes');
+    mudarSubTabPerfil("publicacoes");
 
-    // Se for o admin visualizando o site
     if (tipoUsuario === "admin") {
         if (nomeEl) nomeEl.textContent = "Administrador";
         if (cargoEl) cargoEl.textContent = "Liderança Geral";
         if (unidadeEl) unidadeEl.textContent = "Geral";
         if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
-        if (avatarEl) avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
-        if (contadorEl) contadorEl.textContent = "∞";
-        
+        if (avatarEl) {
+            avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        }
+        if (contadorEl ) contadorEl.textContent = "∞";
         if (classesEl) classesEl.innerHTML = "• Classe: Administrador Geral";
-        if (especialidadesEl) especialidadesEl.innerHTML = "<span style='color: #8e8e8e;'>Acesso Irrestrito</span>";
-        if (mestradosEl) mestradosEl.innerHTML = "<span style='color: #8e8e8e;'>Acesso Irrestrito</span>";
+        if (especialidadesEl) especialidadesEl.innerHTML = "<span style='color:#8e8e8e;'>Acesso Irrestrito</span>";
+        if (mestradosEl) mestradosEl.innerHTML = "<span style='color:#8e8e8e;'>Acesso Irrestrito</span>";
         if (gridEl) gridEl.style.display = "none";
         if (vazioEl) vazioEl.style.display = "block";
         return;
     }
 
-    if (!username) return;
+    if (!username) {
+        return;
+    }
 
     try {
-        const snapshot = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
-        if (!snapshot.empty) {
-            const dados = snapshot.docs[0].data();
-            
-            if (nomeEl) nomeEl.textContent = dados.nomeReal || dados.username;
-            if (cargoEl) cargoEl.textContent = dados.cargo || "Membro";
-            if (unidadeEl) unidadeEl.textContent = dados.unidade || "Sem Unidade";
-            
-            if (dados.dataNascimento) {
-                const [ano, mes, dia] = dados.dataNascimento.split("-");
-                if (nascimentoEl) nascimentoEl.textContent = `Nascido em: ${dia}/${mes}/${ano}`;
-            } else {
-                if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
+        const banco = window.ClubeDB.textoDB;
+
+        const snapshotUsuario = await banco
+            .collection("usuarios")
+            .where("username", "==", username)
+            .limit(1)
+            .get();
+
+        if (snapshotUsuario.empty) {
+            return;
+        }
+
+        const documentoUsuario = snapshotUsuario.docs[0];
+        const dados = documentoUsuario.data() || {};
+
+        if (nomeEl) {
+            nomeEl.textContent = dados.nomeReal || dados.username || username;
+        }
+
+        if (cargoEl) {
+            cargoEl.textContent = dados.cargo || "Membro";
+        }
+
+        if (unidadeEl) {
+            unidadeEl.textContent = dados.unidade || "Sem Unidade";
+        }
+
+        if (dados.dataNascimento) {
+            const partesData = dados.dataNascimento.split("-");
+            const ano = partesData[0] || "--";
+            const mes = partesData[1] || "--";
+            const dia = partesData[2] || "--";
+
+            if (nascimentoEl) {
+                nascimentoEl.textContent = `Nascido em: ${dia}/${mes}/${ano}`;
             }
+        } else if (nascimentoEl) {
+            nascimentoEl.textContent = "Nascido em: --/--/----";
+        }
 
-            if (dados.fotoUrl && avatarEl) {
-                avatarEl.src = dados.fotoUrl;
-            } else if (avatarEl) {
-                avatarEl.src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
-            }
+        if (avatarEl) {
+            avatarEl.src =
+                normalizarUrlPublicacao(dados.fotoUrl) ||
+                "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        }
 
-            // Cálculo dinâmico do contador centralizado de conquistas
-            const qtdClasses = (dados.classesConcluidas || []).length;
-            const qtdEspecialidades = (dados.especialidades || []).length;
-            const qtdMestrados = (dados.mestrados || []).length;
-            if (contadorEl) contadorEl.textContent = (qtdClasses + qtdEspecialidades + qtdMestrados);
+        const classes = Array.isArray(dados.classesConcluidas )
+            ? dados.classesConcluidas
+            : [];
 
-            // Exibição condicional do Grid de Publicações
-            if (dados.publicacoes && dados.publicacoes.length > 0) {
-                if (gridEl) {
-                    gridEl.style.display = "grid";
-                    gridEl.innerHTML = dados.publicacoes.map(pubUrl => `
-                        <div style="aspect-ratio: 1; background-color: #121212;">
-                            <img src="${pubUrl}" style="width: 100%; height: 100%; object-fit: cover;">
-                        </div>
-                    `).join("");
-                }
-                if (vazioEl) vazioEl.style.display = "none";
-            } else {
-                if (gridEl) gridEl.style.display = "none";
-                if (vazioEl) vazioEl.style.display = "block";
-            }
+        const especialidades = Array.isArray(dados.especialidades)
+            ? dados.especialidades
+            : [];
 
-            // Renderização Detalhada: Classes Regulares
-            if (tClasses) tClasses.textContent = `🎒 Classes Regulares (${qtdClasses})`;
-            if (classesEl) {
-                if (qtdClasses > 0) {
-                    classesEl.innerHTML = dados.classesConcluidas.map(c => `• ${c}`).join("<br>");
+        const mestrados = Array.isArray(dados.mestrados)
+            ? dados.mestrados
+            : [];
+
+        const qtdClasses = classes.length;
+        const qtdEspecialidades = especialidades.length;
+        const qtdMestrados = mestrados.length;
+
+        if (contadorEl) {
+            contadorEl.textContent = String(
+                qtdClasses + qtdEspecialidades + qtdMestrados
+            );
+        }
+
+        /*
+         * As publicações são gravadas na coleção "publicacoes".
+         * Portanto, não dependemos mais de dados.publicacoes no usuário.
+         * A busca por autorUsername mantém compatibilidade com os posts
+         * já criados pelo publicarPublicacao().
+         */
+        const snapshotPublicacoes = await banco
+            .collection("publicacoes")
+            .where("autorUsername", "==", username)
+            .get();
+
+        const publicacoes = snapshotPublicacoes.docs
+            .map((documento) => ({
+                id: documento.id,
+                dados: documento.data() || {}
+            }))
+            .sort((a, b) => {
+                const dataA = a.dados.criadoEm && a.dados.criadoEm.toMillis
+                    ? a.dados.criadoEm.toMillis()
+                    : 0;
+
+                const dataB = b.dados.criadoEm && b.dados.criadoEm.toMillis
+                    ? b.dados.criadoEm.toMillis()
+                    : 0;
+
+                return dataB - dataA;
+            });
+
+        if (gridEl) {
+            gridEl.innerHTML = "";
+        }
+
+        if (publicacoes.length > 0 && gridEl) {
+            gridEl.style.display = "grid";
+
+            gridEl.innerHTML = publicacoes.map(({ dados: publicacao }) => {
+                const texto = escaparHtml(publicacao.texto || "");
+                const tipoMidia = publicacao.tipoMidia || "";
+                const arquivoId = publicacao.telegramFileId || "";
+
+                let conteudo = "";
+
+                if (arquivoId) {
+                    const urlMidia = escaparHtml(
+                        criarUrlMidiaTelegram(arquivoId)
+                    );
+
+                    if (tipoMidia === "video") {
+                        conteudo = `
+                            <video
+                                src="${urlMidia}"
+                                muted
+                                playsinline
+                                preload="metadata"
+                                style="width:100%;height:100%;object-fit:cover;"
+                            ></video>
+                        `;
+                    } else {
+                        conteudo = `
+                            <img
+                                src="${urlMidia}"
+                                alt="Publicação do usuário"
+                                loading="lazy"
+                                style="width:100%;height:100%;object-fit:cover;"
+                            >
+                        `;
+                    }
                 } else {
-                    classesEl.innerHTML = `• Classe Vinculada: ${dados.tipo === 'Desbravador' ? 'Classe Regular' : 'Classe de Líder'}`;
-                }
-            }
-
-            // Renderização Detalhada: Especialidades
-            if (tEspecialidades) tEspecialidades.textContent = `🏅 Especialidades Adquiridas (${qtdEspecialidades})`;
-            if (especialidadesEl) {
-                if (qtdEspecialidades > 0) {
-                    especialidadesEl.innerHTML = dados.especialidades.map(esp => `
-                        <span style="background: #262626; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word;">
-                            🎖️ ${esp}
-                        </span>
-                    `).join("");
-                } else {
-                    especialidadesEl.innerHTML = `
-                        <span style="color: #8e8e8e; font-style: italic; font-size: 12px;">
-                            Nenhuma especialidade validada. Envie itens para avaliação na aba de alvos!
-                        </span>
+                    conteudo = `
+                        <div
+                            style="width:100%;height:100%;padding:12px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;color:#fff;font-size:12px;line-height:1.35;text-align:left;white-space:pre-wrap;overflow:hidden;"
+                        >${texto}</div>
                     `;
                 }
+
+                return `
+                    <div
+                        style="aspect-ratio:1;background-color:#121212;overflow:hidden;border:1px solid #262626;"
+                    >
+                        ${conteudo}
+                    </div>
+                `;
+            }).join("");
+
+            if (vazioEl) {
+                vazioEl.style.display = "none";
+            }
+        } else {
+            if (gridEl) {
+                gridEl.style.display = "none";
             }
 
-            // Renderização Detalhada: Mestrados
-            if (tMestrados) tMestrados.textContent = `🏆 Mestrados Adquiridos (${qtdMestrados})`;
-            if (mestradosEl) {
-                if (qtdMestrados > 0) {
-                    mestradosEl.innerHTML = dados.mestrados.map(mest => `
-                        <span style="background: #1e3a1e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: normal; word-break: break-word; border: 1px solid #2e5a2e;">
-                            🏆 ${mest}
-                        </span>
-                    `).join("");
-                } else {
-                    mestradosEl.innerHTML = `
-                        <span style="color: #8e8e8e; font-style: italic; font-size: 12px;">
-                            Nenhum mestrado concluído ainda.
-                        </span>
-                    `;
-                }
+            if (vazioEl) {
+                vazioEl.style.display = "block";
             }
         }
+
+        if (tClasses) {
+            tClasses.textContent = `🎒 Classes Regulares (${qtdClasses})`;
+        }
+
+        if (classesEl) {
+            classesEl.innerHTML = qtdClasses > 0
+                ? classes.map((classe) => `• ${escaparHtml(classe)}`).join("  
+")
+                : `• Classe Vinculada: ${dados.tipo === "Desbravador" ? "Classe Regular" : "Classe de Líder"}`;
+        }
+
+        if (tEspecialidades) {
+            tEspecialidades.textContent = `🏅 Especialidades Adquiridas (${qtdEspecialidades})`;
+        }
+
+        if (especialidadesEl) {
+            especialidadesEl.innerHTML = qtdEspecialidades > 0
+                ? especialidades.map((especialidade) => `
+                    <span style="background:#262626;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;white-space:normal;word-break:break-word;">
+                        🎖️ ${escaparHtml(especialidade)}
+                    </span>
+                `).join("")
+                : `
+                    <span style="color:#8e8e8e;font-style:italic;font-size:12px;">
+                        Nenhuma especialidade validada. Envie itens para avaliação na aba de alvos!
+                    </span>
+                `;
+        }
+
+        if (tMestrados) {
+            tMestrados.textContent = `🏆 Mestrados Adquiridos (${qtdMestrados})`;
+        }
+
+        if (mestradosEl) {
+            mestradosEl.innerHTML = qtdMestrados > 0
+                ? mestrados.map((mestrado) => `
+                    <span style="background:#1e3a1e;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;white-space:normal;word-break:break-word;border:1px solid #2e5a2e;">
+                        🏆 ${escaparHtml(mestrado)}
+                    </span>
+                `).join("")
+                : `
+                    <span style="color:#8e8e8e;font-style:italic;font-size:12px;">
+                        Nenhum mestrado concluído ainda.
+                    </span>
+                `;
+        }
     } catch (erro) {
-        console.error("Erro ao carregar dados do perfil:", erro);
+        console.error(
+            "Erro ao carregar dados do perfil:",
+            erro
+        );
     }
 }
+
 
 // Alternar sub-abas do próprio perfil (Publicações vs Conquistas)
 function mudarSubTabPerfil(subAba) {
@@ -8928,7 +9055,11 @@ async function obterUsuarioInteracaoPublicacao() {
 
 
 async function curtirPublicacao(idPublicacao, botao) {
-    if (!idPublicacao || !botao || botao.dataset.processando === "true") {
+    if (!idPublicacao || !botao) {
+        return;
+    }
+
+    if (botao.dataset.processando === "true") {
         return;
     }
 
@@ -8942,10 +9073,12 @@ async function curtirPublicacao(idPublicacao, botao) {
         return;
     }
 
-    const banco = window.ClubeDB && window.ClubeDB.textoDB;
+    const banco =
+        window.ClubeDB && window.ClubeDB.textoDB
+            ? window.ClubeDB.textoDB
+            : null;
 
     if (!banco) {
-        console.error("Banco de dados do ClubeDB não está disponível.");
         alert("Não foi possível conectar ao banco de dados.");
         return;
     }
@@ -8958,70 +9091,64 @@ async function curtirPublicacao(idPublicacao, botao) {
         .collection("curtidas")
         .doc(usuario.uid);
 
+    const estavaCurtido = botao.classList.contains(
+        "feed-x-curtido"
+    );
+
+    const variacao = estavaCurtido ? -1 : 1;
+    const novoEstado = !estavaCurtido;
+
     botao.dataset.processando = "true";
     botao.disabled = true;
 
     try {
-        let ficouCurtido = false;
-        let novoTotal = 0;
+        const lote = banco.batch();
 
-        await banco.runTransaction(async (transacao) => {
-            const documentoPublicacao =
-                await transacao.get(referenciaPublicacao);
-
-            if (!documentoPublicacao.exists) {
-                throw new Error("Esta publicação não existe mais.");
-            }
-
-            const documentoCurtida =
-                await transacao.get(referenciaCurtida);
-
-            const dados = documentoPublicacao.data() || {};
-            const totalAtual = Math.max(
-                0,
-                Number(dados.curtidas || 0)
-            );
-
-            if (documentoCurtida.exists) {
-                ficouCurtido = false;
-                novoTotal = Math.max(0, totalAtual - 1);
-
-                transacao.delete(referenciaCurtida);
-            } else {
-                ficouCurtido = true;
-                novoTotal = totalAtual + 1;
-
-                transacao.set(referenciaCurtida, {
-                    uid: usuario.uid,
-                    criadoEm:
-                        firebase.firestore.FieldValue.serverTimestamp()
-                });
-            }
-
-            transacao.update(referenciaPublicacao, {
-                curtidas: novoTotal
+        if (novoEstado) {
+            lote.set(referenciaCurtida, {
+                uid: usuario.uid,
+                criadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp()
             });
+        } else {
+            lote.delete(referenciaCurtida);
+        }
+
+        lote.update(referenciaPublicacao, {
+            curtidas:
+                firebase.firestore.FieldValue.increment(variacao)
         });
 
-        const contador =
-            botao.querySelector(".feed-x-contador");
+        await lote.commit();
 
-        const coracao =
-            botao.querySelector(".feed-x-coracao");
+        const contador = botao.querySelector(
+            ".feed-x-contador"
+        );
+
+        const coracao = botao.querySelector(
+            ".feed-x-coracao"
+        );
 
         if (contador) {
-            contador.textContent = String(novoTotal);
+            const totalAtual = Math.max(
+                0,
+                Number(contador.textContent || 0)
+            );
+
+            contador.textContent = String(
+                Math.max(0, totalAtual + variacao)
+            );
         }
 
         botao.classList.toggle(
             "feed-x-curtido",
-            ficouCurtido
+            novoEstado
         );
 
         botao.classList.add("feed-x-animando");
 
         if (coracao) {
-            coracao.textContent = ficouCurtido
+            coracao.textContent = novoEstado
                 ? "♥"
                 : "♡";
         }
@@ -9038,14 +9165,16 @@ async function curtirPublicacao(idPublicacao, botao) {
         );
 
         alert(
-            erro.message ||
-            "Não foi possível alterar a curtida."
+            erro && erro.message
+                ? erro.message
+                : "Não foi possível alterar a curtida."
         );
     } finally {
         botao.disabled = false;
         delete botao.dataset.processando;
     }
 }
+
 
 
 
