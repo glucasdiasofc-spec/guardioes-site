@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.87.0 - versão alpha";
+const VERSAO_ATUAL = "v0.86.0 - versão alpha";
 
 /*
  * =====================================================
@@ -8927,17 +8927,13 @@ async function obterUsuarioInteracaoPublicacao() {
 }
 
 
-async function curtirPublicacao(
-    idPublicacao,
-    botao
-) {
+async function curtirPublicacao(idPublicacao, botao) {
     if (!idPublicacao || !botao || botao.dataset.processando === "true") {
         return;
     }
 
     const usuario =
-        window.ClubeDB &&
-        window.ClubeDB.loginDB
+        window.ClubeDB && window.ClubeDB.loginDB
             ? window.ClubeDB.loginDB.currentUser
             : null;
 
@@ -8946,44 +8942,59 @@ async function curtirPublicacao(
         return;
     }
 
-    const banco = window.ClubeDB.textoDB;
+    const banco = window.ClubeDB && window.ClubeDB.textoDB;
+
+    if (!banco) {
+        console.error("Banco de dados do ClubeDB não está disponível.");
+        alert("Não foi possível conectar ao banco de dados.");
+        return;
+    }
+
     const referenciaPublicacao = banco
         .collection("publicacoes")
         .doc(idPublicacao);
+
     const referenciaCurtida = referenciaPublicacao
         .collection("curtidas")
         .doc(usuario.uid);
 
     botao.dataset.processando = "true";
+    botao.disabled = true;
 
     try {
         let ficouCurtido = false;
         let novoTotal = 0;
 
         await banco.runTransaction(async (transacao) => {
-            const [documentoCurtida, documentoPublicacao] =
-                await Promise.all([
-                    transacao.get(referenciaCurtida),
-                    transacao.get(referenciaPublicacao)
-                ]);
+            const documentoPublicacao =
+                await transacao.get(referenciaPublicacao);
 
             if (!documentoPublicacao.exists) {
                 throw new Error("Esta publicação não existe mais.");
             }
 
+            const documentoCurtida =
+                await transacao.get(referenciaCurtida);
+
             const dados = documentoPublicacao.data() || {};
-            const totalAtual = Math.max(0, Number(dados.curtidas || 0));
+            const totalAtual = Math.max(
+                0,
+                Number(dados.curtidas || 0)
+            );
 
             if (documentoCurtida.exists) {
                 ficouCurtido = false;
                 novoTotal = Math.max(0, totalAtual - 1);
+
                 transacao.delete(referenciaCurtida);
             } else {
                 ficouCurtido = true;
                 novoTotal = totalAtual + 1;
+
                 transacao.set(referenciaCurtida, {
                     uid: usuario.uid,
-                    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+                    criadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
                 });
             }
 
@@ -8992,30 +9003,51 @@ async function curtirPublicacao(
             });
         });
 
-        const contador = botao.querySelector(".feed-x-contador");
-        const coracao = botao.querySelector(".feed-x-coracao");
+        const contador =
+            botao.querySelector(".feed-x-contador");
+
+        const coracao =
+            botao.querySelector(".feed-x-coracao");
 
         if (contador) {
             contador.textContent = String(novoTotal);
         }
 
-        botao.classList.toggle("feed-x-curtido", ficouCurtido);
+        botao.classList.toggle(
+            "feed-x-curtido",
+            ficouCurtido
+        );
+
         botao.classList.add("feed-x-animando");
 
         if (coracao) {
-            coracao.textContent = ficouCurtido ? "♥" : "♡";
+            coracao.textContent = ficouCurtido
+                ? "♥"
+                : "♡";
         }
 
         setTimeout(() => {
-            botao.classList.remove("feed-x-animando");
+            botao.classList.remove(
+                "feed-x-animando"
+            );
         }, 450);
     } catch (erro) {
-        console.error("Erro ao alterar curtida:", erro);
-        alert(erro.message || "Não foi possível alterar a curtida.");
+        console.error(
+            "Erro ao alterar curtida:",
+            erro
+        );
+
+        alert(
+            erro.message ||
+            "Não foi possível alterar a curtida."
+        );
     } finally {
+        botao.disabled = false;
         delete botao.dataset.processando;
     }
 }
+
+
 
 
 async function abrirComentariosPublicacao(
