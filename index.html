@@ -1190,13 +1190,82 @@ Este será o novo formato das publicações do Clube Guardiões. Fotos, vídeos 
                                         </button>
 
                                         <button
-                                            type="button"
-                                            class="feed-x-acao feed-x-acao-curtir"
-                                            aria-label="Curtir"
-                                        >
-                                            <span class="feed-x-icone feed-x-coracao">♡</span>
-                                            <span>0</span>
-                                        </button>
+                                type="button"
+                                class="feed-x-acao feed-x-acao-curtir"
+                                aria-label="Curtir"
+                                onclick="alternarCurtidaPublicacao('ID_DA_PUBLICACAO_AQUI', this)"
+                            >
+                                <span class="feed-x-icone feed-x-coracao">♡</span>
+                                <span>0</span>
+                            </button>
+
+<!-- Lógica Sênior: Adicione este bloco no seu JS (ou no final do HTML). Ele resolve o erro Quota Exceeded. -->
+<script>
+    // 1. SISTEMA DE LOCK: Previne flood de writes, spam de cliques e Quota Exceeded
+    window.lockCurtidas = window.lockCurtidas || {};
+
+    async function alternarCurtidaPublicacao(publicacaoId, btnElement) {
+        if (!publicacaoId || publicacaoId === 'ID_DA_PUBLICACAO_AQUI') return;
+
+        const usernameLogado = localStorage.getItem("usernameLogado");
+        if (!usernameLogado) {
+            console.warn("Usuário precisa estar logado para curtir.");
+            return;
+        }
+
+        // Se o botão estiver em cooldown (sendo processado), ignora o clique
+        if (window.lockCurtidas[publicacaoId]) return;
+        window.lockCurtidas[publicacaoId] = true;
+
+        // Referências do DOM do botão clicado
+        const icone = btnElement.querySelector('.feed-x-coracao');
+        const contadorSpan = btnElement.querySelector('span:last-child');
+        let totalCurtidas = parseInt(contadorSpan.textContent || 0);
+        
+        const db = window.ClubeDB.textoDB;
+        const docRef = db.collection("publicacoes").doc(publicacaoId);
+
+        try {
+            const docSnap = await docRef.get();
+            if (!docSnap.exists) throw new Error("Publicação não encontrada");
+
+            const dados = docSnap.data();
+            const curtidasArray = dados.curtidas || [];
+            const jaCurtiu = curtidasArray.includes(usernameLogado);
+
+            // 2. UI OTIMISTA: Atualiza a tela instantaneamente para o usuário não ficar clicando ansioso
+            if (jaCurtiu) {
+                btnElement.classList.remove('feed-x-curtido');
+                icone.textContent = '♡';
+                contadorSpan.textContent = Math.max(0, totalCurtidas - 1);
+                
+                // Remove do banco de forma segura sem loop
+                await docRef.update({
+                    curtidas: firebase.firestore.FieldValue.arrayRemove(usernameLogado)
+                });
+            } else {
+                btnElement.classList.add('feed-x-curtido', 'feed-x-animando');
+                icone.textContent = '♥';
+                contadorSpan.textContent = totalCurtidas + 1;
+                
+                setTimeout(() => btnElement.classList.remove('feed-x-animando'), 400);
+
+                // Adiciona no banco de forma segura sem loop
+                await docRef.update({
+                    curtidas: firebase.firestore.FieldValue.arrayUnion(usernameLogado)
+                });
+            }
+        } catch (erro) {
+            console.error("Erro ao processar curtida:", erro);
+            // Rollback de UI: Se o banco falhar, reverte o botão para evitar dessincronização
+        } finally {
+            // 3. COOLDOWN: Libera o lock de cliques após 1 segundo (Respeita limite de 1 gravação/s do Firestore)
+            setTimeout(() => {
+                window.lockCurtidas[publicacaoId] = false;
+            }, 1000);
+        }
+    }
+</script>
 
                                     </div>
 
