@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.88.0 - versão alpha";
+const VERSAO_ATUAL = "v0.89.0 - versão alpha";
 
 /*
  * =====================================================
@@ -283,6 +283,7 @@ function mudarSubAbaSite(abaAlvo) {
     const perfilAba = document.getElementById("sub-aba-perfil");
     const espAba = document.getElementById("sub-aba-especialidades");
     const msgAba = document.getElementById("sub-aba-mensagens");
+    const btnCriarPublicacao = document.getElementById("btn-criar-publicacao");
 
     const btnFeed = document.getElementById("btn-sub-feed");
     const btnEsp = document.getElementById("btn-sub-especialidades");
@@ -293,6 +294,23 @@ function mudarSubAbaSite(abaAlvo) {
     if (perfilAba) perfilAba.style.display = "none";
     if (espAba) espAba.style.display = "none";
     if (msgAba) msgAba.style.display = "none";
+
+    /*
+     * O botão de criar publicação só aparece na aba Feed,
+     * que é a área de Publicações.
+     */
+    if (btnCriarPublicacao) {
+        const exibirBotao = abaAlvo === "feed";
+
+        btnCriarPublicacao.style.display = exibirBotao
+            ? "flex"
+            : "none";
+
+        btnCriarPublicacao.setAttribute(
+            "aria-hidden",
+            exibirBotao ? "false" : "true"
+        );
+    }
 
     const configurarBotaoNavbar = (btn, isAtivo) => {
         if (!btn) return;
@@ -347,7 +365,6 @@ function mudarSubAbaSite(abaAlvo) {
     if (abaAlvo === "feed") {
         if (feedAba) feedAba.style.display = "block";
 
-        // Correção: carrega as publicações sempre que o Feed é aberto.
         if (typeof carregarPublicacoesFeed === "function") {
             carregarPublicacoesFeed();
         }
@@ -9160,35 +9177,46 @@ async function curtirPublicacao(idPublicacao, botao) {
         .collection("curtidas")
         .doc(usuario.uid);
 
-    const estavaCurtido = botao.classList.contains(
-        "feed-x-curtido"
-    );
-
-    const variacao = estavaCurtido ? -1 : 1;
-    const novoEstado = !estavaCurtido;
-
     botao.dataset.processando = "true";
     botao.disabled = true;
 
     try {
-        const lote = banco.batch();
+        let novoEstadoCurtida = false;
+        let variacaoCurtidas = 0;
 
-        if (novoEstado) {
-            lote.set(referenciaCurtida, {
-                uid: usuario.uid,
-                criadoEm:
-                    firebase.firestore.FieldValue.serverTimestamp()
+        /*
+         * A transação consulta a curtida diretamente no Firestore.
+         * Assim, mesmo que o usuário clique em mais de um card da
+         * mesma publicação, a contagem não poderá duplicar.
+         */
+        await banco.runTransaction(async function (transacao) {
+            const documentoCurtida = await transacao.get(
+                referenciaCurtida
+            );
+
+            if (documentoCurtida.exists) {
+                novoEstadoCurtida = false;
+                variacaoCurtidas = -1;
+
+                transacao.delete(referenciaCurtida);
+            } else {
+                novoEstadoCurtida = true;
+                variacaoCurtidas = 1;
+
+                transacao.set(referenciaCurtida, {
+                    uid: usuario.uid,
+                    criadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+
+            transacao.update(referenciaPublicacao, {
+                curtidas:
+                    firebase.firestore.FieldValue.increment(
+                        variacaoCurtidas
+                    )
             });
-        } else {
-            lote.delete(referenciaCurtida);
-        }
-
-        lote.update(referenciaPublicacao, {
-            curtidas:
-                firebase.firestore.FieldValue.increment(variacao)
         });
-
-        await lote.commit();
 
         const contador = botao.querySelector(
             ".feed-x-contador"
@@ -9205,19 +9233,19 @@ async function curtirPublicacao(idPublicacao, botao) {
             );
 
             contador.textContent = String(
-                Math.max(0, totalAtual + variacao)
+                Math.max(0, totalAtual + variacaoCurtidas)
             );
         }
 
         botao.classList.toggle(
             "feed-x-curtido",
-            novoEstado
+            novoEstadoCurtida
         );
 
         botao.classList.add("feed-x-animando");
 
         if (coracao) {
-            coracao.textContent = novoEstado
+            coracao.textContent = novoEstadoCurtida
                 ? "♥"
                 : "♡";
         }
@@ -9243,9 +9271,6 @@ async function curtirPublicacao(idPublicacao, botao) {
         delete botao.dataset.processando;
     }
 }
-
-
-
 
 
 async function abrirComentariosPublicacao(
