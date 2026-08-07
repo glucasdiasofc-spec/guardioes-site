@@ -1189,15 +1189,86 @@ Este será o novo formato das publicações do Clube Guardiões. Fotos, vídeos 
                                             <span>0</span>
                                         </button>
 
-                                        <button
+                                        <!-- HTML LIMPO: Sem onclick inline. Usamos data-id para não estourar a cota no render. -->
+                            <button
                                 type="button"
                                 class="feed-x-acao feed-x-acao-curtir"
                                 aria-label="Curtir"
-                                onclick="alternarCurtidaPublicacao('ID_DA_PUBLICACAO_AQUI', this)"
+                                data-id="ID_DA_PUBLICACAO_AQUI"
                             >
                                 <span class="feed-x-icone feed-x-coracao">♡</span>
-                                <span>0</span>
+                                <span class="feed-x-contador">0</span>
                             </button>
+
+<!-- LÓGICA SÊNIOR: Delegação de Eventos e Bloqueio de Concorrência -->
+<!-- IMPORTANTE: Este script deve rodar UMA ÚNICA VEZ na aplicação. Nunca o coloque dentro de loops (for/forEach) ou de um listener do Firebase (onSnapshot). -->
+<script>
+    window.lockCurtidas = window.lockCurtidas || {};
+
+    document.addEventListener("click", async function(event) {
+        // Intercepta qualquer clique na página e filtra passivamente. Não dispara no render.
+        const btnElement = event.target.closest('.feed-x-acao-curtir');
+        if (!btnElement) return;
+
+        // Recupera o ID sem invocar funções acidentais
+        const publicacaoId = btnElement.getAttribute('data-id');
+        if (!publicacaoId || publicacaoId === 'ID_DA_PUBLICACAO_AQUI') return;
+
+        const usernameLogado = localStorage.getItem("usernameLogado");
+        if (!usernameLogado) {
+            console.warn("Usuário precisa estar logado para curtir.");
+            return;
+        }
+
+        // SISTEMA DE LOCK: Evita spam de gravação no Firebase
+        if (window.lockCurtidas[publicacaoId]) return;
+        window.lockCurtidas[publicacaoId] = true;
+
+        const icone = btnElement.querySelector('.feed-x-coracao');
+        const contadorSpan = btnElement.querySelector('.feed-x-contador');
+        let totalCurtidas = parseInt(contadorSpan.textContent || 0);
+        
+        const db = window.ClubeDB.textoDB;
+        const docRef = db.collection("publicacoes").doc(publicacaoId);
+
+        try {
+            const docSnap = await docRef.get();
+            if (!docSnap.exists) throw new Error("Publicação não encontrada");
+
+            const dados = docSnap.data();
+            const curtidasArray = dados.curtidas || [];
+            const jaCurtiu = curtidasArray.includes(usernameLogado);
+
+            // UI OTIMISTA: Resposta imediata na tela
+            if (jaCurtiu) {
+                btnElement.classList.remove('feed-x-curtido');
+                icone.textContent = '♡';
+                contadorSpan.textContent = Math.max(0, totalCurtidas - 1);
+                
+                await docRef.update({
+                    curtidas: firebase.firestore.FieldValue.arrayRemove(usernameLogado)
+                });
+            } else {
+                btnElement.classList.add('feed-x-curtido', 'feed-x-animando');
+                icone.textContent = '♥';
+                contadorSpan.textContent = totalCurtidas + 1;
+                
+                setTimeout(() => btnElement.classList.remove('feed-x-animando'), 400);
+
+                await docRef.update({
+                    curtidas: firebase.firestore.FieldValue.arrayUnion(usernameLogado)
+                });
+            }
+        } catch (erro) {
+            console.error("Erro ao processar curtida:", erro);
+        } finally {
+            // COOLDOWN: Garante que o limite de 1 request por segundo do Firestore será respeitado
+            setTimeout(() => {
+                window.lockCurtidas[publicacaoId] = false;
+            }, 1000);
+        }
+    });
+</script>
 
 <!-- Lógica Sênior: Adicione este bloco no seu JS (ou no final do HTML). Ele resolve o erro Quota Exceeded. -->
 <script>
