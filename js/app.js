@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.89.0 - versão alpha";
+const VERSAO_ATUAL = "v0.90.0 - versão alpha";
 
 /*
  * =====================================================
@@ -9185,38 +9185,60 @@ async function curtirPublicacao(idPublicacao, botao) {
         let variacaoCurtidas = 0;
 
         /*
-         * A transação consulta a curtida diretamente no Firestore.
-         * Assim, mesmo que o usuário clique em mais de um card da
-         * mesma publicação, a contagem não poderá duplicar.
+         * create() só permite criar a curtida se o documento ainda
+         * não existir. Como o ID é o UID do usuário, é impossível
+         * registrar duas curtidas da mesma pessoa na mesma publicação.
          */
-        await banco.runTransaction(async function (transacao) {
-            const documentoCurtida = await transacao.get(
-                referenciaCurtida
-            );
+        try {
+            const loteCurtir = banco.batch();
 
-            if (documentoCurtida.exists) {
-                novoEstadoCurtida = false;
-                variacaoCurtidas = -1;
+            loteCurtir.create(referenciaCurtida, {
+                uid: usuario.uid,
+                criadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp()
+            });
 
-                transacao.delete(referenciaCurtida);
-            } else {
-                novoEstadoCurtida = true;
-                variacaoCurtidas = 1;
+            loteCurtir.update(referenciaPublicacao, {
+                curtidas:
+                    firebase.firestore.FieldValue.increment(1)
+            });
 
-                transacao.set(referenciaCurtida, {
-                    uid: usuario.uid,
-                    criadoEm:
-                        firebase.firestore.FieldValue.serverTimestamp()
-                });
+            await loteCurtir.commit();
+
+            novoEstadoCurtida = true;
+            variacaoCurtidas = 1;
+        } catch (erroCurtir) {
+            const jaCurtido =
+                erroCurtir &&
+                (
+                    erroCurtir.code === "already-exists" ||
+                    String(erroCurtir.message || "")
+                        .toLowerCase()
+                        .includes("already exists")
+                );
+
+            if (!jaCurtido) {
+                throw erroCurtir;
             }
 
-            transacao.update(referenciaPublicacao, {
+            /*
+             * A curtida já existe: desfaz a curtida em um lote atômico,
+             * removendo o documento e reduzindo o contador juntos.
+             */
+            const loteDescurtir = banco.batch();
+
+            loteDescurtir.delete(referenciaCurtida);
+
+            loteDescurtir.update(referenciaPublicacao, {
                 curtidas:
-                    firebase.firestore.FieldValue.increment(
-                        variacaoCurtidas
-                    )
+                    firebase.firestore.FieldValue.increment(-1)
             });
-        });
+
+            await loteDescurtir.commit();
+
+            novoEstadoCurtida = false;
+            variacaoCurtidas = -1;
+        }
 
         const contador = botao.querySelector(
             ".feed-x-contador"
