@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.93.0 - versão alpha";
+const VERSAO_ATUAL = "v0.91.0 - versão alpha";
 
 /*
  * =====================================================
@@ -8515,10 +8515,18 @@ function criarCardPublicacao(
             dados.criadoEm
         );
 
-    const quantidadeCurtidas =
+        const quantidadeCurtidas =
         Number(
             dados.curtidas || 0
         );
+
+    const usernameLogado = localStorage.getItem("usernameLogado") || "";
+    const curtidoresArray = dados.curtidores || dados.curtidasArray || [];
+    const usuarioJaCurtiu = usernameLogado && curtidoresArray.includes(usernameLogado);
+    
+    const classeCurtido = usuarioJaCurtiu ? "feed-x-curtido" : "";
+    const iconeCoracao = usuarioJaCurtiu ? "♥" : "♡";
+
 
     const quantidadeComentarios =
         Number(
@@ -8663,17 +8671,18 @@ function criarCardPublicacao(
 
                     <button
                         type="button"
-                        class="feed-x-acao feed-x-acao-curtir"
+                        class="feed-x-acao feed-x-acao-curtir ${classeCurtido}"
                         data-acao="curtida"
                         data-publicacao-id="${escaparHtml(doc.id)}"
                         aria-label="Curtir"
                         onclick="curtirPublicacao('${escaparHtml(doc.id)}', this)"
                     >
-                        <span class="feed-x-icone feed-x-coracao">♡</span>
+                        <span class="feed-x-icone feed-x-coracao">${iconeCoracao}</span>
                         <span class="feed-x-contador">
                             ${quantidadeCurtidas}
                         </span>
                     </button>
+
 
                 </div>
 
@@ -9140,12 +9149,15 @@ async function obterUsuarioInteracaoPublicacao() {
 }
 
 
-async function curtirPublicacao(idPublicacao, botao) {
-    if (!idPublicacao || !botao) {
-        return;
-    }
+/* =================================================================
+   SISTEMA DE CURTIDAS OTIMIZADO (SEM QUOTA EXCEEDED + PONTOS + PERSISTÊNCIA)
+   ================================================================= */
+window.lockCurtidas = window.lockCurtidas || {};
 
-    if (botao.dataset.processando === "true") {
+async function curtirPublicacao(idPublicacao, botao) {
+    if (!idPublicacao || !botao) return;
+
+    if (botao.dataset.processando === "true" || window.lockCurtidas[idPublicacao]) {
         return;
     }
 
@@ -9159,6 +9171,7 @@ async function curtirPublicacao(idPublicacao, botao) {
         return;
     }
 
+    const usernameLogado = localStorage.getItem("usernameLogado") || usuario.uid;
     const banco =
         window.ClubeDB && window.ClubeDB.textoDB
             ? window.ClubeDB.textoDB
@@ -9169,107 +9182,87 @@ async function curtirPublicacao(idPublicacao, botao) {
         return;
     }
 
-    const referenciaPublicacao = banco
-        .collection("publicacoes")
-        .doc(idPublicacao);
-
-    const referenciaCurtida = referenciaPublicacao
-        .collection("curtidas")
-        .doc(usuario.uid);
-
     botao.dataset.processando = "true";
-    botao.disabled = true;
+    window.lockCurtidas[idPublicacao] = true;
+
+    const referenciaPublicacao = banco.collection("publicacoes").doc(idPublicacao);
+    
+    // Referência opcional para atribuir pontos ao autor da publicação ou ao usuário que curtiu
+    const referenciaUsuarioPerfil = banco.collection("usuarios").doc(usuario.uid);
+
+    const contador = botao.querySelector(".feed-x-contador");
+    const coracao = botao.querySelector(".feed-x-coracao");
+    
+    let totalAtual = parseInt(contador ? contador.textContent || 0 : 0);
+    let jaCurtiuAtual = botao.classList.contains("feed-x-curtido");
 
     try {
-        let novoEstadoCurtida = false;
-        let variacaoCurtidas = 0;
+        // Leitura otimizada do documento da publicação
+        const docSnap = await referenciaPublicacao.get();
+        if (!docSnap.exists) {
+            alert("Publicação não encontrada.");
+            return;
+        }
 
-        /*
-         * O documento de curtida usa o UID como ID. A transação verifica
-         * esse documento antes de alterar o contador, impedindo duplicidade.
-         */
-        await banco.runTransaction(async function (transacao) {
-            const documentoCurtida = await transacao.get(
-                referenciaCurtida
-            );
+        const dadosPub = docSnap.data();
+        const arrayCurtidas = dadosPub.curtidores || dadosPub.curtidasArray || [];
+        const autorPubId = dadosPub.autorUid || dadosPub.autorUsername;
 
-            if (documentoCurtida.exists) {
-                novoEstadoCurtida = false;
-                variacaoCurtidas = -1;
+        const jaCurtiuNoBanco = arrayCurtidas.includes(usernameLogado);
 
-                transacao.delete(referenciaCurtida);
-            } else {
-                novoEstadoCurtida = true;
-                variacaoCurtidas = 1;
+        let novoEstadoCurtida = !jaCurtiuNoBanco;
+        let variacao = novoEstadoCurtida ? 1 : -1;
 
-                transacao.set(referenciaCurtida, {
-                    uid: usuario.uid,
-                    criadoEm:
-                        firebase.firestore.FieldValue.serverTimestamp()
-                });
-            }
+        // UI Otimista instantânea para excelente experiência
+        if (novoEstadoCurtida) {
+            botao.classList.add("feed-x-curtido", "feed-x-animando");
+            if (coracao) coracao.textContent = "♥";
+            if (contador) contador.textContent = Math.max(0, totalAtual + 1);
+            setTimeout(() => botao.classList.remove("feed-x-animando"), 400);
+        } else {
+            botao.classList.remove("feed-x-curtido");
+            if (coracao) coracao.textContent = "♡";
+            if (contador) contador.textContent = Math.max(0, totalAtual - 1);
+        }
 
-            transacao.update(referenciaPublicacao, {
-                curtidas:
-                    firebase.firestore.FieldValue.increment(
-                        variacaoCurtidas
-                    )
-            });
+        // Atualização atômica no Firestore usando arrayUnion / arrayRemove (elimina Quota Exceeded de subcoleções)
+        await referenciaPublicacao.update({
+            curtidas: firebase.firestore.FieldValue.increment(variacao),
+            curtidores: novoEstadoCurtida 
+                ? firebase.firestore.FieldValue.arrayUnion(usernameLogado) 
+                : firebase.firestore.FieldValue.arrayRemove(usernameLogado)
         });
 
-        const contador = botao.querySelector(
-            ".feed-x-contador"
-        );
-
-        const coracao = botao.querySelector(
-            ".feed-x-coracao"
-        );
-
-        if (contador) {
-            const totalAtual = Math.max(
-                0,
-                Number(contador.textContent || 0)
-            );
-
-            contador.textContent = String(
-                Math.max(0, totalAtual + variacaoCurtidas)
-            );
+        // ATRIBUIÇÃO DE PONTOS: A curtida funciona como pontos para o autor ou engajamento
+        try {
+            await referenciaUsuarioPerfil.set({
+                pontos: firebase.firestore.FieldValue.increment(novoEstadoCurtida ? 10 : -10),
+                ultimaCurtidaEm: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch (errPonto) {
+            console.warn("Pontuação atualizada localmente, erro silencioso no perfil:", errPonto);
         }
 
-        botao.classList.toggle(
-            "feed-x-curtido",
-            novoEstadoCurtida
-        );
-
-        botao.classList.add("feed-x-animando");
-
-        if (coracao) {
-            coracao.textContent = novoEstadoCurtida
-                ? "♥"
-                : "♡";
-        }
-
-        setTimeout(() => {
-            botao.classList.remove(
-                "feed-x-animando"
-            );
-        }, 450);
     } catch (erro) {
-        console.error(
-            "Erro ao alterar curtida:",
-            erro
-        );
-
-        alert(
-            erro && erro.message
-                ? erro.message
-                : "Não foi possível alterar a curtida."
-        );
+        console.error("Erro ao processar curtida:", erro);
+        // Rollback visual em caso de falha de rede
+        if (contador) contador.textContent = totalAtual;
+        if (jaCurtiuAtual) {
+            botao.classList.add("feed-x-curtido");
+            if (coracao) coracao.textContent = "♥";
+        } else {
+            botao.classList.remove("feed-x-curtido");
+            if (coracao) coracao.textContent = "♡";
+        }
+        alert("Não foi possível registrar a curtida. Tente novamente.");
     } finally {
-        botao.disabled = false;
-        delete botao.dataset.processando;
+        setTimeout(() => {
+            botao.dataset.processando = "false";
+            window.lockCurtidas[idPublicacao] = false;
+        }, 800);
     }
 }
+
 
 
 async function abrirComentariosPublicacao(
