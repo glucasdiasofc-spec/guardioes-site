@@ -2567,28 +2567,41 @@ function fazerLogoutSessao() {
 // Controle das abas do menu
 function mudarAbaAdmin(idAbaDestino) {
     const conteudos = document.querySelectorAll(".conteudo-aba");
-    conteudos.forEach(aba => aba.style.display = "none");
+    conteudos.forEach(aba => {
+        aba.style.display = "none";
+    });
 
     const botoes = document.querySelectorAll(".aba-item");
-    botoes.forEach(btn => btn.classList.remove("ativa"));
+    botoes.forEach(btn => {
+        btn.classList.remove("ativa");
+    });
 
     const alvo = document.getElementById(idAbaDestino);
     if (alvo) {
         alvo.style.display = "flex";
         alvo.style.flexDirection = "column";
     }
-    
-    const botaoClicado = Array.from(botoes).find(btn => btn.getAttribute("onclick").includes(idAbaDestino));
-    if (botaoClicado) botaoClicado.classList.add("ativa");
 
-    // Gatilho para carregar a gestão de conquistas
-    if (idAbaDestino === 'aba-cargos') {
+    const botaoClicado = Array.from(botoes).find(btn => {
+        const acao = btn.getAttribute("onclick") || "";
+        return acao.includes(idAbaDestino);
+    });
+
+    if (botaoClicado) {
+        botaoClicado.classList.add("ativa");
+    }
+
+    // Carrega os cargos somente quando a aba de cargos é aberta.
+    // A chave de fechamento abaixo é obrigatória para impedir erro de sintaxe.
+    if (idAbaDestino === "aba-cargos") {
         carregarCargosAdmin();
     }
 
-    if (idAbaDestino === 'aba-conquistas-gestao') {
+    // Carrega a gestão de conquistas somente quando a aba é aberta.
+    if (idAbaDestino === "aba-conquistas-gestao") {
         carregarUsuariosParaGestaoConquistas();
     }
+}
 
 
 
