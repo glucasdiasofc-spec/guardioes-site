@@ -76,6 +76,7 @@
                 <button class="aba-item ativa" onclick="mudarAbaAdmin('aba-unidades')" style="flex-shrink: 0; white-space: nowrap;">Unidades</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-membros')" style="flex-shrink: 0; white-space: nowrap;">Membros (Usuários)</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-conquistas-gestao')" style="flex-shrink: 0; white-space: nowrap;">Gestão de Conquistas</button>
+                <button class="aba-item" onclick="mudarAbaAdmin('aba-cargos')" style="flex-shrink: 0; white-space: nowrap;">Cargos e Funções</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-customizacao')" style="flex-shrink: 0; white-space: nowrap;">Customização</button>
             </nav>
 
@@ -121,7 +122,13 @@
                         <option value="">Selecionar Unidade...</option>
                     </select>
 
-                    <input type="text" id="membro-cargo" placeholder="Cargo (Ex: Capitão, Conselheiro, Diretor)">
+                    <select id="membro-cargo" onchange="atualizarFuncaoCargoSelecionado('membro-cargo', 'membro-funcao-preview')">
+                        <option value="">Selecionar Cargo...</option>
+                    </select>
+                    <div id="membro-funcao-preview" style="color: #8e8e8e; font-size: 12px; margin-top: -8px;">
+                        Nenhuma função adicional associada.
+                    </div>
+
                     <input type="date" id="membro-nascimento">
                     
                     <label class="upload-customizado">
@@ -132,7 +139,89 @@
                 </div>
             </div>
 
-            <!-- Conteúdo: Gestão de Conquistas (NOVO) -->
+            <!-- Conteúdo: Gerenciamento de Cargos e Funções -->
+<div id="aba-cargos" class="conteudo-aba" style="display: none;">
+    <h3>Gerenciar Cargos e Funções</h3>
+    <p style="color: #8e8e8e; font-size: 13px; margin-bottom: 15px;">
+        Crie cargos reutilizáveis e associe uma função interna a cada cargo.
+    </p>
+
+    <div class="formulario-admin">
+        <input type="hidden" id="cargo-admin-id">
+        <input type="text" id="cargo-admin-nome" placeholder="Nome do cargo (Ex: Capitão)" maxlength="80">
+        <textarea id="cargo-admin-descricao" placeholder="Descrição do cargo" maxlength="300" style="min-height: 80px; resize: vertical;"></textarea>
+
+        <select id="cargo-admin-funcao">
+            <option value="nenhuma">Nenhuma função adicional</option>
+            <option value="publicar">Pode publicar no feed</option>
+            <option value="gerenciar_membros">Pode gerenciar membros</option>
+            <option value="gerenciar_conquistas">Pode gerenciar conquistas</option>
+            <option value="gerenciar_unidades">Pode gerenciar unidades</option>
+            <option value="acesso_total">Acesso administrativo total</option>
+        </select>
+
+        <div style="display: flex; gap: 10px;">
+            <button id="btn-salvar-cargo" type="button" onclick="salvarCargoAdmin()" style="flex: 1;">Criar Cargo</button>
+            <button type="button" onclick="limparFormularioCargoAdmin()" style="flex: 1; background: #555;">Limpar</button>
+        </div>
+    </div>
+
+    <div id="lista-cargos-render" style="margin-top: 25px;"></div>
+</div>
+
+<!-- Modal completo de edição de membro -->
+<div id="modal-edicao-membro" style="display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.88); padding: 20px; box-sizing: border-box; overflow-y: auto;">
+    <div style="max-width: 620px; margin: 0 auto; background: #171717; border: 1px solid #333; border-radius: 12px; padding: 20px; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #fff;">Editar Membro</h3>
+            <button type="button" onclick="fecharModalEdicaoMembro()" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer;">✕</button>
+        </div>
+
+        <input type="hidden" id="edit-membro-id">
+
+        <div class="container-avatar-previa">
+            <img id="edit-previa-membro-img" src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" class="avatar-previa" alt="Foto do membro">
+        </div>
+
+        <div class="formulario-admin">
+            <input type="text" id="edit-membro-nome-real" placeholder="Nome Completo">
+            <input type="text" id="edit-membro-username" placeholder="Nome de Usuário">
+            <input type="text" id="edit-membro-senha" placeholder="Senha de Acesso">
+
+            <select id="edit-membro-tipo" onchange="controlarExibicaoSelecaoUnidadeEdicao( )">
+                <option value="Desbravador">Desbravador</option>
+                <option value="Liderança">Liderança</option>
+            </select>
+
+            <select id="edit-membro-unidade-vinculo">
+                <option value="">Selecionar Unidade...</option>
+            </select>
+
+            <select id="edit-membro-cargo" onchange="atualizarFuncaoCargoSelecionado('edit-membro-cargo', 'edit-membro-funcao-preview')">
+                <option value="">Selecionar Cargo...</option>
+            </select>
+            <div id="edit-membro-funcao-preview" style="color: #8e8e8e; font-size: 12px; margin-top: -8px;">
+                Nenhuma função adicional associada.
+            </div>
+
+            <input type="date" id="edit-membro-nascimento">
+
+            <label class="upload-customizado">
+                Trocar Foto de Perfil
+                <input type="file" id="edit-membro-foto" accept="image/*" onchange="mostrarPreviaImagem(this, 'edit-previa-membro-img')">
+            </label>
+
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button type="button" onclick="salvarEdicaoMembroAdmin()" style="flex: 1; background: #28a745;">Salvar Alterações</button>
+                <button type="button" onclick="fecharModalEdicaoMembro()" style="flex: 1; background: #555;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Conteúdo: Gestão de Conquistas (NOVO) -->
+
+
             <div id="aba-conquistas-gestao" class="conteudo-aba" style="display: none;">
                 <h3>Gestão de Conquistas por Usuário</h3>
                 <p style="color: #8e8e8e; font-size: 13px; margin-bottom: 15px;">Selecione um usuário para gerenciar suas conquistas aprovadas.</p>

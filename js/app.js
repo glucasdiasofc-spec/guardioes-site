@@ -2582,10 +2582,14 @@ function mudarAbaAdmin(idAbaDestino) {
     if (botaoClicado) botaoClicado.classList.add("ativa");
 
     // Gatilho para carregar a gestão de conquistas
+    if (idAbaDestino === 'aba-cargos') {
+        carregarCargosAdmin();
+    }
+
     if (idAbaDestino === 'aba-conquistas-gestao') {
         carregarUsuariosParaGestaoConquistas();
     }
-}
+
 
 
 function controlarExibicaoSelecaoUnidade() {
@@ -2716,20 +2720,178 @@ async function deletarUnidadeComFoto(id, idFoto) {
         alert("Não foi possível apagar. Erro: " + erro.message);
     }
 }
-// === LÓGICA DE GERENCIAMENTO DE MEMBROS ===
+// === LÓGICA DE GERENCIAMENTO DE CARGOS E MEMBROS ===
+let cargosAdminCache = [];
+
+function nomeFuncaoCargo(funcao) {
+    const nomes = {
+        nenhuma: "Nenhuma função adicional",
+        publicar: "Pode publicar no feed",
+        gerenciar_membros: "Pode gerenciar membros",
+        gerenciar_conquistas: "Pode gerenciar conquistas",
+        gerenciar_unidades: "Pode gerenciar unidades",
+        acesso_total: "Acesso administrativo total"
+    };
+
+    return nomes[funcao] || "Função personalizada";
+}
+
+async function carregarCargosAdmin() {
+    if (!window.ClubeDB || !window.ClubeDB.textoDB) return;
+
+    try {
+        const snapshot = await window.ClubeDB.textoDB.collection("cargos").orderBy("nome").get();
+        cargosAdminCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const selects = [
+            document.getElementById("membro-cargo"),
+            document.getElementById("edit-membro-cargo")
+        ];
+
+        selects.forEach(select => {
+            if (!select) return;
+            const valorAtual = select.value;
+            select.innerHTML = '<option value="">Selecionar Cargo...</option>';
+
+            cargosAdminCache.forEach(cargo => {
+                const option = document.createElement("option");
+                option.value = cargo.id;
+                option.textContent = cargo.nome;
+                select.appendChild(option);
+            });
+
+            if (cargosAdminCache.some(cargo => cargo.id === valorAtual)) {
+                select.value = valorAtual;
+            }
+        });
+
+        const lista = document.getElementById("lista-cargos-render");
+        if (!lista) return;
+
+        if (!cargosAdminCache.length) {
+            lista.innerHTML = '<p style="color:#aaa;">Nenhum cargo cadastrado.</p>';
+            return;
+        }
+
+        lista.innerHTML = "";
+        cargosAdminCache.forEach(cargo => {
+            const item = document.createElement("div");
+            item.style.cssText = "display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:10px;background:#2b2b2b;border-radius:8px;";
+            item.innerHTML = `
+                <div style="flex:1;">
+                    <strong>${escaparHtml(cargo.nome)}</strong>
+                    <div style="color:#aaa;font-size:12px;margin-top:4px;">${escaparHtml(cargo.descricao || "Sem descrição")}</div>
+                    <div style="color:#58a6ff;font-size:12px;margin-top:4px;">${escaparHtml(nomeFuncaoCargo(cargo.funcao))}</div>
+                </div>
+                <button type="button" data-editar-cargo="${cargo.id}" style="padding:6px 10px;">✏️ Editar</button>
+                <button type="button" data-apagar-cargo="${cargo.id}" style="padding:6px 10px;background:#ff4d4d;color:#fff;border:0;border-radius:4px;">🗑️ Apagar</button>
+            `;
+
+            item.querySelector("[data-editar-cargo]").addEventListener("click", () => editarCargoAdmin(cargo.id));
+            item.querySelector("[data-apagar-cargo]").addEventListener("click", () => apagarCargoAdmin(cargo.id));
+            lista.appendChild(item);
+        });
+    } catch (erro) {
+        console.error("Erro ao carregar cargos:", erro);
+        const lista = document.getElementById("lista-cargos-render");
+        if (lista) lista.innerHTML = `<p style="color:#ff4d4d;">Erro ao carregar cargos: ${escaparHtml(erro.message)}</p>`;
+    }
+}
+
+async function salvarCargoAdmin() {
+    const id = document.getElementById("cargo-admin-id").value;
+    const nome = document.getElementById("cargo-admin-nome").value.trim();
+    const descricao = document.getElementById("cargo-admin-descricao").value.trim();
+    const funcao = document.getElementById("cargo-admin-funcao").value;
+
+    if (!nome) {
+        alert("Informe o nome do cargo.");
+        return;
+    }
+
+    try {
+        const dados = {
+            nome,
+            descricao,
+            funcao,
+            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        const colecao = window.ClubeDB.textoDB.collection("cargos");
+
+        if (id) {
+            await colecao.doc(id).update(dados);
+            alert("Cargo atualizado com sucesso!");
+        } else {
+            await colecao.add({ ...dados, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+            alert("Cargo criado com sucesso!");
+        }
+
+        limparFormularioCargoAdmin();
+        carregarCargosAdmin();
+    } catch (erro) {
+        console.error("Erro ao salvar cargo:", erro);
+        alert("Erro ao salvar cargo: " + erro.message);
+    }
+}
+
+function editarCargoAdmin(id) {
+    const cargo = cargosAdminCache.find(item => item.id === id);
+    if (!cargo) return;
+
+    document.getElementById("cargo-admin-id").value = cargo.id;
+    document.getElementById("cargo-admin-nome").value = cargo.nome || "";
+    document.getElementById("cargo-admin-descricao").value = cargo.descricao || "";
+    document.getElementById("cargo-admin-funcao").value = cargo.funcao || "nenhuma";
+    document.getElementById("btn-salvar-cargo").textContent = "Salvar Alterações";
+}
+
+function limparFormularioCargoAdmin() {
+    document.getElementById("cargo-admin-id").value = "";
+    document.getElementById("cargo-admin-nome").value = "";
+    document.getElementById("cargo-admin-descricao").value = "";
+    document.getElementById("cargo-admin-funcao").value = "nenhuma";
+    document.getElementById("btn-salvar-cargo").textContent = "Criar Cargo";
+}
+
+async function apagarCargoAdmin(id) {
+    const cargo = cargosAdminCache.find(item => item.id === id);
+    if (!cargo) return;
+
+    if (!confirm(`Apagar o cargo "${cargo.nome}"? Os membros já cadastrados não serão apagados.`)) return;
+
+    try {
+        await window.ClubeDB.textoDB.collection("cargos").doc(id).delete();
+        alert("Cargo apagado com sucesso!");
+        carregarCargosAdmin();
+    } catch (erro) {
+        console.error("Erro ao apagar cargo:", erro);
+        alert("Erro ao apagar cargo: " + erro.message);
+    }
+}
+
+function atualizarFuncaoCargoSelecionado(idSelect, idPreview) {
+    const select = document.getElementById(idSelect);
+    const preview = document.getElementById(idPreview);
+    if (!select || !preview) return;
+
+    const cargo = cargosAdminCache.find(item => item.id === select.value);
+    preview.textContent = cargo ? nomeFuncaoCargo(cargo.funcao) : "Nenhuma função adicional associada.";
+}
+
 
 async function salvarNovoMembroAdmin() {
-    const username = document.getElementById("membro-username").value.trim();
+    const username = document.getElementById("membro-username").value.trim().toLowerCase();
     const senha = document.getElementById("membro-senha").value;
     const nomeReal = document.getElementById("membro-nome-real").value.trim();
     const tipo = document.getElementById("membro-tipo").value;
     const unidade = document.getElementById("membro-unidade-vinculo").value;
-    const cargo = document.getElementById("membro-cargo").value.trim();
+    const cargoId = document.getElementById("membro-cargo").value;
+    const cargoSelecionado = cargosAdminCache.find(cargo => cargo.id === cargoId);
     const dataNascimento = document.getElementById("membro-nascimento").value;
     const fotoInput = document.getElementById("membro-foto");
     const arquivoFoto = fotoInput ? fotoInput.files[0] : null;
 
-    if (!username || !senha || !nomeReal || !cargo || !dataNascimento) {
+    if (!username || !senha || !nomeReal || !cargoId || !dataNascimento) {
         alert("Preencha todos os campos obrigatórios do membro!");
         return;
     }
@@ -2739,83 +2901,64 @@ async function salvarNovoMembroAdmin() {
         return;
     }
 
+    if (!window.ClubeDB || !window.ClubeDB.acoesAdmin) {
+        alert("O sistema administrativo ainda não está disponível.");
+        return;
+    }
+
     const dadosMembro = {
-        username: username,
-        senha: senha,
-        nomeReal: nomeReal,
-        tipo: tipo,
-        unidade: unidade,
-        cargo: cargo,
-        dataNascimento: dataNascimento
+        username,
+        senha,
+        nomeReal,
+        tipo,
+        unidade,
+        cargoId,
+        cargo: cargoSelecionado ? cargoSelecionado.nome : "",
+        cargoFuncao: cargoSelecionado ? cargoSelecionado.funcao : "nenhuma",
+        dataNascimento
     };
 
+    const botao = document.querySelector("#aba-membros .formulario-admin button[type='button']");
+
     try {
-        const btn = document.querySelector("#aba-membros button");
-        if(btn) {
-            btn.disabled = true;
-            btn.textContent = idMembroSendoEditado ? "⏳ Salvando..." : "⏳ Cadastrando...";
+        if (botao) {
+            botao.disabled = true;
+            botao.textContent = "⏳ Cadastrando...";
         }
 
-        if (window.ClubeDB) {
-            if (idMembroSendoEditado) {
-                // Se enviou nova foto, reprocessa tudo. Se não, atualiza apenas os textos preservando a foto atual
-                if (arquivoFoto && window.ClubeDB.acoesAdmin) {
-                    await window.ClubeDB.textoDB.collection("usuarios").doc(idMembroSendoEditado).delete();
-                    await window.ClubeDB.acoesAdmin.cadastrarMembro(dadosMembro, arquivoFoto);
-                } else {
-                    await window.ClubeDB.textoDB.collection("usuarios").doc(idMembroSendoEditado).update(dadosMembro);
-                }   
-                alert(`🎉 Membro ${nomeReal} atualizado com sucesso!`);
-                idMembroSendoEditado = null; 
-            } else {
-                await window.ClubeDB.acoesAdmin.cadastrarMembro(dadosMembro, arquivoFoto);
-                alert(`🎉 Membro ${nomeReal} cadastrado com sucesso!`);
-            }
-            
-            document.getElementById("membro-username").value = "";
-            document.getElementById("membro-senha").value = "";
-            document.getElementById("membro-nome-real").value = "";
-            document.getElementById("membro-cargo").value = "";
-            document.getElementById("membro-nascimento").value = "";
-            if (fotoInput) fotoInput.value = "";
-            document.getElementById("previa-membro-img").src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
-            
-            carregarMembrosCadastrados();
-        }
-        
-        if(btn) {
-            btn.disabled = false;
-            btn.textContent = "Cadastrar Membro";
-        }
+        await window.ClubeDB.acoesAdmin.cadastrarMembro(dadosMembro, arquivoFoto);
+        alert(`🎉 Membro ${nomeReal} cadastrado com sucesso!`);
+
+        document.getElementById("membro-username").value = "";
+        document.getElementById("membro-senha").value = "";
+        document.getElementById("membro-nome-real").value = "";
+        document.getElementById("membro-tipo").value = "Desbravador";
+        document.getElementById("membro-unidade-vinculo").value = "";
+        document.getElementById("membro-cargo").value = "";
+        document.getElementById("membro-nascimento").value = "";
+        if (fotoInput) fotoInput.value = "";
+
+        document.getElementById("previa-membro-img").src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        atualizarFuncaoCargoSelecionado("membro-cargo", "membro-funcao-preview" );
+        carregarMembrosCadastrados();
     } catch (erro) {
+        console.error("Erro ao cadastrar membro:", erro);
         alert("Erro ao cadastrar membro: " + erro.message);
-        const btn = document.querySelector("#aba-membros button");
-        if(btn) {
-            btn.disabled = false;
-            btn.textContent = "Cadastrar Membro";
+    } finally {
+        if (botao) {
+            botao.disabled = false;
+            botao.textContent = "Cadastrar Membro";
         }
     }
 }
+
 
 // Controle global de edição de usuários
 let idMembroSendoEditado = null;
 
 async function carregarMembrosCadastrados() {
-    console.log("Iniciando busca de membros no banco...");
-    
-    // Tenta encontrar a área da aba de membros de várias formas possíveis
-    let abaMembros = document.getElementById("aba-membros") || document.getElementById("membros");
-    
-    // Se o ID for diferente, procura o container através do campo de nome que sabemos que existe
-    if (!abaMembros) {
-        const inputNome = document.getElementById("membro-nome-real");
-        if (inputNome) abaMembros = inputNome.parentElement;
-    }
-
-    if (!abaMembros) {
-        console.error("Erro: Não encontrei onde desenhar a lista no HTML (ID da aba não encontrado).");
-        return;
-    }
+    const abaMembros = document.getElementById("aba-membros");
+    if (!abaMembros || !window.ClubeDB || !window.ClubeDB.textoDB) return;
 
     let container = document.getElementById("lista-membros-render");
     if (!container) {
@@ -2826,81 +2969,150 @@ async function carregarMembrosCadastrados() {
         container.style.paddingTop = "20px";
         abaMembros.appendChild(container);
     }
-    
-    container.innerHTML = "<p style='color: #aaa;'>Buscando membros no servidor...</p>";
-    
+
+    container.innerHTML = "<p style='color:#aaa;'>Buscando membros no servidor...</p>";
+
     try {
         const snapshot = await window.ClubeDB.textoDB.collection("usuarios").get();
-        console.log("Encontrei " + snapshot.size + " membro(s) no banco de dados.");
-        
+
         if (snapshot.empty) {
-            container.innerHTML = "<p style='color: #aaa;'>Nenhum membro cadastrado ainda.</p>";
+            container.innerHTML = "<p style='color:#aaa;'>Nenhum membro cadastrado ainda.</p>";
             return;
         }
 
-        container.innerHTML = "<h3 style='margin-bottom:15px;'>Membros Cadastrados</h3>"; 
-        
-        snapshot.forEach(doc => {
-            const m = doc.data();
-            const id = doc.id;
-            const urlFoto = m.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
+        container.innerHTML = "<h3 style='margin-bottom:15px;'>Membros Cadastrados</h3>";
 
-            container.innerHTML += `
-                <div class="item-membro" style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 10px; background: #2b2b2b; border-radius: 8px;">
-                    <img src="${urlFoto}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">
-                    <div style="flex: 1;">
-                        <div style="font-weight: bold;">${m.nomeReal || 'Sem Nome'}</div>
-                        <div style="font-size: 12px; color: #aaa;">${m.cargo || 'Membro'} | ${m.unidade || 'Sem unidade'}</div>
-                    </div>
-                    <button onclick="prepararEdicaoMembro('${id}', ${JSON.stringify(m).replace(/"/g, '&quot;')})" style="padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; border: none;">✏️ Editar</button>
-                    <button onclick="deletarMembro('${id}', '${m.fotoIdPublico || ''}')" style="padding: 5px 10px; font-size: 12px; background: #ff4d4d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Apagar</button>
+        snapshot.forEach(doc => {
+            const membro = doc.data() || {};
+            const id = doc.id;
+            const foto = membro.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+            const card = document.createElement("div" );
+            card.className = "item-membro";
+            card.style.cssText = "display:flex;align-items:center;gap:15px;margin-bottom:15px;padding:10px;background:#2b2b2b;border-radius:8px;";
+            card.innerHTML = `
+                <img src="${foto}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;">
+                <div style="flex:1;">
+                    <div style="font-weight:bold;">${escaparHtml(membro.nomeReal || "Sem Nome")}</div>
+                    <div style="font-size:12px;color:#aaa;">${escaparHtml(membro.cargo || "Sem cargo")} | ${escaparHtml(membro.unidade || "Sem unidade")}</div>
                 </div>
+                <button type="button" data-editar-membro="${id}" style="padding:5px 10px;font-size:12px;cursor:pointer;border-radius:4px;border:none;">✏️ Editar</button>
+                <button type="button" data-apagar-membro="${id}" style="padding:5px 10px;font-size:12px;background:#ff4d4d;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Apagar</button>
             `;
+
+            card.querySelector("[data-editar-membro]").addEventListener("click", () => prepararEdicaoMembro(id));
+            card.querySelector("[data-apagar-membro]").addEventListener("click", () => deletarMembro(id, membro.fotoIdPublico || ""));
+            container.appendChild(card);
         });
     } catch (erro) {
-        console.error("Erro do Firebase:", erro);
-        container.innerHTML = `<p style="color: #ff4d4d;">Erro ao carregar membros: ${erro.message}</p>`;
+        console.error("Erro ao carregar membros:", erro);
+        container.innerHTML = `<p style="color:#ff4d4d;">Erro ao carregar membros: ${escaparHtml(erro.message)}</p>`;
     }
 }
 
-function prepararEdicaoMembro(id, dados) {
-    idMembroSendoEditado = id;
-    
-    document.getElementById("membro-username").value = dados.username || "";
-    document.getElementById("membro-senha").value = dados.senha || "";
-    document.getElementById("membro-nome-real").value = dados.nomeReal || "";
-    document.getElementById("membro-tipo").value = dados.tipo || "Desbravador";
-    
-    controlarExibicaoSelecaoUnidade();
-    const campoUnidade = document.getElementById("membro-unidade-vinculo");
-    if (campoUnidade) campoUnidade.value = dados.unidade || "";
-    
-    document.getElementById("membro-cargo").value = dados.cargo || "";
-    document.getElementById("membro-nascimento").value = dados.dataNascimento || "";
-    
-    if (dados.fotoUrl) {
-        document.getElementById("previa-membro-img").src = dados.fotoUrl;
-    }
 
-    const btn = document.querySelector("#aba-membros button");
-    if (btn) btn.textContent = "💾 Salvar Alterações do Membro";
-    
-    document.getElementById("aba-membros").scrollIntoView({ behavior: 'smooth' });
-}
+async function prepararEdicaoMembro(id) {
+    if (!window.ClubeDB || !window.ClubeDB.textoDB) return;
 
-async function deletarMembro(id, idFoto) {
-    if (!confirm("Tem certeza que deseja apagar este membro permanentemente?")) return;
     try {
-        if (idFoto && idFoto !== "undefined" && window.ClubeDB.acoesAdmin.excluirFoto) {
-            await window.ClubeDB.acoesAdmin.excluirFoto(idFoto);
+        const documento = await window.ClubeDB.textoDB.collection("usuarios").doc(id).get();
+
+        if (!documento.exists) {
+            alert("Membro não encontrado.");
+            return;
         }
-        await window.ClubeDB.textoDB.collection("usuarios").doc(id).delete();
-        alert("Membro removido com sucesso!");
+
+        const dados = documento.data() || {};
+        document.getElementById("edit-membro-id").value = id;
+        document.getElementById("edit-membro-nome-real").value = dados.nomeReal || "";
+        document.getElementById("edit-membro-username").value = dados.username || "";
+        document.getElementById("edit-membro-senha").value = dados.senha || "";
+        document.getElementById("edit-membro-tipo").value = dados.tipo || "Desbravador";
+        document.getElementById("edit-membro-unidade-vinculo").value = dados.unidade || "";
+        document.getElementById("edit-membro-nascimento").value = dados.dataNascimento || "";
+
+        const cargoSelect = document.getElementById("edit-membro-cargo");
+        const cargoAtual = cargosAdminCache.find(cargo => cargo.id === dados.cargoId) ||
+            cargosAdminCache.find(cargo => cargo.nome === dados.cargo);
+
+        cargoSelect.value = cargoAtual ? cargoAtual.id : "";
+        atualizarFuncaoCargoSelecionado("edit-membro-cargo", "edit-membro-funcao-preview");
+
+        document.getElementById("edit-previa-membro-img").src = dados.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        controlarExibicaoSelecaoUnidadeEdicao( );
+        document.getElementById("edit-membro-foto").value = "";
+        document.getElementById("modal-edicao-membro").style.display = "block";
+    } catch (erro) {
+        console.error("Erro ao abrir edição:", erro);
+        alert("Não foi possível carregar os dados do membro: " + erro.message);
+    }
+}
+
+function fecharModalEdicaoMembro() {
+    const modal = document.getElementById("modal-edicao-membro");
+    if (modal) modal.style.display = "none";
+}
+
+function controlarExibicaoSelecaoUnidadeEdicao() {
+    const tipo = document.getElementById("edit-membro-tipo").value;
+    const campo = document.getElementById("edit-membro-unidade-vinculo");
+
+    if (!campo) return;
+
+    campo.style.display = tipo === "Liderança" ? "none" : "block";
+    if (tipo === "Liderança") campo.value = "";
+}
+
+async function salvarEdicaoMembroAdmin() {
+    const id = document.getElementById("edit-membro-id").value;
+    const cargoId = document.getElementById("edit-membro-cargo").value;
+    const cargoSelecionado = cargosAdminCache.find(cargo => cargo.id === cargoId);
+    const fotoInput = document.getElementById("edit-membro-foto");
+    const arquivoFoto = fotoInput ? fotoInput.files[0] : null;
+
+    const dadosAtualizados = {
+        nomeReal: document.getElementById("edit-membro-nome-real").value.trim(),
+        username: document.getElementById("edit-membro-username").value.trim().toLowerCase(),
+        senha: document.getElementById("edit-membro-senha").value,
+        tipo: document.getElementById("edit-membro-tipo").value,
+        unidade: document.getElementById("edit-membro-unidade-vinculo").value,
+        cargoId,
+        cargo: cargoSelecionado ? cargoSelecionado.nome : "",
+        cargoFuncao: cargoSelecionado ? cargoSelecionado.funcao : "nenhuma",
+        dataNascimento: document.getElementById("edit-membro-nascimento").value
+    };
+
+    if (!id || !dadosAtualizados.nomeReal || !dadosAtualizados.username || !dadosAtualizados.senha || !cargoId || !dadosAtualizados.dataNascimento) {
+        alert("Preencha todos os campos obrigatórios.");
+        return;
+    }
+
+    if (dadosAtualizados.tipo === "Desbravador" && !dadosAtualizados.unidade) {
+        alert("Desbravadores precisam obrigatoriamente estar vinculados a uma unidade!");
+        return;
+    }
+
+    try {
+        const referencia = window.ClubeDB.textoDB.collection("usuarios").doc(id);
+
+        if (arquivoFoto && window.ClubeDB.acoesAdmin && window.ClubeDB.acoesAdmin.cadastrarMembro) {
+            const anterior = await referencia.get();
+            const dadosComFoto = { ...dadosAtualizados, fotoUrl: anterior.data().fotoUrl || "" };
+            await referencia.update(dadosComFoto);
+            await window.ClubeDB.acoesAdmin.cadastrarMembro(dadosAtualizados, arquivoFoto);
+        } else {
+            await referencia.update(dadosAtualizados);
+        }
+
+        alert(`🎉 Membro ${dadosAtualizados.nomeReal} atualizado com sucesso!`);
+        fecharModalEdicaoMembro();
         carregarMembrosCadastrados();
     } catch (erro) {
-        alert("Erro ao remover membro: " + erro.message);
+        console.error("Erro ao salvar edição:", erro);
+        alert("Erro ao atualizar membro: " + erro.message);
     }
 }
+
 
 // ==========================================
 // CONTROLE DE TAMANHO DA LOGO DO HEADER
