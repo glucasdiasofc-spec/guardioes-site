@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.91.0 - versão alpha";
+const VERSAO_ATUAL = "v0.92.0 - versão alpha";
 
 /*
  * =====================================================
@@ -2502,18 +2502,67 @@ async function removerLogoClubeAdmin(tipo = 'site') {
 
 // Limpa a sessão
 function fazerLogoutSessao() {
+    // Remove completamente os dados da sessão atual
     localStorage.removeItem("sessaoAdminLogado");
     localStorage.removeItem("usuarioLogado");
     localStorage.removeItem("usernameLogado");
-    
-    if (window.ClubeDB && window.ClubeDB.loginDB) {
-        window.ClubeDB.loginDB.signOut().catch(err => console.log("Signout efetuado: ", err));
+
+    // Limpa os dados visuais do perfil anterior
+    const avatarPadrao = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+    const avatarEl = document.getElementById("perfil-usuario-avatar" );
+    const nomeEl = document.getElementById("perfil-usuario-nome");
+    const cargoEl = document.getElementById("perfil-usuario-cargo");
+    const unidadeEl = document.getElementById("perfil-usuario-unidade-status");
+    const nascimentoEl = document.getElementById("perfil-usuario-nascimento");
+    const contadorEl = document.getElementById("perfil-usuario-conquistas-status");
+    const classesEl = document.getElementById("perfil-conquistas-classes");
+    const especialidadesEl = document.getElementById("perfil-conquistas-especialidades");
+    const mestradosEl = document.getElementById("perfil-conquistas-mestrados");
+    const tClasses = document.getElementById("titulo-conquistas-classes");
+    const tEspecialidades = document.getElementById("titulo-conquistas-especialidades");
+    const tMestrados = document.getElementById("titulo-conquistas-mestrados");
+    const gridEl = document.getElementById("perfil-usuario-grid");
+    const vazioEl = document.getElementById("perfil-publicacoes-vazio");
+
+    if (avatarEl) avatarEl.src = avatarPadrao;
+    if (nomeEl) nomeEl.textContent = "Carregando...";
+    if (cargoEl) cargoEl.textContent = "Cargo";
+    if (unidadeEl) unidadeEl.textContent = "-";
+    if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
+    if (contadorEl) contadorEl.textContent = "0";
+    if (classesEl) classesEl.textContent = "Nenhuma classe concluída.";
+    if (especialidadesEl) especialidadesEl.textContent = "Nenhuma especialidade validada.";
+    if (mestradosEl) mestradosEl.textContent = "Nenhum mestrado concluído ainda.";
+    if (tClasses) tClasses.textContent = "🎒 Classes Regulares (0)";
+    if (tEspecialidades) tEspecialidades.textContent = "🏅 Especialidades Adquiridas (0)";
+    if (tMestrados) tMestrados.textContent = "🏆 Mestrados Adquiridos (0)";
+    if (gridEl) {
+        gridEl.innerHTML = "";
+        gridEl.style.display = "none";
+    }
+    if (vazioEl) {
+        vazioEl.textContent = "Nenhuma publicação encontrada.";
+        vazioEl.style.display = "block";
     }
 
-    document.getElementById("tela-admin").style.display = "none";
-    document.getElementById("tela-site").style.display = "none";
-    document.getElementById("tela-login").style.display = "flex";
+    // Encerra a sessão do Firebase
+    if (window.ClubeDB && window.ClubeDB.loginDB) {
+        window.ClubeDB.loginDB
+            .signOut()
+            .catch(err => console.log("Erro ao encerrar sessão: ", err));
+    }
+
+    // Retorna para a tela de login
+    const telaAdmin = document.getElementById("tela-admin");
+    const telaSite = document.getElementById("tela-site");
+    const telaLogin = document.getElementById("tela-login");
+
+    if (telaAdmin) telaAdmin.style.display = "none";
+    if (telaSite) telaSite.style.display = "none";
+    if (telaLogin) telaLogin.style.display = "flex";
 }
+
 
 // Controle das abas do menu
 function mudarAbaAdmin(idAbaDestino) {
