@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.91.0 - versão alpha";
+const VERSAO_ATUAL = "v0.92.0 - versão alpha";
 
 /*
  * =====================================================
