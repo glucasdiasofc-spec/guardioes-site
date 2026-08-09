@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.99.0 - versão alpha";
+const VERSAO_ATUAL = "v0.97.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -535,19 +535,9 @@ async function carregarListaDeContatosChat() {
 
     let contatosRenderizados = 0;
 
-    // Fixa o Admin (Suporte) no topo para todos os membros comuns buscando a foto real do admin
+    // Fixa o Admin (Suporte) no topo para todos os membros comuns
     if (usernameLogado !== "admin" && divSuporte) {
-        let fotoAdmin = window.AVATAR_USUARIO_PADRAO;
-        try {
-            const snapAdmin = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", "admin").limit(1).get();
-            if (!snapAdmin.empty && snapAdmin.docs[0].data().fotoUrl) {
-                fotoAdmin = snapAdmin.docs[0].data().fotoUrl;
-            }
-        } catch (e) {
-            console.error("Erro ao buscar foto do admin para o chat:", e);
-        }
-
-        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", fotoAdmin);
+        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" );
         contatosRenderizados++;
     }
 
