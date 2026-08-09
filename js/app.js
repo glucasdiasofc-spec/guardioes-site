@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.93.0 - versão alpha";
+const VERSAO_ATUAL = "v0.94.0 - versão alpha";
 
 /*
  * =====================================================
@@ -399,7 +399,7 @@ function mudarSubAbaSite(abaAlvo) {
 let unsubscribeChatAtivo = null;
 let usuarioChatDestino = null;
 
-async function carregarListaDeContatosChat() {
+                                                                            aasync function carregarListaDeContatosChat() {
     const usernameLogado = localStorage.getItem("usernameLogado");
     const tipoUsuarioLogado = localStorage.getItem("usuarioLogado");
     
@@ -415,7 +415,6 @@ async function carregarListaDeContatosChat() {
 
     let minhaUnidade = "";
     
-    // Descobre a unidade do usuário logado (se não for admin)
     if (tipoUsuarioLogado !== "admin") {
         try {
             const snapUser = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", usernameLogado).get();
@@ -430,7 +429,6 @@ async function carregarListaDeContatosChat() {
     const divMinhaUnidade = document.getElementById("lista-msg-unidade");
     const divOutras = document.getElementById("lista-msg-outras");
 
-    // Limpa a tela antes de renderizar
     if(divSuporte) divSuporte.innerHTML = "";
     if(divLideranca) divLideranca.innerHTML = "";
     if(divMinhaUnidade) divMinhaUnidade.innerHTML = "";
@@ -438,9 +436,8 @@ async function carregarListaDeContatosChat() {
 
     let contatosRenderizados = 0;
 
-    // Fixa o Admin (Suporte) no topo para todos os membros comuns
     if (usernameLogado !== "admin" && divSuporte) {
-        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" );
+        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png");
         contatosRenderizados++;
     }
 
@@ -453,17 +450,16 @@ async function carregarListaDeContatosChat() {
             
             if (!usernameUser || usernameUser === usernameLogado.toLowerCase()) return;
 
-            const card = criarCardContatoChat(
-                user.username,
-                user.nomeReal || user.username,
-                user.cargo || user.tipo || "Membro",
-                user.fotoUrl
-            );
+            const fotoUser = user.fotoPerfil || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+            const nomeUser = user.nome || usernameUser;
+            const cargoUser = user.cargo || (user.tipo === "Liderança" ? "Liderança" : "Desbravador");
+            
+            const card = criarCardContatoChat(usernameUser, nomeUser, cargoUser, fotoUser);
 
             if (user.tipo === "Liderança") {
                 if (divLideranca) divLideranca.innerHTML += card;
                 contatosRenderizados++;
-            } else if (minhaUnidade && user.unidade && user.unidade.trim().toLowerCase() === minhaUnidade.trim().toLowerCase()) {
+            } else if (user.unidade === minhaUnidade && minhaUnidade !== "") {
                 if (divMinhaUnidade) divMinhaUnidade.innerHTML += card;
                 contatosRenderizados++;
             } else {
@@ -472,30 +468,167 @@ async function carregarListaDeContatosChat() {
             }
         });
 
-        const sessoes = [
-            { div: divSuporte, titulo: document.getElementById("titulo-msg-suporte") },
-            { div: divLideranca, titulo: document.getElementById("titulo-msg-lideranca") },
-            { div: divMinhaUnidade, titulo: document.getElementById("titulo-msg-unidade") },
-            { div: divOutras, titulo: document.getElementById("titulo-msg-outras") }
-        ];
-
-        sessoes.forEach(s => {
-            if (s.div && s.titulo) {
-                s.titulo.style.display = s.div.innerHTML.trim() !== "" ? "block" : "none";
-            }
-        });
-
-        if (msgLoadingState) msgLoadingState.style.display = "none";
-        if (contatosRenderizados === 0) {
-            if (msgEmptyState) msgEmptyState.style.display = "block";
-        } else {
+        if (contatosRenderizados > 0) {
             if (msgContatosContainer) msgContatosContainer.style.display = "block";
+            
+            const exibeSeTiverFilho = (div, tituloId) => {
+                const titulo = document.getElementById(tituloId);
+                if (titulo && div && div.innerHTML.trim() !== "") {
+                    titulo.style.display = "block";
+                } else if (titulo) {
+                    titulo.style.display = "none";
+                }
+            };
+
+            exibeSeTiverFilho(divSuporte, "titulo-msg-suporte");
+            exibeSeTiverFilho(divLideranca, "titulo-msg-lideranca");
+            exibeSeTiverFilho(divMinhaUnidade, "titulo-msg-unidade");
+            exibeSeTiverFilho(divOutras, "titulo-msg-outras");
+            
+        } else {
+            if (msgEmptyState) msgEmptyState.style.display = "block";
         }
 
     } catch (erro) {
-        console.error("Erro ao carregar contatos:", erro);
+        console.error("Erro ao carregar lista de contatos:", erro);
+        if (msgEmptyState) {
+            msgEmptyState.style.display = "block";
+            msgEmptyState.innerHTML = "<div style='color:#ff4d4d;'>Erro ao carregar contatos. Tente novamente mais tarde.</div>";
+        }
+    } finally {
         if (msgLoadingState) msgLoadingState.style.display = "none";
-        if (msgEmptyState) msgEmptyState.style.display = "block";
+    }
+}
+
+function criarCardContatoChat(username, nome, cargo, fotoUrl) {
+    return `
+        <div onclick="abrirSalaChat('${username}', '${nome}', '${cargo}', '${fotoUrl}')" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #262626; cursor: pointer; transition: background 0.2s;">
+            <img src="${fotoUrl}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
+            <div style="flex: 1; min-width: 0;">
+                <div style="color: #fff; font-weight: bold; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${nome}</div>
+                <div style="color: #8e8e8e; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cargo}</div>
+            </div>
+            <div style="color: #0095f6; font-size: 20px;">💬</div>
+        </div>
+    `;
+}
+
+function abrirSalaChat(usernameDestino, nome, cargo, fotoUrl) {
+    usuarioChatDestino = usernameDestino;
+
+    document.getElementById("chat-nome-atual").textContent = nome;
+    document.getElementById("chat-cargo-atual").textContent = cargo;
+    document.getElementById("chat-avatar-atual").src = fotoUrl;
+
+    document.getElementById("tela-lista-mensagens").style.display = "none";
+    document.getElementById("tela-sala-chat").style.display = "flex";
+
+    carregarMensagensDaSala(usernameDestino);
+}
+
+function fecharSalaChat() {
+    if (unsubscribeChatAtivo) {
+        unsubscribeChatAtivo();
+        unsubscribeChatAtivo = null;
+    }
+    usuarioChatDestino = null;
+
+    document.getElementById("tela-sala-chat").style.display = "none";
+    document.getElementById("tela-lista-mensagens").style.display = "flex";
+}
+
+function gerarIdSalaDeChat(user1, user2) {
+    const [u1, u2] = [user1.toLowerCase(), user2.toLowerCase()].sort();
+    return `${u1}_${u2}`;
+}
+
+function carregarMensagensDaSala(usernameDestino) {
+    const usernameLogado = localStorage.getItem("usernameLogado");
+    if (!usernameLogado || !usernameDestino) return;
+
+    const salaId = gerarIdSalaDeChat(usernameLogado, usernameDestino);
+    const container = document.getElementById("chat-mensagens-container");
+    container.innerHTML = "<p style='color: #8e8e8e; text-align: center; margin-top: 20px;'>Carregando mensagens...</p>";
+
+    if (unsubscribeChatAtivo) {
+        unsubscribeChatAtivo();
+    }
+
+    unsubscribeChatAtivo = window.ClubeDB.textoDB.collection("chats").doc(salaId).collection("mensagens")
+        .orderBy("timestamp", "asc")
+        .onSnapshot((snapshot) => {
+            container.innerHTML = "";
+
+            if (snapshot.empty) {
+                container.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #8e8e8e; text-align: center;">
+                        <span style="font-size: 40px; margin-bottom: 10px;">👋</span>
+                        Mande um 'Olá' para iniciar a conversa!
+                    </div>`;
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                const msg = doc.data();
+                const ehMinha = (msg.remetente === usernameLogado.toLowerCase());
+
+                const divMsg = document.createElement("div");
+                divMsg.style.display = "flex";
+                divMsg.style.justifyContent = ehMinha ? "flex-end" : "flex-start";
+                divMsg.style.marginBottom = "8px";
+
+                const balao = document.createElement("div");
+                balao.style.maxWidth = "75%";
+                balao.style.padding = "10px 14px";
+                balao.style.borderRadius = "18px";
+                balao.style.fontSize = "14px";
+                balao.style.lineHeight = "1.4";
+                balao.style.wordBreak = "break-word";
+                
+                if (ehMinha) {
+                    balao.style.background = "#0095f6";
+                    balao.style.color = "#fff";
+                    balao.style.borderBottomRightRadius = "4px";
+                } else {
+                    balao.style.background = "#262626";
+                    balao.style.color = "#fff";
+                    balao.style.borderBottomLeftRadius = "4px";
+                }
+
+                balao.textContent = msg.texto;
+                divMsg.appendChild(balao);
+                container.appendChild(divMsg);
+            });
+
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 50);
+        }, (error) => {
+            console.error("Erro ao carregar chat:", error);
+            container.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao carregar mensagens.</p>";
+        });
+}
+
+async function enviarMensagemChat() {
+    const input = document.getElementById("input-nova-mensagem");
+    const texto = input.value.trim();
+    const usernameLogado = localStorage.getItem("usernameLogado");
+
+    if (!texto || !usernameLogado || !usuarioChatDestino) return;
+
+    input.value = ""; 
+    
+    const salaId = gerarIdSalaDeChat(usernameLogado, usuarioChatDestino);
+
+    try {
+        await window.ClubeDB.textoDB.collection("chats").doc(salaId).collection("mensagens").add({
+            texto: texto,
+            remetente: usernameLogado.toLowerCase(),
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (e) {
+        console.error("Erro ao enviar mensagem:", e);
+        alert("Erro ao enviar mensagem. Tente novamente.");
     }
 }
 
