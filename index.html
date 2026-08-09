@@ -915,9 +915,12 @@
             }
 
             .feed-x-reels-comentario-corpo {
-                min-width: 0;
-                flex: 1;
-            }
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
 
             .feed-x-reels-comentario-nome {
                 display: flex;
@@ -931,8 +934,9 @@
                 font-size: 12px;
             }
 
-            .feed-x-reels-comentario-texto {
+.feed-x-reels-comentario-texto {
     display: block;
+    width: 100%;
     margin: 2px 0 0 0;
     padding: 0;
     color: #252525;
@@ -941,6 +945,7 @@
     text-align: left;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+    align-self: flex-start;
 }
 
             .feed-x-reels-form {
