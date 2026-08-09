@@ -3,7 +3,11 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.95.0 - versão alpha";
+const VERSAO_ATUAL = "v0.94.0 - versão alpha";
+
+// Definição global do avatar padrão (pode ser alterado no painel de customização)
+window.AVATAR_PADRAO_SITE = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
 
 /*
  * =====================================================
@@ -2212,120 +2216,66 @@ async function carregarLogoClubeConfig() {
         const logoImg = document.getElementById("site-logo-img");
         const logoTexto = document.getElementById("site-logo-texto");
         const sliderTamanho = document.getElementById("logo-tamanho-slider");
-        
-        // Elemento da logo do App
         const logoAppImg = document.getElementById("app-logo-img");
 
         if (doc.exists) {
             const dados = doc.data();
             
-            // 1. Aplica a Imagem do Site
+            // 1. Logo do Site
             if (dados.logoUrl) {
                 if (logoImg) {
                     logoImg.src = dados.logoUrl;
                     logoImg.style.display = "inline-block";
-                    logoImg.style.verticalAlign = "middle";
-                    logoImg.style.objectFit = "contain";
                 }
                 if (logoTexto) logoTexto.style.display = "none";
-                
                 const previaAdmin = document.getElementById("previa-logo-site") || document.getElementById("previa-logo-clube");
                 if (previaAdmin) previaAdmin.src = dados.logoUrl;
-            } else {
-                if (logoImg) logoImg.style.display = "none";
-                if (logoTexto) logoTexto.style.display = "block";
-                
-                const previaAdmin = document.getElementById("previa-logo-site") || document.getElementById("previa-logo-clube");
-                if (previaAdmin) previaAdmin.src = "";
             }
 
-            // 1.1 Aplica a Imagem do App
+            // 1.1 Logo do App
             if (dados.logoAppUrl) {
-                if (logoAppImg) {
-                    logoAppImg.src = dados.logoAppUrl;
-                    logoAppImg.style.display = "block";
-                }
+                if (logoAppImg) logoAppImg.src = dados.logoAppUrl;
                 const previaAppAdmin = document.getElementById("previa-logo-app");
                 if (previaAppAdmin) previaAppAdmin.src = dados.logoAppUrl;
-                
-                let appleIcon = document.getElementById("app-touch-icon") || document.querySelector("link[rel='apple-touch-icon']");
-                if (!appleIcon) {
-                    appleIcon = document.createElement("link");
-                    appleIcon.rel = "apple-touch-icon";
-                    appleIcon.id = "app-touch-icon";
-                    document.head.appendChild(appleIcon);
-                }
-                appleIcon.href = dados.logoAppUrl;
-            } else {
-                const previaAppAdmin = document.getElementById("previa-logo-app");
-                if (previaAppAdmin) previaAppAdmin.src = "";
             }
 
-            // 1.2 Aplica o Favicon (Miniatura da Aba)
-            let faviconEl = document.getElementById("favicon-site");
+            // 1.2 Favicon
             if (dados.faviconUrl) {
-                if (faviconEl && faviconEl.tagName === 'LINK') faviconEl.remove();
-                let novoFavicon = document.getElementById("favicon-site");
-                if (!novoFavicon) {
-                    novoFavicon = document.createElement("link");
-                    novoFavicon.rel = "icon";
-                    novoFavicon.id = "favicon-site";
-                    document.head.appendChild(novoFavicon);
+                let faviconEl = document.getElementById("favicon-site");
+                if (!faviconEl) {
+                    faviconEl = document.createElement("link");
+                    faviconEl.rel = "icon";
+                    faviconEl.id = "favicon-site";
+                    document.head.appendChild(faviconEl);
                 }
-                novoFavicon.href = dados.faviconUrl;
-
+                faviconEl.href = dados.faviconUrl;
                 const previaFaviconAdmin = document.getElementById("previa-favicon");
-                if (previaFaviconAdmin) {
-                    previaFaviconAdmin.src = dados.faviconUrl;
-                }
-
-                ['site-favicon', 'favicon-img', 'site-favicon-img', 'site-miniatura', 'miniatura-img'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        el.src = dados.faviconUrl;
-                        el.style.display = "inline-block";
-                    }
-                });
-            } else {
-                if (faviconEl && faviconEl.tagName === 'LINK') faviconEl.href = "";
-                const previaFaviconAdmin = document.getElementById("previa-favicon");
-                if (previaFaviconAdmin) {
-                    previaFaviconAdmin.src = "";
-                }
-                ['site-favicon', 'favicon-img', 'site-favicon-img', 'site-miniatura', 'miniatura-img'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        el.src = "";
-                        el.style.display = "none";
-                    }
-                });
+                if (previaFaviconAdmin) previaFaviconAdmin.src = dados.faviconUrl;
             }
 
-            // 2. Aplica o Tamanho Responsivo da Logo (Se o admin tiver salvo)
-            if (dados.logoTamanho) {
-                if (logoImg) {
-                    logoImg.style.maxHeight = dados.logoTamanho + "px";
-                    logoImg.style.height = dados.logoTamanho + "px";
-                    logoImg.style.maxWidth = "250px";
-                    logoImg.style.width = "auto";
-                }
-                if (sliderTamanho) {
-                    sliderTamanho.value = dados.logoTamanho;
-                }
-            } else {
-                if (logoImg) {
-                    logoImg.style.height = "50px";
-                    logoImg.style.width = "auto";
-                }
+            // 1.3 APLICAÇÃO DO AVATAR PADRÃO CUSTOMIZADO
+            const urlOriginal = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+            window.AVATAR_PADRAO_SITE = dados.avatarPadraoUrl || urlOriginal;
+            
+            const previaAvatarAdmin = document.getElementById("previa-avatar-padrao" );
+            if (previaAvatarAdmin) previaAvatarAdmin.src = window.AVATAR_PADRAO_SITE;
+
+            // Atualiza automaticamente todas as imagens que estão usando o link antigo na tela
+            document.querySelectorAll(`img[src*="avatar-padrao.png"]`).forEach(img => {
+                img.src = window.AVATAR_PADRAO_SITE;
+            });
+
+            // 2. Tamanho da Logo
+            if (dados.logoTamanho && logoImg) {
+                logoImg.style.height = dados.logoTamanho + "px";
+                if (sliderTamanho) sliderTamanho.value = dados.logoTamanho;
             }
-        } else {
-            if (logoImg) logoImg.style.display = "none";
-            if (logoTexto) logoTexto.style.display = "block";
         }
     } catch (error) {
-        console.error("Erro ao carregar configurações da logo:", error);
+        console.error("Erro ao carregar configurações:", error);
     }
 }
+
 
 
 function usarTextoPadraoLogo(tipo = 'site') {
@@ -2355,21 +2305,29 @@ function usarTextoPadraoLogo(tipo = 'site') {
 }
 
 async function salvarLogoClubeAdmin(tipo = 'site') {
-    // Determina os IDs corretos baseados no tipo (Site, App ou Favicon)
-    const inputId = tipo === 'site' ? "logo-site-file" : (tipo === 'app' ? "logo-app-file" : "favicon-file");
-    let fileInput = document.getElementById(inputId);
+    // Determina os IDs baseados no tipo (Site, App, Favicon ou Avatar Padrão)
+    const inputId = tipo === 'site' ? "logo-site-file" : 
+                    (tipo === 'app' ? "logo-app-file" : 
+                    (tipo === 'favicon' ? "favicon-file" : "avatar_padrao-file"));
     
-    // Fallback de retrocompatibilidade para o ID antigo caso você ainda não tenha alterado no HTML
+    let fileInput = document.getElementById(inputId);
     if (!fileInput && tipo === 'site') fileInput = document.getElementById("logo-clube-file");
     
-    const btnId = tipo === 'site' ? "btn-salvar-logo-site" : (tipo === 'app' ? "btn-salvar-logo-app" : "btn-salvar-favicon");
+    const btnId = tipo === 'site' ? "btn-salvar-logo-site" : 
+                  (tipo === 'app' ? "btn-salvar-logo-app" : 
+                  (tipo === 'favicon' ? "btn-salvar-favicon" : "btn-salvar-avatar-padrao"));
+    
     let btn = document.getElementById(btnId);
     if (!btn && tipo === 'site') btn = document.getElementById("btn-salvar-logo");
 
     const arquivo = fileInput ? fileInput.files[0] : null;
 
     if (!arquivo) {
-        alert(`Selecione um arquivo de imagem para ${tipo === 'favicon' ? 'a miniatura' : `a logo do ${tipo}`}!`);
+        let msg = "Selecione um arquivo para ";
+        if (tipo === 'favicon') msg += "a miniatura";
+        else if (tipo === 'avatar_padrao') msg += "o avatar padrão";
+        else msg += `a logo do ${tipo}`;
+        alert(msg + "!");
         return;
     }
 
@@ -2382,73 +2340,50 @@ async function salvarLogoClubeAdmin(tipo = 'site') {
         let urlLogo = "";
         let idPublicoLogo = "";
 
-        if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadFoto === "function") {
-            const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
-            urlLogo = res.url || res.secure_url || res;
-            idPublicoLogo = res.public_id || res.publicId || "";
-        } else if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadImagem === "function") {
-            const res = await window.ClubeDB.acoesAdmin.uploadImagem(arquivo);
-            urlLogo = res.url || res.secure_url || res;
-            idPublicoLogo = res.public_id || res.publicId || "";
+        // Lógica de Upload (Cloudinary)
+        const formData = new FormData();
+        formData.append("file", arquivo);
+        formData.append("upload_preset", "guardioes_preset");
+        
+        const response = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
+            method: "POST",
+            body: formData
+        } );
+        
+        if (response.ok) {
+            const data = await response.json();
+            urlLogo = data.secure_url || data.url;
+            idPublicoLogo = data.public_id || "";
         } else {
-            const formData = new FormData();
-            formData.append("file", arquivo);
-            formData.append("upload_preset", "guardioes_preset");
-            
-            const response = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
-                method: "POST",
-                body: formData
-            });
-            if (response.ok) {
-                const data = await response.json();
-                urlLogo = data.secure_url || data.url;
-                idPublicoLogo = data.public_id || "";
-            } else {
-                throw new Error("Erro de conexão com o Cloudinary.");
-            }
+            throw new Error("Erro no upload.");
         }
 
         if (urlLogo) {
             const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
-            const doc = await docRef.get();
             
-            // Define dinamicamente o campo do banco de dados que será salvo
-            const campoUrl = tipo === 'site' ? "logoUrl" : (tipo === 'app' ? "logoAppUrl" : "faviconUrl");
-            const campoId = tipo === 'site' ? "logoIdPublico" : (tipo === 'app' ? "logoAppIdPublico" : "faviconIdPublico");
+            const campoUrl = tipo === 'site' ? "logoUrl" : (tipo === 'app' ? "logoAppUrl" : (tipo === 'favicon' ? "faviconUrl" : "avatarPadraoUrl"));
+            const campoId = tipo === 'site' ? "logoIdPublico" : (tipo === 'app' ? "logoAppIdPublico" : (tipo === 'favicon' ? "faviconIdPublico" : "avatarPadraoIdPublico"));
 
-            if (doc.exists) {
-                const dados = doc.data();
-                const idPublicoAntigo = dados[campoId]; // Apaga apenas a logo correta
-                
-                if (idPublicoAntigo && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
-                    try {
-                        await window.ClubeDB.acoesAdmin.excluirFoto(idPublicoAntigo);
-                    } catch (errExcluir) {
-                        console.warn(`Aviso ao limpar imagem anterior do ${tipo}:`, errExcluir);
-                    }
-                }
-            }
-
-            // Atualiza apenas os campos pertencentes ao tipo modificado
             const atualizacao = {};
-            atualizacao[campoUrl] = urlLogo || "";
-            atualizacao[campoId] = idPublicoLogo || "";
+            atualizacao[campoUrl] = urlLogo;
+            atualizacao[campoId] = idPublicoLogo;
 
             await docRef.set(atualizacao, { merge: true });
 
-            alert(`${tipo === 'favicon' ? 'Miniatura' : `Logo do ${tipo.toUpperCase()}`} cadastrada com sucesso! 🛡️`);
+            alert("Atualizado com sucesso! 🛡️");
             carregarLogoClubeConfig();
             if (fileInput) fileInput.value = "";
         }
     } catch (e) {
-        alert(`Erro ao salvar ${tipo}: ` + e.message);
+        alert("Erro ao salvar: " + e.message);
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = tipo === 'favicon' ? "Salvar Miniatura" : `Salvar Logo ${tipo === 'site' ? 'Site' : 'App'}`;
+            btn.textContent = tipo === 'avatar_padrao' ? "Salvar Avatar" : (tipo === 'favicon' ? "Salvar Miniatura" : "Salvar Logo");
         }
     }
 }
+
 
 function alterarTamanhoLogoEmTempoReal(tamanho) {
     const logoImg = document.getElementById("site-logo-img");
@@ -2515,7 +2450,7 @@ function fazerLogoutSessao() {
     localStorage.removeItem("usernameLogado");
 
     // Limpa os dados visuais do perfil anterior
-    const avatarPadrao = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+    const avatarPadrao = window.AVATAR_PADRAO_SITE || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
 
     const avatarEl = document.getElementById("perfil-usuario-avatar" );
     const nomeEl = document.getElementById("perfil-usuario-nome");
