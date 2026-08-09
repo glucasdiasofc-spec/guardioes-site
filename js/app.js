@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.97.0 - versão alpha";
+const VERSAO_ATUAL = "v0.98.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1813,28 +1813,7 @@ async function carregarPerfilDoUsuario() {
         if (cargoEl) cargoEl.textContent = "Liderança Geral";
         if (unidadeEl) unidadeEl.textContent = "Geral";
         if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
-
-        // Busca a foto cadastrada no perfil do administrador
-        let fotoAdmin = avatarPadrao;
-        if (window.ClubeDB && window.ClubeDB.textoDB) {
-            try {
-                const snapAdmin = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", "admin").limit(1).get();
-                if (!snapAdmin.empty && snapAdmin.docs[0].data().fotoUrl) {
-                    fotoAdmin = snapAdmin.docs[0].data().fotoUrl;
-                    if (fotoAdmin !== avatarPadrao) {
-                        fotoAdmin += (fotoAdmin.includes("?") ? "&" : "?") + "v=" + Date.now();
-                    }
-                }
-            } catch (errAdmin) {
-                console.error("Erro ao carregar foto do admin:", errAdmin);
-            }
-        }
-
-        if (avatarEl) {
-            avatarEl.onerror = function () { this.onerror = null; this.src = avatarPadrao; };
-            avatarEl.src = fotoAdmin;
-        }
-
+        if (avatarEl) avatarEl.src = avatarPadrao;
         if (contadorEl) contadorEl.textContent = "∞";
         if (classesEl) classesEl.textContent = "• Classe: Administrador Geral";
         if (especialidadesEl) especialidadesEl.textContent = "Acesso Irrestrito";
@@ -1882,13 +1861,13 @@ async function carregarPerfilDoUsuario() {
         }
 
         if (avatarEl) {
-            let fotoPerfil = dados.fotoUrl ? dados.fotoUrl : avatarPadrao;
-            if (fotoPerfil && fotoPerfil !== avatarPadrao) {
-                fotoPerfil += (fotoPerfil.includes("?") ? "&" : "?") + "v=" + Date.now();
-            }
-            avatarEl.onerror = function () { this.onerror = null; this.src = avatarPadrao; };
-            avatarEl.src = fotoPerfil;
-        }
+    let fotoPerfil = dados.fotoUrl ? dados.fotoUrl : avatarPadrao;
+    if (fotoPerfil && fotoPerfil !== avatarPadrao) {
+        fotoPerfil += (fotoPerfil.includes("?") ? "&" : "?") + "v=" + Date.now();
+    }
+    avatarEl.onerror = function () { this.onerror = null; this.src = avatarPadrao; };
+    avatarEl.src = fotoPerfil;
+}
 
         const classes = Array.isArray(dados.classesConcluidas) ? dados.classesConcluidas : [];
         const especialidades = Array.isArray(dados.especialidades) ? dados.especialidades : [];
