@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.98.0 - versão alpha";
+const VERSAO_ATUAL = "v0.96.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -426,32 +426,20 @@ function mudarSubAbaSite(abaAlvo) {
     if (abaAlvo === "feed") {
         if (feedAba) feedAba.style.display = "block";
 
-        // LÓGICA SÊNIOR: Consulta a coleção correta 'usuarios' e atualiza o avatar dinamicamente
+        // LÓGICA SÊNIOR: Sincroniza em tempo real a foto de perfil do autor no gatilho da UI
         const avatarCriadorModal = document.getElementById("criador-publicacao-avatar");
         const usernameLogado = localStorage.getItem("usernameLogado");
         
         if (avatarCriadorModal && usernameLogado && window.ClubeDB && window.ClubeDB.textoDB) {
+            // Fallback Imediato: Evita "piscar" uma imagem quebrada caso a rede demore
             avatarCriadorModal.src = avatarCriadorModal.src || window.AVATAR_USUARIO_PADRAO;
             
-            window.ClubeDB.textoDB.collection("usuarios")
-                .where("username", "==", usernameLogado)
-                .limit(1)
-                .get()
-                .then(snapshot => {
-                    if (!snapshot.empty) {
-                        const dados = snapshot.docs[0].data();
-                        let fotoPerfil = (dados.fotoUrl && dados.fotoUrl.trim() !== "") ? dados.fotoUrl : window.AVATAR_USUARIO_PADRAO;
-                        
-                        // Força atualização da imagem sem cache expirado quando houver URL
-                        if (fotoPerfil && fotoPerfil !== window.AVATAR_USUARIO_PADRAO) {
-                            fotoPerfil += (fotoPerfil.includes("?") ? "&" : "?") + "v=" + Date.now();
-                        }
-                        
-                        avatarCriadorModal.onerror = function() {
-                            this.onerror = null;
-                            this.src = window.AVATAR_USUARIO_PADRAO;
-                        };
-                        avatarCriadorModal.src = fotoPerfil;
+            window.ClubeDB.textoDB.collection("membros").doc(usernameLogado).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const dados = doc.data();
+                        // Se o desbravador alterou a foto, pega a nova URL, do contrário renderiza o padrão global do admin
+                        avatarCriadorModal.src = dados.foto || window.AVATAR_USUARIO_PADRAO;
                     } else {
                         avatarCriadorModal.src = window.AVATAR_USUARIO_PADRAO;
                     }
