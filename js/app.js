@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.97.0 - versão alpha";
+const VERSAO_ATUAL = "v0.98.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9334,89 +9334,131 @@ function criarCardPublicacao(
 /*
  * Carrega o Feed real do Firestore.
  */
+// ==========================================
+// RENDERIZAÇÃO DO FEED DE PUBLICAÇÕES
+// ==========================================
+
 async function carregarPublicacoesFeed() {
-    const container = document.getElementById("feed-publicacoes-lista");
-
-    if (!container) {
-        return;
-    }
-
-    container.innerHTML = `
-        <div style="padding:30px 20px;text-align:center;color:#71767b;font-size:14px;">
-            Carregando publicações...
-        </div>
-    `;
+    const containerLista = document.getElementById("feed-publicacoes-lista");
+    if (!containerLista) return;
 
     if (!window.ClubeDB || !window.ClubeDB.textoDB) {
-        container.innerHTML = `
-            <div style="padding:40px 20px;text-align:center;color:#ff6b6b;font-size:14px;">
-                Banco de dados ainda não foi inicializado.
-
-                <button type="button" onclick="carregarPublicacoesFeed()" style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;">
-                    Tentar novamente
-                </button>
-            </div>
-        `;
+        containerLista.innerHTML = `<p style="color:#71767b; text-align:center; padding:20px;">Carregando banco de dados...</p>`;
         return;
     }
 
     try {
         const snapshot = await window.ClubeDB.textoDB
             .collection("publicacoes")
-            .limit(100)
+            .orderBy("criadoEm", "desc")
             .get();
 
-        const documentos = snapshot.docs.slice().sort((a, b) => {
-            const dadosA = a.data() || {};
-            const dadosB = b.data() || {};
-
-            const dataA =
-                dadosA.criadoEm &&
-                typeof dadosA.criadoEm.toMillis === "function"
-                    ? dadosA.criadoEm.toMillis()
-                    : 0;
-
-            const dataB =
-                dadosB.criadoEm &&
-                typeof dadosB.criadoEm.toMillis === "function"
-                    ? dadosB.criadoEm.toMillis()
-                    : 0;
-
-            return dataB - dataA;
-        });
-
-        if (!documentos.length) {
-            container.innerHTML = `
-                <div style="padding:50px 20px;text-align:center;color:#71767b;font-size:14px;">
-                    Ainda não há publicações.
-
-                    <span style="display:block;margin-top:6px;font-size:13px;">
-                        Seja o primeiro a publicar!
-                    </span>
+        if (snapshot.empty) {
+            containerLista.innerHTML = `
+                <div style="text-align:center; padding:40px 20px; color:#71767b;">
+                    <p style="font-weight:bold; color:#e7e9ea; margin-bottom:4px;">Nenhuma publicação ainda</p>
+                    <p style="font-size:14px;">As postagens do clube aparecerão aqui.</p>
                 </div>
             `;
             return;
         }
 
-        container.innerHTML = documentos
-            .map(doc => criarCardPublicacao(doc))
-            .join("");
+        containerLista.innerHTML = snapshot.docs.map(doc => criarCardPublicacao(doc)).join("");
 
     } catch (erro) {
-        console.error("Erro ao carregar publicações:", erro);
-
-        container.innerHTML = `
-            <div style="padding:40px 20px;text-align:center;color:#ff6b6b;font-size:14px;">
+        console.error("Erro ao carregar feed:", erro);
+        containerLista.innerHTML = `
+            <p style="color:#ff6b6b; text-align:center; padding:20px;">
                 Não foi possível carregar as publicações.
-
-                <small>${escaparHtml(erro.message || "Erro desconhecido")}</small>
-
-                <button type="button" onclick="carregarPublicacoesFeed()" style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;">
-                    Tentar novamente
-                </button>
-            </div>
+            </p>
         `;
     }
+}
+
+function criarCardPublicacao(docSnap) {
+    const pub = docSnap.data() || {};
+    const idPub = docSnap.id;
+    const usernameLogado = localStorage.getItem("usernameLogado") || "";
+
+    // 1. Tratamento do Avatar com Fallback Triplo
+    const avatarPadrao = window.AVATAR_USUARIO_PADRAO || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+    let avatarUrl = (pub.autorAvatar && typeof pub.autorAvatar === "string" && pub.autorAvatar.trim() !== "") 
+        ? pub.autorAvatar 
+        : avatarPadrao;
+
+    // 2. Dados do Autor e Texto
+    const autorNome = pub.autorNome || pub.autorUsername || "Membro";
+    const autorUsername = pub.autorUsername ? `@${pub.autorUsername}` : "";
+    const texto = pub.texto || "";
+    
+    // Formatação da Data
+    let dataFormatada = "agora";
+    if (pub.criadoEm) {
+        const dataObj = pub.criadoEm.toDate ? pub.criadoEm.toDate() : new Date(pub.criadoEm.seconds * 1000);
+        if (!isNaN(dataObj)) {
+            dataFormatada = dataObj.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+        }
+    }
+
+    // 3. Mídia (Imagem ou Vídeo)
+    let midiaHTML = "";
+    if (pub.telegramFileId) {
+        const urlMidia = typeof criarUrlMidiaTelegram === "function" ? criarUrlMidiaTelegram(pub.telegramFileId) : "";
+        if (pub.tipoMidia === "video") {
+            midiaHTML = `
+                <div class="feed-x-midia">
+                    <video src="${urlMidia}" controls playsinline preload="metadata"></video>
+                </div>
+            `;
+        } else if (urlMidia) {
+            midiaHTML = `
+                <div class="feed-x-midia">
+                    <img src="${urlMidia}" alt="Mídia da publicação" loading="lazy" onerror="this.parentElement.style.display='none';">
+                </div>
+            `;
+        }
+    }
+
+    // 4. Mapeamento de Curtidas
+    const curtidas = Array.isArray(pub.curtidas) ? pub.curtidas : [];
+    const jaCurtiu = curtidas.includes(usernameLogado);
+    const totalCurtidas = curtidas.length;
+
+    return `
+        <article class="feed-x-post" id="post-${idPub}">
+            <!-- Avatar com salvaguarda nativa contra links quebrados -->
+            <img
+                class="feed-x-avatar"
+                src="${avatarUrl}"
+                alt="Foto de ${autorNome}"
+                onerror="this.onerror=null; this.src='${avatarPadrao}';"
+            >
+
+            <div class="feed-x-conteudo">
+                <div class="feed-x-autor">
+                    <span class="feed-x-nome">${autorNome}</span>
+                    <span class="feed-x-username">${autorUsername}</span>
+                    <span class="feed-x-data">· ${dataFormatada}</span>
+                </div>
+
+                ${texto ? `<div class="feed-x-texto">${texto}</div>` : ""}
+
+                ${midiaHTML}
+
+                <div class="feed-x-acoes">
+                    <button
+                        type="button"
+                        class="feed-x-acao feed-x-acao-curtir ${jaCurtiu ? 'feed-x-curtido' : ''}"
+                        aria-label="Curtir"
+                        data-id="${idPub}"
+                    >
+                        <span class="feed-x-icone feed-x-coracao">${jaCurtiu ? '♥' : '♡'}</span>
+                        <span class="feed-x-contador">${totalCurtidas}</span>
+                    </button>
+                </div>
+            </div>
+        </article>
+    `;
 }
 
 
