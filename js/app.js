@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.93.0 - versão alpha";
+const VERSAO_ATUAL = "v0.92.0 - versão alpha";
 
 /*
  * =====================================================
@@ -2654,90 +2654,137 @@ async function salvarNovaUnidadeAdmin() {
 
 async function carregarUnidadesCadastradas() {
     const container = document.getElementById("lista-unidades-render");
-    const selectsUnidade = [
-        document.getElementById("membro-unidade-vinculo"),
-        document.getElementById("edit-membro-unidade-vinculo")
-    ].filter(Boolean);
+    const selectCriacao = document.getElementById("membro-unidade-vinculo");
+    const selectEdicao = document.getElementById("edit-membro-unidade-vinculo");
 
     if (container) {
-        container.innerHTML = "";
+        container.innerHTML = "<p style='color:#aaa;'>Carregando unidades...</p>";
     }
 
-    const valoresAtuais = selectsUnidade.map(select => select.value);
-
-    selectsUnidade.forEach(select => {
-        select.innerHTML = '<option value="">Selecione a Unidade...</option>';
-    });
+    if (!window.ClubeDB || !window.ClubeDB.textoDB) {
+        if (container) {
+            container.innerHTML = "<p style='color:#ff6b6b;'>Banco de dados ainda não foi inicializado. Tente novamente.</p>";
+        }
+        return;
+    }
 
     try {
         const snapshot = await window.ClubeDB.textoDB
             .collection("unidades")
-            .orderBy("nome")
             .get();
 
-        snapshot.forEach((doc, indice) => {
-            const dadosUnidade = doc.data() || {};
-            const nomeUnidade = dadosUnidade.nome || "";
-            const fotoUnidade = dadosUnidade.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        const selects = [selectCriacao, selectEdicao].filter(Boolean);
+        const valoresAnteriores = selects.map(select => select.value);
 
-            if (container ) {
-                const item = document.createElement("div");
-                item.className = "item-unidade";
-                item.style.cssText = "text-align: center; margin-bottom: 20px; border: 1px solid #444; padding: 10px; border-radius: 8px;";
-
-                item.innerHTML = `
-                    <img src="${escaparHtml(fotoUnidade)}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px;">
-                    <div style="font-weight: bold; margin-bottom: 10px;">${escaparHtml(nomeUnidade)}</div>
-                    <div style="display: flex; gap: 5px;">
-                        <button type="button" style="flex: 1; padding: 5px;">✏️ Editar</button>
-                        <button type="button" style="flex: 1; padding: 5px; background:#ff4d4d; color:white; border:none;">🗑️ Apagar</button>
-                    </div>
-                `;
-
-                item.querySelector("button:nth-of-type(1)").addEventListener("click", () => {
-                    iniciarEdicaoUnidade(
-                        doc.id,
-                        nomeUnidade,
-                        dadosUnidade.fotoIdPublico || ""
-                    );
-                });
-
-                item.querySelector("button:nth-of-type(2)").addEventListener("click", () => {
-                    deletarUnidadeComFoto(
-                        doc.id,
-                        dadosUnidade.fotoIdPublico || ""
-                    );
-                });
-
-                container.appendChild(item);
-            }
-
-            selectsUnidade.forEach(select => {
-                const option = document.createElement("option");
-                option.value = nomeUnidade;
-                option.textContent = nomeUnidade;
-                select.appendChild(option);
-            });
+        selects.forEach(select => {
+            select.innerHTML = '<option value="">Selecione a Unidade...</option>';
         });
 
-        selectsUnidade.forEach((select, indice) => {
-            if (valoresAtuais[indice]) {
-                const unidadeExiste = Array.from(select.options)
-                    .some(option => option.value === valoresAtuais[indice]);
+        if (container) {
+            container.innerHTML = "";
+        }
 
-                if (unidadeExiste) {
-                    select.value = valoresAtuais[indice];
-                }
+        if (snapshot.empty) {
+            if (container) {
+                container.innerHTML = "<p style='color:#aaa;'>Nenhuma unidade cadastrada.</p>";
+            }
+            return;
+        }
+
+        snapshot.forEach((doc, indice) => {
+            const dados = doc.data() || {};
+            const nome = String(dados.nome || "").trim();
+            const fotoUrl = dados.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+            if (!nome ) {
+                return;
+            }
+
+            selects.forEach(select => {
+                const option = document.createElement("option");
+                option.value = nome;
+                option.textContent = nome;
+                select.appendChild(option);
+            });
+
+            if (container) {
+                const item = document.createElement("div");
+                item.className = "item-unidade";
+                item.style.cssText = "text-align:center;margin-bottom:20px;border:1px solid #444;padding:10px;border-radius:8px;";
+
+                const imagem = document.createElement("img");
+                imagem.src = fotoUrl;
+                imagem.alt = "Foto da unidade";
+                imagem.style.cssText = "width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:10px;";
+
+                const titulo = document.createElement("div");
+                titulo.textContent = nome;
+                titulo.style.cssText = "font-weight:bold;margin-bottom:10px;";
+
+                const botoes = document.createElement("div");
+                botoes.style.cssText = "display:flex;gap:5px;";
+
+                const botaoEditar = document.createElement("button");
+                botaoEditar.type = "button";
+                botaoEditar.textContent = "✏️ Editar";
+                botaoEditar.style.flex = "1";
+                botaoEditar.style.padding = "5px";
+                botaoEditar.addEventListener("click", () => {
+                    iniciarEdicaoUnidade(
+                        doc.id,
+                        nome,
+                        dados.fotoIdPublico || ""
+                    );
+                });
+
+                const botaoApagar = document.createElement("button");
+                botaoApagar.type = "button";
+                botaoApagar.textContent = "🗑️ Apagar";
+                botaoApagar.style.cssText = "flex:1;padding:5px;background:#ff4d4d;color:white;border:none;";
+                botaoApagar.addEventListener("click", () => {
+                    deletarUnidadeComFoto(
+                        doc.id,
+                        dados.fotoIdPublico || ""
+                    );
+                });
+
+                botoes.appendChild(botaoEditar);
+                botoes.appendChild(botaoApagar);
+                item.appendChild(imagem);
+                item.appendChild(titulo);
+                item.appendChild(botoes);
+                container.appendChild(item);
+            }
+        });
+
+        selects.forEach((select, indice) => {
+            const valorAnterior = valoresAnteriores[indice];
+
+            if (
+                valorAnterior &&
+                Array.from(select.options).some(option => option.value === valorAnterior)
+            ) {
+                select.value = valorAnterior;
             }
         });
     } catch (erro) {
         console.error("Erro ao carregar unidades:", erro);
 
         if (container) {
-            container.innerHTML = `<p style="color:#ff4d4d;">Erro ao carregar unidades: ${escaparHtml(erro.message)}</p>`;
+            container.innerHTML = `
+                <p style="color:#ff6b6b;">
+                    Não foi possível carregar as unidades.  
+
+                    <small>${escaparHtml(erro.message || "Erro desconhecido")}</small>
+                </p>
+                <button type="button" onclick="carregarUnidadesCadastradas()">
+                    Tentar novamente
+                </button>
+            `;
         }
     }
 }
+
 
 
 async function iniciarEdicaoUnidade(id, nomeAtual, fotoIdAntiga) {
@@ -3033,9 +3080,13 @@ let idMembroSendoEditado = null;
 
 async function carregarMembrosCadastrados() {
     const abaMembros = document.getElementById("aba-membros");
-    if (!abaMembros || !window.ClubeDB || !window.ClubeDB.textoDB) return;
+
+    if (!abaMembros) {
+        return;
+    }
 
     let container = document.getElementById("lista-membros-render");
+
     if (!container) {
         container = document.createElement("div");
         container.id = "lista-membros-render";
@@ -3047,8 +3098,15 @@ async function carregarMembrosCadastrados() {
 
     container.innerHTML = "<p style='color:#aaa;'>Buscando membros no servidor...</p>";
 
+    if (!window.ClubeDB || !window.ClubeDB.textoDB) {
+        container.innerHTML = "<p style='color:#ff6b6b;'>Banco de dados ainda não foi inicializado. Tente novamente.</p>";
+        return;
+    }
+
     try {
-        const snapshot = await window.ClubeDB.textoDB.collection("usuarios").get();
+        const snapshot = await window.ClubeDB.textoDB
+            .collection("usuarios")
+            .get();
 
         if (snapshot.empty) {
             container.innerHTML = "<p style='color:#aaa;'>Nenhum membro cadastrado ainda.</p>";
@@ -3065,25 +3123,55 @@ async function carregarMembrosCadastrados() {
             const card = document.createElement("div" );
             card.className = "item-membro";
             card.style.cssText = "display:flex;align-items:center;gap:15px;margin-bottom:15px;padding:10px;background:#2b2b2b;border-radius:8px;";
+
             card.innerHTML = `
-                <img src="${foto}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;">
+                <img src="${escaparHtml(foto)}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;">
                 <div style="flex:1;">
                     <div style="font-weight:bold;">${escaparHtml(membro.nomeReal || "Sem Nome")}</div>
-                    <div style="font-size:12px;color:#aaa;">${escaparHtml(membro.cargo || "Sem cargo")} | ${escaparHtml(membro.unidade || "Sem unidade")}</div>
+                    <div style="font-size:12px;color:#aaa;">
+                        ${escaparHtml(membro.cargo || "Sem cargo")} |
+                        ${escaparHtml(membro.unidade || "Sem unidade")}
+                    </div>
                 </div>
-                <button type="button" data-editar-membro="${id}" style="padding:5px 10px;font-size:12px;cursor:pointer;border-radius:4px;border:none;">✏️ Editar</button>
-                <button type="button" data-apagar-membro="${id}" style="padding:5px 10px;font-size:12px;background:#ff4d4d;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Apagar</button>
+                <button type="button" data-editar-membro="${escaparHtml(id)}" style="padding:5px 10px;font-size:12px;cursor:pointer;border-radius:4px;border:none;">
+                    ✏️ Editar
+                </button>
+                <button type="button" data-apagar-membro="${escaparHtml(id)}" style="padding:5px 10px;font-size:12px;background:#ff4d4d;color:white;border:none;border-radius:4px;cursor:pointer;">
+                    🗑️ Apagar
+                </button>
             `;
 
-            card.querySelector("[data-editar-membro]").addEventListener("click", () => prepararEdicaoMembro(id));
-            card.querySelector("[data-apagar-membro]").addEventListener("click", () => deletarMembro(id, membro.fotoIdPublico || ""));
+            const botaoEditar = card.querySelector("[data-editar-membro]");
+            const botaoApagar = card.querySelector("[data-apagar-membro]");
+
+            if (botaoEditar) {
+                botaoEditar.addEventListener("click", () => prepararEdicaoMembro(id));
+            }
+
+            if (botaoApagar) {
+                botaoApagar.addEventListener("click", () => {
+                    deletarMembro(id, membro.fotoIdPublico || "");
+                });
+            }
+
             container.appendChild(card);
         });
     } catch (erro) {
         console.error("Erro ao carregar membros:", erro);
-        container.innerHTML = `<p style="color:#ff4d4d;">Erro ao carregar membros: ${escaparHtml(erro.message)}</p>`;
+
+        container.innerHTML = `
+            <p style="color:#ff6b6b;">
+                Não foi possível carregar os membros.  
+
+                <small>${escaparHtml(erro.message || "Erro desconhecido")}</small>
+            </p>
+            <button type="button" onclick="carregarMembrosCadastrados()">
+                Tentar novamente
+            </button>
+        `;
     }
 }
+
 
 
 async function prepararEdicaoMembro(id) {
@@ -9162,49 +9250,90 @@ async function carregarPublicacoesFeed() {
                 .map(
                     doc =>
                         criarCardPublicacao(
-                            doc
-                        )
-                )
-                .join("");
+                            dasync function carregarPublicacoesFeed() {
+    const container = document.getElementById("feed-publicacoes-lista");
 
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="padding:30px 20px;text-align:center;color:#71767b;font-size:14px;">
+            Carregando publicações...
+        </div>
+    `;
+
+    if (!window.ClubeDB || !window.ClubeDB.textoDB) {
+        container.innerHTML = `
+            <div style="padding:40px 20px;text-align:center;color:#ff6b6b;font-size:14px;">
+                Banco de dados ainda não foi inicializado.  
+
+                <button type="button" onclick="carregarPublicacoesFeed()" style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;">
+                    Tentar novamente
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    try {
+        // Não usa orderBy no Firestore para evitar falha com publicações antigas
+        // que não possuem o campo criadoEm ou com índices ainda não disponíveis.
+        const snapshot = await window.ClubeDB.textoDB
+            .collection("publicacoes")
+            .limit(100)
+            .get();
+
+        const documentos = snapshot.docs.slice().sort((a, b) => {
+            const dadosA = a.data() || {};
+            const dadosB = b.data() || {};
+
+            const dataA = dadosA.criadoEm && typeof dadosA.criadoEm.toMillis === "function"
+                ? dadosA.criadoEm.toMillis()
+                : 0;
+
+            const dataB = dadosB.criadoEm && typeof dadosB.criadoEm.toMillis === "function"
+                ? dadosB.criadoEm.toMillis()
+                : 0;
+
+            return dataB - dataA;
+        });
+
+        if (!documentos.length) {
+            container.innerHTML = `
+                <div style="padding:50px 20px;text-align:center;color:#71767b;font-size:14px;">
+                    Ainda não há publicações.
+                      
+
+                    <span style="display:block;margin-top:6px;font-size:13px;">
+                        Seja o primeiro a publicar!
+                    </span>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = documentos
+            .map(doc => criarCardPublicacao(doc))
+            .join("");
     } catch (erro) {
-
-        console.error(
-            "Erro ao carregar publicações:",
-            erro
-        );
+        console.error("Erro ao carregar publicações:", erro);
 
         container.innerHTML = `
-            <div
-                style="
-                    padding:40px 20px;
-                    text-align:center;
-                    color:#ff6b6b;
-                    font-size:14px;
-                "
-            >
-                Não foi possível carregar as publicações.
-                <br>
-                <button
-                    type="button"
-                    onclick="carregarPublicacoesFeed()"
-                    style="
-                        margin-top:12px;
-                        padding:8px 16px;
-                        border:none;
-                        border-radius:999px;
-                        background:#1d9bf0;
-                        color:#fff;
-                        cursor:pointer;
-                        font-weight:600;
-                    "
-                >
+            <div style="padding:40px 20px;text-align:center;color:#ff6b6b;font-size:14px;">
+                Não foi possível carregar as publicações.  
+
+                <small>${escaparHtml(erro.message || "Erro desconhecido")}</small>
+                  
+
+                <button type="button" onclick="carregarPublicacoesFeed()" style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;">
                     Tentar novamente
                 </button>
             </div>
         `;
     }
 }
+
 
 
 /*
