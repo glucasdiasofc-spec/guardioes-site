@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.115.0 - versão alpha";
+const VERSAO_ATUAL = "v0.116.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9930,6 +9930,10 @@ async function curtirPublicacao(idPublicacao, botao) {
         return;
     }
 
+    const usernameLogado =
+        localStorage.getItem("usernameLogado") ||
+        usuario.uid;
+
     const banco =
         window.ClubeDB &&
         window.ClubeDB.textoDB
@@ -9949,33 +9953,22 @@ async function curtirPublicacao(idPublicacao, botao) {
             .collection("publicacoes")
             .doc(idPublicacao);
 
-    const referenciaUsuarioPerfil =
-        banco
-            .collection("usuarios")
-            .doc(usuario.uid);
-
     const contador =
-        botao.querySelector(
-            ".feed-x-contador"
-        );
+        botao.querySelector(".feed-x-contador");
 
     const coracao =
-        botao.querySelector(
-            ".feed-x-coracao"
-        );
+        botao.querySelector(".feed-x-coracao");
 
-    const totalAtual =
+    const totalVisual =
         parseInt(
             contador
-                ? contador.textContent || 0
-                : 0,
+                ? contador.textContent || "0"
+                : "0",
             10
         );
 
-    const jaCurtiuAtual =
-        botao.classList.contains(
-            "feed-x-curtido"
-        );
+    const estadoVisualAnterior =
+        botao.classList.contains("feed-x-curtido");
 
     try {
 
@@ -9992,17 +9985,47 @@ async function curtirPublicacao(idPublicacao, botao) {
             docSnap.data() || {};
 
         /*
-         * O campo "curtidas" é numérico.
-         * Portanto, usamos o estado visual atual
-         * para determinar a próxima ação.
+         * =====================================================
+         * COMPATIBILIDADE COM PUBLICAÇÕES ANTIGAS
+         * =====================================================
+         *
+         * Algumas publicações antigas possuem:
+         *
+         * curtidas: ["usuario1", "usuario2"]
+         *
+         * enquanto as novas possuem:
+         *
+         * curtidas: 2
+         * curtidores: ["usuario1", "usuario2"]
+         *
+         * Aqui normalizamos os dois formatos.
          */
-        const novoEstadoCurtida =
-            !jaCurtiuAtual;
 
-        const variacao =
-            novoEstadoCurtida
-                ? 1
-                : -1;
+        let curtidores = [];
+
+        if (Array.isArray(dadosPub.curtidores)) {
+
+            curtidores =
+                [...dadosPub.curtidores];
+
+        } else if (Array.isArray(dadosPub.curtidas)) {
+
+            /*
+             * Publicação antiga:
+             * o próprio campo "curtidas"
+             * era o array de usuários.
+             */
+            curtidores =
+                [...dadosPub.curtidas];
+        }
+
+        const usuarioJaCurtiu =
+            curtidores.includes(
+                usernameLogado
+            );
+
+        const novoEstado =
+            !usuarioJaCurtiu;
 
         /*
          * =====================================================
@@ -10010,7 +10033,7 @@ async function curtirPublicacao(idPublicacao, botao) {
          * =====================================================
          */
 
-        if (novoEstadoCurtida) {
+        if (novoEstado) {
 
             botao.classList.add(
                 "feed-x-curtido",
@@ -10025,18 +10048,15 @@ async function curtirPublicacao(idPublicacao, botao) {
                 contador.textContent =
                     Math.max(
                         0,
-                        totalAtual + 1
+                        totalVisual + 1
                     );
             }
 
-            setTimeout(
-                () => {
-                    botao.classList.remove(
-                        "feed-x-animando"
-                    );
-                },
-                400
-            );
+            setTimeout(() => {
+                botao.classList.remove(
+                    "feed-x-animando"
+                );
+            }, 400);
 
         } else {
 
@@ -10052,64 +10072,70 @@ async function curtirPublicacao(idPublicacao, botao) {
                 contador.textContent =
                     Math.max(
                         0,
-                        totalAtual - 1
+                        totalVisual - 1
                     );
             }
         }
 
         /*
          * =====================================================
-         * SALVA A QUANTIDADE DE CURTIDAS
+         * MONTA A NOVA LISTA DE CURTIDORES
          * =====================================================
-         *
-         * Não usamos mais arrayUnion/arrayRemove
-         * no campo "curtidores", pois esse campo não é
-         * garantidamente um array nas publicações antigas.
          */
 
-        await referenciaPublicacao.update({
-            curtidas:
-                firebase.firestore.FieldValue
-                    .increment(variacao)
-        });
+        let novosCurtidores;
+
+        if (novoEstado) {
+
+            novosCurtidores =
+                curtidores.includes(usernameLogado)
+                    ? curtidores
+                    : [
+                        ...curtidores,
+                        usernameLogado
+                    ];
+
+        } else {
+
+            novosCurtidores =
+                curtidores.filter(
+                    usuario =>
+                        usuario !== usernameLogado
+                );
+        }
 
         /*
          * =====================================================
-         * PONTOS DO USUÁRIO
+         * NOVA QUANTIDADE DE CURTIDAS
          * =====================================================
-         *
-         * Se a atualização de pontos falhar, isso não
-         * invalida a curtida.
          */
 
-        try {
+        const novaQuantidade =
+            novosCurtidores.length;
 
-            await referenciaUsuarioPerfil.set(
-                {
-                    pontos:
-                        firebase.firestore.FieldValue
-                            .increment(
-                                novoEstadoCurtida
-                                    ? 10
-                                    : -10
-                            ),
+        /*
+         * =====================================================
+         * SALVA NO FIRESTORE
+         * =====================================================
+         *
+         * Sempre salvamos o formato correto:
+         *
+         * curtidas   = número
+         * curtidores = array de usuários
+         *
+         * Isso também converte automaticamente as
+         * publicações antigas que ainda possuem
+         * curtidas como array.
+         */
 
-                    ultimaCurtidaEm:
-                        firebase.firestore.FieldValue
-                            .serverTimestamp()
-                },
-                {
-                    merge: true
-                }
-            );
+        await referenciaPublicacao.update({
 
-        } catch (erroPonto) {
+            curtidas:
+                novaQuantidade,
 
-            console.warn(
-                "Não foi possível atualizar os pontos:",
-                erroPonto
-            );
-        }
+            curtidores:
+                novosCurtidores
+        });
 
     } catch (erro) {
 
@@ -10120,16 +10146,16 @@ async function curtirPublicacao(idPublicacao, botao) {
 
         /*
          * =====================================================
-         * DESFAZ A ALTERAÇÃO VISUAL
+         * ROLLBACK VISUAL
          * =====================================================
          */
 
         if (contador) {
             contador.textContent =
-                totalAtual;
+                totalVisual;
         }
 
-        if (jaCurtiuAtual) {
+        if (estadoVisualAnterior) {
 
             botao.classList.add(
                 "feed-x-curtido"
@@ -10158,19 +10184,16 @@ async function curtirPublicacao(idPublicacao, botao) {
 
     } finally {
 
-        setTimeout(
-            () => {
+        setTimeout(() => {
 
-                botao.dataset.processando =
-                    "false";
+            botao.dataset.processando =
+                "false";
 
-                window.lockCurtidas[
-                    idPublicacao
-                ] = false;
+            window.lockCurtidas[
+                idPublicacao
+            ] = false;
 
-            },
-            800
-        );
+        }, 800);
     }
 }
 
