@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.114.0 - versão alpha";
+const VERSAO_ATUAL = "v0.115.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9912,12 +9912,16 @@ window.lockCurtidas = window.lockCurtidas || {};
 async function curtirPublicacao(idPublicacao, botao) {
     if (!idPublicacao || !botao) return;
 
-    if (botao.dataset.processando === "true" || window.lockCurtidas[idPublicacao]) {
+    if (
+        botao.dataset.processando === "true" ||
+        window.lockCurtidas[idPublicacao]
+    ) {
         return;
     }
 
     const usuario =
-        window.ClubeDB && window.ClubeDB.loginDB
+        window.ClubeDB &&
+        window.ClubeDB.loginDB
             ? window.ClubeDB.loginDB.currentUser
             : null;
 
@@ -9926,9 +9930,9 @@ async function curtirPublicacao(idPublicacao, botao) {
         return;
     }
 
-    const usernameLogado = localStorage.getItem("usernameLogado") || usuario.uid;
     const banco =
-        window.ClubeDB && window.ClubeDB.textoDB
+        window.ClubeDB &&
+        window.ClubeDB.textoDB
             ? window.ClubeDB.textoDB
             : null;
 
@@ -9940,81 +9944,233 @@ async function curtirPublicacao(idPublicacao, botao) {
     botao.dataset.processando = "true";
     window.lockCurtidas[idPublicacao] = true;
 
-    const referenciaPublicacao = banco.collection("publicacoes").doc(idPublicacao);
-    
-    // Referência opcional para atribuir pontos ao autor da publicação ou ao usuário que curtiu
-    const referenciaUsuarioPerfil = banco.collection("usuarios").doc(usuario.uid);
+    const referenciaPublicacao =
+        banco
+            .collection("publicacoes")
+            .doc(idPublicacao);
 
-    const contador = botao.querySelector(".feed-x-contador");
-    const coracao = botao.querySelector(".feed-x-coracao");
-    
-    let totalAtual = parseInt(contador ? contador.textContent || 0 : 0);
-    let jaCurtiuAtual = botao.classList.contains("feed-x-curtido");
+    const referenciaUsuarioPerfil =
+        banco
+            .collection("usuarios")
+            .doc(usuario.uid);
+
+    const contador =
+        botao.querySelector(
+            ".feed-x-contador"
+        );
+
+    const coracao =
+        botao.querySelector(
+            ".feed-x-coracao"
+        );
+
+    const totalAtual =
+        parseInt(
+            contador
+                ? contador.textContent || 0
+                : 0,
+            10
+        );
+
+    const jaCurtiuAtual =
+        botao.classList.contains(
+            "feed-x-curtido"
+        );
 
     try {
-        // Leitura otimizada do documento da publicação
-        const docSnap = await referenciaPublicacao.get();
+
+        const docSnap =
+            await referenciaPublicacao.get();
+
         if (!docSnap.exists) {
-            alert("Publicação não encontrada.");
-            return;
+            throw new Error(
+                "Publicação não encontrada."
+            );
         }
 
-        const dadosPub = docSnap.data();
-        const arrayCurtidas = dadosPub.curtidores || dadosPub.curtidasArray || [];
-        const autorPubId = dadosPub.autorUid || dadosPub.autorUsername;
+        const dadosPub =
+            docSnap.data() || {};
 
-        const jaCurtiuNoBanco = arrayCurtidas.includes(usernameLogado);
+        /*
+         * O campo "curtidas" é numérico.
+         * Portanto, usamos o estado visual atual
+         * para determinar a próxima ação.
+         */
+        const novoEstadoCurtida =
+            !jaCurtiuAtual;
 
-        let novoEstadoCurtida = !jaCurtiuNoBanco;
-        let variacao = novoEstadoCurtida ? 1 : -1;
+        const variacao =
+            novoEstadoCurtida
+                ? 1
+                : -1;
 
-        // UI Otimista instantânea para excelente experiência
+        /*
+         * =====================================================
+         * ATUALIZAÇÃO VISUAL IMEDIATA
+         * =====================================================
+         */
+
         if (novoEstadoCurtida) {
-            botao.classList.add("feed-x-curtido", "feed-x-animando");
-            if (coracao) coracao.textContent = "♥";
-            if (contador) contador.textContent = Math.max(0, totalAtual + 1);
-            setTimeout(() => botao.classList.remove("feed-x-animando"), 400);
+
+            botao.classList.add(
+                "feed-x-curtido",
+                "feed-x-animando"
+            );
+
+            if (coracao) {
+                coracao.textContent = "♥";
+            }
+
+            if (contador) {
+                contador.textContent =
+                    Math.max(
+                        0,
+                        totalAtual + 1
+                    );
+            }
+
+            setTimeout(
+                () => {
+                    botao.classList.remove(
+                        "feed-x-animando"
+                    );
+                },
+                400
+            );
+
         } else {
-            botao.classList.remove("feed-x-curtido");
-            if (coracao) coracao.textContent = "♡";
-            if (contador) contador.textContent = Math.max(0, totalAtual - 1);
+
+            botao.classList.remove(
+                "feed-x-curtido"
+            );
+
+            if (coracao) {
+                coracao.textContent = "♡";
+            }
+
+            if (contador) {
+                contador.textContent =
+                    Math.max(
+                        0,
+                        totalAtual - 1
+                    );
+            }
         }
 
-        // Atualização atômica no Firestore usando arrayUnion / arrayRemove (elimina Quota Exceeded de subcoleções)
+        /*
+         * =====================================================
+         * SALVA A QUANTIDADE DE CURTIDAS
+         * =====================================================
+         *
+         * Não usamos mais arrayUnion/arrayRemove
+         * no campo "curtidores", pois esse campo não é
+         * garantidamente um array nas publicações antigas.
+         */
+
         await referenciaPublicacao.update({
-            curtidas: firebase.firestore.FieldValue.increment(variacao),
-            curtidores: novoEstadoCurtida 
-                ? firebase.firestore.FieldValue.arrayUnion(usernameLogado) 
-                : firebase.firestore.FieldValue.arrayRemove(usernameLogado)
+            curtidas:
+                firebase.firestore.FieldValue
+                    .increment(variacao)
         });
 
-        // ATRIBUIÇÃO DE PONTOS: A curtida funciona como pontos para o autor ou engajamento
+        /*
+         * =====================================================
+         * PONTOS DO USUÁRIO
+         * =====================================================
+         *
+         * Se a atualização de pontos falhar, isso não
+         * invalida a curtida.
+         */
+
         try {
-            await referenciaUsuarioPerfil.set({
-                pontos: firebase.firestore.FieldValue.increment(novoEstadoCurtida ? 10 : -10),
-                ultimaCurtidaEm: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        } catch (errPonto) {
-            console.warn("Pontuação atualizada localmente, erro silencioso no perfil:", errPonto);
+
+            await referenciaUsuarioPerfil.set(
+                {
+                    pontos:
+                        firebase.firestore.FieldValue
+                            .increment(
+                                novoEstadoCurtida
+                                    ? 10
+                                    : -10
+                            ),
+
+                    ultimaCurtidaEm:
+                        firebase.firestore.FieldValue
+                            .serverTimestamp()
+                },
+                {
+                    merge: true
+                }
+            );
+
+        } catch (erroPonto) {
+
+            console.warn(
+                "Não foi possível atualizar os pontos:",
+                erroPonto
+            );
         }
 
     } catch (erro) {
-        console.error("Erro ao processar curtida:", erro);
-        // Rollback visual em caso de falha de rede
-        if (contador) contador.textContent = totalAtual;
-        if (jaCurtiuAtual) {
-            botao.classList.add("feed-x-curtido");
-            if (coracao) coracao.textContent = "♥";
-        } else {
-            botao.classList.remove("feed-x-curtido");
-            if (coracao) coracao.textContent = "♡";
+
+        console.error(
+            "Erro ao processar curtida:",
+            erro
+        );
+
+        /*
+         * =====================================================
+         * DESFAZ A ALTERAÇÃO VISUAL
+         * =====================================================
+         */
+
+        if (contador) {
+            contador.textContent =
+                totalAtual;
         }
-        alert("Não foi possível registrar a curtida. Tente novamente.");
+
+        if (jaCurtiuAtual) {
+
+            botao.classList.add(
+                "feed-x-curtido"
+            );
+
+            if (coracao) {
+                coracao.textContent =
+                    "♥";
+            }
+
+        } else {
+
+            botao.classList.remove(
+                "feed-x-curtido"
+            );
+
+            if (coracao) {
+                coracao.textContent =
+                    "♡";
+            }
+        }
+
+        alert(
+            "Não foi possível registrar a curtida. Tente novamente."
+        );
+
     } finally {
-        setTimeout(() => {
-            botao.dataset.processando = "false";
-            window.lockCurtidas[idPublicacao] = false;
-        }, 800);
+
+        setTimeout(
+            () => {
+
+                botao.dataset.processando =
+                    "false";
+
+                window.lockCurtidas[
+                    idPublicacao
+                ] = false;
+
+            },
+            800
+        );
     }
 }
 
