@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.93.0 - versão alpha";
+const VERSAO_ATUAL = "v0.92.0 - versão alpha";
 
 /*
  * =====================================================
@@ -1761,7 +1761,14 @@ async function carregarPerfilDoUsuario() {
         }
 
         if (avatarEl) {
-            avatarEl.src = normalizarUrlPublicacao(dados.fotoUrl) || avatarPadrao;
+            const fotoPerfil = normalizarUrlPublicacao(dados.fotoUrl);
+
+            avatarEl.onerror = function () {
+                this.onerror = null;
+                this.src = avatarPadrao;
+            };
+
+            avatarEl.src = fotoPerfil || avatarPadrao;
         }
 
         const classes = Array.isArray(dados.classesConcluidas) ? dados.classesConcluidas : [];
