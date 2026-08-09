@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.94.0 - versão alpha";
+const VERSAO_ATUAL = "v0.95.0 - versão alpha";
 
 /*
  * =====================================================
@@ -438,9 +438,12 @@ async function carregarListaDeContatosChat() {
 
     let contatosRenderizados = 0;
 
-    // Fixa o Admin (Suporte) no topo para todos os membros comuns
+    // 1. Resgata o avatar configurado no painel (salvo com a chave 'avatar_padrao') ou usa o original
+    const avatarPadrao = localStorage.getItem("avatar_padrao") || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+    // Fixa o Admin (Suporte) no topo para todos os membros comuns usando o avatar dinâmico
     if (usernameLogado !== "admin" && divSuporte) {
-        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" );
+        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", avatarPadrao);
         contatosRenderizados++;
     }
 
@@ -453,11 +456,14 @@ async function carregarListaDeContatosChat() {
             
             if (!usernameUser || usernameUser === usernameLogado.toLowerCase()) return;
 
+            // 2. Injeta o avatar dinâmico se o usuário não possuir foto cadastrada no banco
+            const fotoFinal = user.fotoUrl ? user.fotoUrl : avatarPadrao;
+
             const card = criarCardContatoChat(
                 user.username,
                 user.nomeReal || user.username,
                 user.cargo || user.tipo || "Membro",
-                user.fotoUrl
+                fotoFinal
             );
 
             if (user.tipo === "Liderança") {
