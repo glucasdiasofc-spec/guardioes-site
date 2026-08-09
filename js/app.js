@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.96.0 - versão alpha";
+const VERSAO_ATUAL = "v0.99.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -2234,21 +2234,34 @@ async function uploadFotoPerfilUsuario(input) {
                     fotoIdPublico: novoIdPublico || ""
                 });
 
-                // 3. Atualizando avatar em todas as publicações já feitas pelo usuário
-                try {
-                    const pubsSnapshot = await window.ClubeDB.textoDB.collection("publicacoes").where("autorUsername", "==", username).get();
-                    if (!pubsSnapshot.empty) {
-                        const batch = window.ClubeDB.textoDB.batch();
-                        pubsSnapshot.docs.forEach(docPub => {
-                            batch.update(docPub.ref, {
-                                autorAvatar: novaUrl || window.AVATAR_USUARIO_PADRAO
-                            });
-                        });
-                        await batch.commit();
-                    }
-                } catch(errPubs) {
-                    console.error("Erro ao atualizar avatar nas publicações do feed:", errPubs);
-                }
+                // 3. Atualizando a foto correta em todas as publicações já feitas pelo usuário
+try {
+    const pubsSnapshot = await window.ClubeDB.textoDB
+        .collection("publicacoes")
+        .where("autorUsername", "==", username)
+        .get();
+
+    if (!pubsSnapshot.empty) {
+        const batch = window.ClubeDB.textoDB.batch();
+
+        const avatarFinal =
+            normalizarUrlPublicacao(novaUrl) ||
+            window.AVATAR_USUARIO_PADRAO;
+
+        pubsSnapshot.docs.forEach(docPub => {
+            batch.update(docPub.ref, {
+                autorFotoUrl: avatarFinal
+            });
+        });
+
+        await batch.commit();
+    }
+} catch (errPubs) {
+    console.error(
+        "Erro ao atualizar avatar nas publicações do feed:",
+        errPubs
+    );
+}
 
                 alert("Sua foto de perfil foi atualizada com sucesso! 🎉");
                 await carregarPerfilDoUsuario();
@@ -2294,20 +2307,29 @@ async function removerFotoPerfilUsuario() {
             });
 
             // Retorna o avatar das publicações no feed para o padrão global do site
-            try {
-                const pubsSnapshot = await window.ClubeDB.textoDB.collection("publicacoes").where("autorUsername", "==", username).get();
-                if (!pubsSnapshot.empty) {
-                    const batch = window.ClubeDB.textoDB.batch();
-                    pubsSnapshot.docs.forEach(docPub => {
-                        batch.update(docPub.ref, {
-                            autorAvatar: window.AVATAR_USUARIO_PADRAO
-                        });
-                    });
-                    await batch.commit();
-                }
-            } catch(errPubs) {
-                console.error("Erro ao remover avatar das publicações do feed:", errPubs);
-            }
+try {
+    const pubsSnapshot = await window.ClubeDB.textoDB
+        .collection("publicacoes")
+        .where("autorUsername", "==", username)
+        .get();
+
+    if (!pubsSnapshot.empty) {
+        const batch = window.ClubeDB.textoDB.batch();
+
+        pubsSnapshot.docs.forEach(docPub => {
+            batch.update(docPub.ref, {
+                autorFotoUrl: window.AVATAR_USUARIO_PADRAO
+            });
+        });
+
+        await batch.commit();
+    }
+} catch (errPubs) {
+    console.error(
+        "Erro ao remover avatar das publicações do feed:",
+        errPubs
+    );
+}
 
             alert("Foto de perfil removida com sucesso.");
             carregarPerfilDoUsuario();
@@ -9102,7 +9124,8 @@ async function obterDadosAutorPublicacao() {
  * Renderiza uma publicação individual.
  */
 function criarCardPublicacao(
-    doc
+    doc,
+    avatarAtualizado = ""
 ) {
     const dados =
         doc.data() || {};
@@ -9126,10 +9149,21 @@ function criarCardPublicacao(
             "Membro"
         );
 
+    /*
+     * Prioridade:
+     *
+     * 1. Foto atual encontrada na coleção "usuarios".
+     * 2. Foto armazenada na publicação.
+     * 3. Avatar padrão configurado pelo clube.
+     */
     const avatar =
         normalizarUrlPublicacao(
+            avatarAtualizado
+        ) ||
+        normalizarUrlPublicacao(
             dados.autorFotoUrl
-            ) || window.AVATAR_USUARIO_PADRAO;
+        ) ||
+        window.AVATAR_USUARIO_PADRAO;
 
     const texto =
         escaparHtml(
@@ -9141,18 +9175,32 @@ function criarCardPublicacao(
             dados.criadoEm
         );
 
-        const quantidadeCurtidas =
+    const quantidadeCurtidas =
         Number(
             dados.curtidas || 0
         );
 
-    const usernameLogado = localStorage.getItem("usernameLogado") || "";
-    const curtidoresArray = dados.curtidores || dados.curtidasArray || [];
-    const usuarioJaCurtiu = usernameLogado && curtidoresArray.includes(usernameLogado);
-    
-    const classeCurtido = usuarioJaCurtiu ? "feed-x-curtido" : "";
-    const iconeCoracao = usuarioJaCurtiu ? "♥" : "♡";
+    const usernameLogado =
+        localStorage.getItem("usernameLogado") || "";
 
+    const curtidoresArray =
+        dados.curtidores ||
+        dados.curtidasArray ||
+        [];
+
+    const usuarioJaCurtiu =
+        usernameLogado &&
+        curtidoresArray.includes(usernameLogado);
+
+    const classeCurtido =
+        usuarioJaCurtiu
+            ? "feed-x-curtido"
+            : "";
+
+    const iconeCoracao =
+        usuarioJaCurtiu
+            ? "♥"
+            : "♡";
 
     const quantidadeComentarios =
         Number(
@@ -9164,16 +9212,13 @@ function criarCardPublicacao(
             dados.visualizacoes || 0
         );
 
-    let blocoMidia =
-        "";
+    let blocoMidia = "";
 
     /*
      * Se existir uma mídia do Telegram,
      * ela será exibida através do Worker.
      */
-    if (
-        dados.telegramFileId
-    ) {
+    if (dados.telegramFileId) {
         const urlMidia =
             criarUrlMidiaTelegram(
                 dados.telegramFileId
@@ -9225,6 +9270,7 @@ function criarCardPublicacao(
                 src="${escaparHtml(avatar)}"
                 alt="Foto de ${autorNome}"
                 loading="lazy"
+                onerror="this.onerror=null;this.src='${escaparHtml(window.AVATAR_USUARIO_PADRAO)}';"
             >
 
             <div class="feed-x-conteudo">
@@ -9279,7 +9325,7 @@ function criarCardPublicacao(
 
                 ${blocoMidia}
 
-                                <div class="feed-x-acoes">
+                <div class="feed-x-acoes">
 
                     <button
                         type="button"
@@ -9290,6 +9336,7 @@ function criarCardPublicacao(
                         onclick="abrirComentariosPublicacao('${escaparHtml(doc.id)}')"
                     >
                         <span class="feed-x-icone">💬</span>
+
                         <span class="feed-x-contador">
                             ${quantidadeComentarios}
                         </span>
@@ -9303,12 +9350,14 @@ function criarCardPublicacao(
                         aria-label="Curtir"
                         onclick="curtirPublicacao('${escaparHtml(doc.id)}', this)"
                     >
-                        <span class="feed-x-icone feed-x-coracao">${iconeCoracao}</span>
+                        <span class="feed-x-icone feed-x-coracao">
+                            ${iconeCoracao}
+                        </span>
+
                         <span class="feed-x-contador">
                             ${quantidadeCurtidas}
                         </span>
                     </button>
-
 
                 </div>
 
@@ -9340,7 +9389,11 @@ async function carregarPublicacoesFeed() {
             <div style="padding:40px 20px;text-align:center;color:#ff6b6b;font-size:14px;">
                 Banco de dados ainda não foi inicializado.
 
-                <button type="button" onclick="carregarPublicacoesFeed()" style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;">
+                <button
+                    type="button"
+                    onclick="carregarPublicacoesFeed()"
+                    style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;"
+                >
                     Tentar novamente
                 </button>
             </div>
@@ -9386,8 +9439,102 @@ async function carregarPublicacoesFeed() {
             return;
         }
 
+        /*
+         * =====================================================
+         * SINCRONIZAÇÃO DOS AVATARES DO FEED
+         * =====================================================
+         *
+         * As publicações antigas podem possuir uma foto antiga
+         * gravada no documento da publicação.
+         *
+         * Aqui buscamos a foto ATUAL dos autores diretamente
+         * na coleção "usuarios".
+         *
+         * Dessa forma:
+         *
+         * 1. Usuário sem foto -> avatar padrão.
+         * 2. Usuário com foto -> foto atual.
+         * 3. Foto alterada -> feed mostra a nova foto.
+         * 4. Publicações antigas também são corrigidas visualmente.
+         */
+
+        const usernames = [
+            ...new Set(
+                documentos
+                    .map(doc => {
+                        const dados = doc.data() || {};
+                        return String(dados.autorUsername || "")
+                            .trim()
+                            .toLowerCase();
+                    })
+                    .filter(Boolean)
+            )
+        ];
+
+        const avataresAtuais = new Map();
+
+        /*
+         * Firestore possui limite para consultas "in".
+         * Por segurança, dividimos os usuários em blocos de 10.
+         */
+        const tamanhoBloco = 10;
+
+        for (let i = 0; i < usernames.length; i += tamanhoBloco) {
+            const bloco = usernames.slice(i, i + tamanhoBloco);
+
+            if (!bloco.length) continue;
+
+            const usuariosSnapshot = await window.ClubeDB.textoDB
+                .collection("usuarios")
+                .where("username", "in", bloco)
+                .get();
+
+            usuariosSnapshot.forEach(docUsuario => {
+                const dadosUsuario = docUsuario.data() || {};
+
+                const username = String(
+                    dadosUsuario.username || ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+                if (!username) return;
+
+                const fotoAtual =
+                    normalizarUrlPublicacao(
+                        dadosUsuario.fotoUrl
+                    ) || window.AVATAR_USUARIO_PADRAO;
+
+                avataresAtuais.set(
+                    username,
+                    fotoAtual
+                );
+            });
+        }
+
+        /*
+         * Renderiza cada publicação utilizando a foto atual
+         * do usuário quando ela estiver disponível.
+         */
         container.innerHTML = documentos
-            .map(doc => criarCardPublicacao(doc))
+            .map(doc => {
+                const dados = doc.data() || {};
+
+                const usernameAutor = String(
+                    dados.autorUsername || ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+                const avatarAtual =
+                    avataresAtuais.get(usernameAutor) ||
+                    window.AVATAR_USUARIO_PADRAO;
+
+                return criarCardPublicacao(
+                    doc,
+                    avatarAtual
+                );
+            })
             .join("");
 
     } catch (erro) {
@@ -9397,16 +9544,23 @@ async function carregarPublicacoesFeed() {
             <div style="padding:40px 20px;text-align:center;color:#ff6b6b;font-size:14px;">
                 Não foi possível carregar as publicações.
 
-                <small>${escaparHtml(erro.message || "Erro desconhecido")}</small>
+                <small>
+                    ${escaparHtml(
+                        erro.message || "Erro desconhecido"
+                    )}
+                </small>
 
-                <button type="button" onclick="carregarPublicacoesFeed()" style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;">
+                <button
+                    type="button"
+                    onclick="carregarPublicacoesFeed()"
+                    style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;"
+                >
                     Tentar novamente
                 </button>
             </div>
         `;
     }
 }
-
 
 
 /*
