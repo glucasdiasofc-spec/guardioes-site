@@ -9183,74 +9183,6 @@ function criarCardPublicacao(
  * Carrega o Feed real do Firestore.
  */
 async function carregarPublicacoesFeed() {
-    const container =
-        document.getElementById(
-            "feed-publicacoes-lista"
-        );
-
-    if (!container) {
-        return;
-    }
-
-    container.innerHTML = `
-        <div
-            style="
-                padding:30px 20px;
-                text-align:center;
-                color:#71767b;
-                font-size:14px;
-            "
-        >
-            Carregando publicações...
-        </div>
-    `;
-
-    try {
-        const snapshot =
-            await window.ClubeDB.textoDB
-                .collection("publicacoes")
-                .orderBy(
-                    "criadoEm",
-                    "desc"
-                )
-                .limit(50)
-                .get();
-
-        if (
-            snapshot.empty
-        ) {
-            container.innerHTML = `
-                <div
-                    style="
-                        padding:50px 20px;
-                        text-align:center;
-                        color:#71767b;
-                        font-size:14px;
-                    "
-                >
-                    Ainda não há publicações.
-                    <br>
-                    <span
-                        style="
-                            display:block;
-                            margin-top:6px;
-                            font-size:13px;
-                        "
-                    >
-                        Seja o primeiro a publicar!
-                    </span>
-                </div>
-            `;
-
-            return;
-        }
-
-        container.innerHTML =
-            snapshot.docs
-                .map(
-                    doc =>
-                        criarCardPublicacao(
-                            dasync function carregarPublicacoesFeed() {
     const container = document.getElementById("feed-publicacoes-lista");
 
     if (!container) {
@@ -9266,7 +9198,7 @@ async function carregarPublicacoesFeed() {
     if (!window.ClubeDB || !window.ClubeDB.textoDB) {
         container.innerHTML = `
             <div style="padding:40px 20px;text-align:center;color:#ff6b6b;font-size:14px;">
-                Banco de dados ainda não foi inicializado.  
+                Banco de dados ainda não foi inicializado.
 
                 <button type="button" onclick="carregarPublicacoesFeed()" style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;">
                     Tentar novamente
@@ -9277,8 +9209,6 @@ async function carregarPublicacoesFeed() {
     }
 
     try {
-        // Não usa orderBy no Firestore para evitar falha com publicações antigas
-        // que não possuem o campo criadoEm ou com índices ainda não disponíveis.
         const snapshot = await window.ClubeDB.textoDB
             .collection("publicacoes")
             .limit(100)
@@ -9288,13 +9218,17 @@ async function carregarPublicacoesFeed() {
             const dadosA = a.data() || {};
             const dadosB = b.data() || {};
 
-            const dataA = dadosA.criadoEm && typeof dadosA.criadoEm.toMillis === "function"
-                ? dadosA.criadoEm.toMillis()
-                : 0;
+            const dataA =
+                dadosA.criadoEm &&
+                typeof dadosA.criadoEm.toMillis === "function"
+                    ? dadosA.criadoEm.toMillis()
+                    : 0;
 
-            const dataB = dadosB.criadoEm && typeof dadosB.criadoEm.toMillis === "function"
-                ? dadosB.criadoEm.toMillis()
-                : 0;
+            const dataB =
+                dadosB.criadoEm &&
+                typeof dadosB.criadoEm.toMillis === "function"
+                    ? dadosB.criadoEm.toMillis()
+                    : 0;
 
             return dataB - dataA;
         });
@@ -9303,7 +9237,6 @@ async function carregarPublicacoesFeed() {
             container.innerHTML = `
                 <div style="padding:50px 20px;text-align:center;color:#71767b;font-size:14px;">
                     Ainda não há publicações.
-                      
 
                     <span style="display:block;margin-top:6px;font-size:13px;">
                         Seja o primeiro a publicar!
@@ -9316,15 +9249,15 @@ async function carregarPublicacoesFeed() {
         container.innerHTML = documentos
             .map(doc => criarCardPublicacao(doc))
             .join("");
+
     } catch (erro) {
         console.error("Erro ao carregar publicações:", erro);
 
         container.innerHTML = `
             <div style="padding:40px 20px;text-align:center;color:#ff6b6b;font-size:14px;">
-                Não foi possível carregar as publicações.  
+                Não foi possível carregar as publicações.
 
                 <small>${escaparHtml(erro.message || "Erro desconhecido")}</small>
-                  
 
                 <button type="button" onclick="carregarPublicacoesFeed()" style="margin-top:12px;padding:8px 16px;border:none;border-radius:999px;background:#1d9bf0;color:#fff;cursor:pointer;font-weight:600;">
                     Tentar novamente
