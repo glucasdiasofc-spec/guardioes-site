@@ -1303,18 +1303,19 @@
                                 }
                             });
 
-                            // 2. Função Sênior para Renderizar o Feed com Mídias Atualizadas
+                                                        // 2. Função Sênior para Renderizar o Feed com Mídias e Avatares Atualizados
                             function renderizarFeedPublicacoes() {
                                 const container = document.getElementById('feed-publicacoes-lista');
                                 if (!container) return;
 
                                 const db = window.ClubeDB?.textoDB;
-                                if (!db) return; // Aguarda a inicialização do DB
+                                if (!db) return;
 
                                 const usernameLogado = localStorage.getItem("usernameLogado") || "";
 
+                                // LÓGICA SÊNIOR: Escuta as publicações e sincroniza avatares em tempo real
                                 db.collection("publicacoes")
-                                  .orderBy("dataCriacao", "desc")
+                                  .orderBy("criadoEm", "desc") 
                                   .onSnapshot((snapshot) => {
                                       container.innerHTML = ""; 
                                       
@@ -1326,38 +1327,42 @@
                                       snapshot.forEach((doc) => {
                                           const dados = doc.data();
                                           const id = doc.id;
-                                          const curtidas = dados.curtidas || [];
-                                          const jaCurtiu = curtidas.includes(usernameLogado);
+                                          const curtidores = dados.curtidores || dados.curtidasArray || [];
+                                          const jaCurtiu = curtidores.includes(usernameLogado);
                                           
-                                          // Processamento e Renderização de Mídia (Fotos/Vídeos atualizados)
+                                          // Processamento de Mídia via Worker
                                           let midiaHTML = '';
-                                          if (dados.midiaUrl || dados.imagemUrl) {
-                                              const url = dados.midiaUrl || dados.imagemUrl;
-                                              const isVideo = url.toLowerCase().includes('.mp4');
+                                          if (dados.telegramFileId) {
+                                              const url = `https://telegram.glucasdiasofc.workers.dev/media/${dados.telegramFileId}`;
+                                              const isVideo = dados.tipoMidia === "video";
                                               midiaHTML = `
                                               <div class="feed-x-midia">
                                                   ${isVideo 
-                                                      ? `<video src="${url}" controls preload="metadata"></video>`
-                                                      : `<img src="${url}" alt="Mídia da publicação" loading="lazy">`
+                                                      ? `<video src="${url}" controls preload="metadata" playsinline></video>`
+                                                      : `<img src="${url}" alt="Mídia" loading="lazy">`
                                                   }
                                               </div>`;
                                           }
 
-                                          // Formatação de Data Simples
+                                          // Formatação de Data
                                           let dataFormatada = 'agora';
-                                          if (dados.dataCriacao) {
-                                              const dataObj = typeof dados.dataCriacao.toDate === 'function' ? dados.dataCriacao.toDate() : new Date(dados.dataCriacao);
+                                          if (dados.criadoEm ) {
+                                              const dataObj = typeof dados.criadoEm.toDate === 'function' ? dados.criadoEm.toDate() : new Date(dados.criadoEm);
                                               dataFormatada = dataObj.toLocaleDateString();
                                           }
 
                                           const article = document.createElement('article');
                                           article.className = 'feed-x-post';
+                                          
+                                          // Fallback: usa a foto salva no post ou a logo padrão do site definida no app.js
+                                          const fallbackAvatar = dados.autorFotoUrl || window.LOGO_PADRAO_SITE || window.AVATAR_USUARIO_PADRAO;
+
                                           article.innerHTML = `
-                                              <img class="feed-x-avatar" src="${dados.avatarAutor || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" alt="Avatar">
+                                              <img class="feed-x-avatar" id="avatar-feed-${id}" src="${fallbackAvatar}" alt="Avatar">
                                               <div class="feed-x-conteudo">
                                                   <div class="feed-x-autor">
-                                                      <span class="feed-x-nome">${dados.nomeAutor || 'Membro'}</span>
-                                                      <span class="feed-x-username">@${dados.usernameAutor || 'usuario'}</span>
+                                                      <span class="feed-x-nome">${dados.autorNome || 'Membro'}</span>
+                                                      <span class="feed-x-username">@${dados.autorUsername || 'usuario'}</span>
                                                       <span class="feed-x-data">· ${dataFormatada}</span>
                                                   </div>
                                                   <div class="feed-x-texto">${dados.texto || ''}</div>
@@ -1365,22 +1370,35 @@
                                                   <div class="feed-x-acoes">
                                                       <button type="button" class="feed-x-acao feed-x-acao-comentar" onclick="abrirModalComentarios('${id}')">
                                                           <span class="feed-x-icone">💬</span>
-                                                          <span>${dados.totalComentarios || 0}</span>
+                                                          <span>${dados.comentarios || 0}</span>
                                                       </button>
                                                       <button type="button" class="feed-x-acao feed-x-acao-curtir ${jaCurtiu ? 'feed-x-curtido' : ''}" data-id="${id}">
                                                           <span class="feed-x-icone feed-x-coracao">${jaCurtiu ? '♥' : '♡'}</span>
-                                                          <span class="feed-x-contador">${curtidas.length}</span>
+                                                          <span class="feed-x-contador">${dados.curtidas || 0}</span>
                                                       </button>
                                                   </div>
                                               </div>
                                           `;
                                           container.appendChild(article);
+
+                                          // LÓGICA SÊNIOR: Busca a foto atualizada diretamente da coleção de membros (evita avatares desatualizados)
+                                          if (dados.autorUsername) {
+                                              db.collection("membros").doc(dados.autorUsername).get().then(uDoc => {
+                                                  if (uDoc.exists) {
+                                                      const uData = uDoc.data();
+                                                      const fotoReal = uData.foto || window.LOGO_PADRAO_SITE || window.AVATAR_USUARIO_PADRAO;
+                                                      const imgEl = document.getElementById(`avatar-feed-${id}`);
+                                                      if (imgEl && imgEl.src !== fotoReal) imgEl.src = fotoReal;
+                                                  }
+                                              });
+                                          }
                                       });
                                   }, (error) => {
                                       console.error("Erro ao carregar o feed:", error);
                                       container.innerHTML = '<div style="text-align: center; padding: 40px; color: #ff4d4d;">Erro ao carregar o feed.</div>';
                                   });
                             }
+
 
                             // Gatilho seguro de inicialização
                             document.addEventListener('DOMContentLoaded', () => {

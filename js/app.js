@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.96.0 - versão alpha";
+const VERSAO_ATUAL = "v0.97.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -2330,7 +2330,11 @@ async function carregarLogoClubeConfig() {
         if (doc.exists) {
             const dados = doc.data();
             
+            // LÓGICA SÊNIOR: Armazena a logo padrão globalmente para uso em fallbacks de avatar
+            window.LOGO_PADRAO_SITE = dados.logoUrl || window.AVATAR_USUARIO_PADRAO;
+            
             // 1. Aplica Logo do Site
+
             const logoImg = document.getElementById("site-logo-img");
             const logoTexto = document.getElementById("site-logo-texto");
             if (dados.logoUrl && logoImg) {
