@@ -5,8 +5,8 @@
 
 const VERSAO_ATUAL = "v0.94.0 - versão alpha";
 
-// Definição global do avatar padrão (será atualizada pelo banco de dados)
-window.AVATAR_PADRAO_SITE = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+// Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
+window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
 
 
 
@@ -1709,7 +1709,7 @@ async function carregarPerfilDoUsuario() {
     const tMestrados = document.getElementById("titulo-conquistas-mestrados");
     const gridEl = document.getElementById("perfil-usuario-grid");
     const vazioEl = document.getElementById("perfil-publicacoes-vazio");
-    const avatarPadrao = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+    const avatarPadrao = window.AVATAR_USUARIO_PADRAO;
 
     mudarSubTabPerfil("publicacoes");
 
@@ -2214,47 +2214,49 @@ async function carregarLogoClubeConfig() {
         const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
         const doc = await docRef.get();
         
-        const logoImg = document.getElementById("site-logo-img");
-        const logoTexto = document.getElementById("site-logo-texto");
-        const sliderTamanho = document.getElementById("logo-tamanho-slider");
-        const logoAppImg = document.getElementById("app-logo-img");
-
         if (doc.exists) {
             const dados = doc.data();
             
-            // 1. Logo do Site
+            // 1. Aplica Logo do Site
+            const logoImg = document.getElementById("site-logo-img");
+            const logoTexto = document.getElementById("site-logo-texto");
             if (dados.logoUrl && logoImg) {
                 logoImg.src = dados.logoUrl;
                 logoImg.style.display = "inline-block";
                 if (logoTexto) logoTexto.style.display = "none";
+                const previa = document.getElementById("previa-logo-site");
+                if (previa) previa.src = dados.logoUrl;
             }
 
-            // 1.1 Logo do App
-            if (dados.logoAppUrl && logoAppImg) logoAppImg.src = dados.logoAppUrl;
+            // 2. Aplica Logo do App
+            const logoAppImg = document.getElementById("app-logo-img");
+            if (dados.logoAppUrl && logoAppImg) {
+                logoAppImg.src = dados.logoAppUrl;
+                const previaApp = document.getElementById("previa-logo-app");
+                if (previaApp) previaApp.src = dados.logoAppUrl;
+            }
 
-            // 1.2 Favicon
+            // 3. Aplica Favicon
             if (dados.faviconUrl) {
                 let fav = document.getElementById("favicon-site");
                 if (!fav) { fav = document.createElement("link"); fav.rel = "icon"; fav.id = "favicon-site"; document.head.appendChild(fav); }
                 fav.href = dados.faviconUrl;
+                const previaFav = document.getElementById("previa-favicon");
+                if (previaFav) previaFav.src = dados.faviconUrl;
             }
 
-            // 1.3 AVATAR PADRÃO CUSTOMIZADO
+            // 4. APLICA O AVATAR PADRÃO DOS USUÁRIOS
             if (dados.avatarPadraoUrl) {
-                window.AVATAR_PADRAO_SITE = dados.avatarPadraoUrl;
+                window.AVATAR_USUARIO_PADRAO = dados.avatarPadraoUrl;
                 const previaAvatar = document.getElementById("previa-avatar-padrao");
                 if (previaAvatar) previaAvatar.src = dados.avatarPadraoUrl;
-                
-                // Atualiza imagens hardcoded na tela
-                document.querySelectorAll('img[src*="avatar-padrao.png"]').forEach(img => {
-                    img.src = dados.avatarPadraoUrl;
-                });
             }
 
-            // 2. Tamanho da Logo
+            // 5. Tamanho da Logo
             if (dados.logoTamanho && logoImg) {
                 logoImg.style.height = dados.logoTamanho + "px";
-                if (sliderTamanho) sliderTamanho.value = dados.logoTamanho;
+                const slider = document.getElementById("logo-tamanho-slider");
+                if (slider) slider.value = dados.logoTamanho;
             }
         }
     } catch (error) {
@@ -2291,95 +2293,61 @@ function usarTextoPadraoLogo(tipo = 'site') {
 }
 
 async function salvarLogoClubeAdmin(tipo = 'site') {
-    // Mapeamento de IDs para incluir o avatar_padrao
-    const inputId = tipo === 'site' ? "logo-site-file" : 
-                    (tipo === 'app' ? "logo-app-file" : 
-                    (tipo === 'favicon' ? "favicon-file" : "avatar_padrao-file"));
-    
-    let fileInput = document.getElementById(inputId);
-    if (!fileInput && tipo === 'site') fileInput = document.getElementById("logo-clube-file");
-    
-    const btnId = tipo === 'site' ? "btn-salvar-logo-site" : 
-                  (tipo === 'app' ? "btn-salvar-logo-app" : 
-                  (tipo === 'favicon' ? "btn-salvar-favicon" : "btn-salvar-avatar-padrao"));
-    
-    let btn = document.getElementById(btnId);
-    if (!btn && tipo === 'site') btn = document.getElementById("btn-salvar-logo");
+    // Mapeamento exato dos IDs do seu HTML
+    let inputId = "";
+    let btnId = "";
+    let campoBanco = "";
 
+    if (tipo === 'site') {
+        inputId = "logo-site-file";
+        btnId = "btn-salvar-logo-site";
+        campoBanco = "logoUrl";
+    } else if (tipo === 'app') {
+        inputId = "logo-app-file";
+        btnId = "btn-salvar-logo-app";
+        campoBanco = "logoAppUrl";
+    } else if (tipo === 'favicon') {
+        inputId = "favicon-file";
+        btnId = "btn-salvar-favicon";
+        campoBanco = "faviconUrl";
+    } else if (tipo === 'avatar_padrao') {
+        inputId = "avatar_padrao-file";
+        btnId = "btn-salvar-avatar-padrao";
+        campoBanco = "avatarPadraoUrl";
+    }
+
+    const fileInput = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
     const arquivo = fileInput ? fileInput.files[0] : null;
 
     if (!arquivo) {
-        const nomeTipo = tipo === 'favicon' ? 'a miniatura' : (tipo === 'avatar_padrao' ? 'o avatar padrão' : `a logo do ${tipo}`);
-        alert(`Selecione um arquivo de imagem para ${nomeTipo}!`);
+        alert("Por favor, selecione uma imagem primeiro!");
         return;
     }
 
     try {
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = "Enviando...";
-        }
+        if (btn) { btn.disabled = true; btn.textContent = "Salvando..."; }
 
-        let urlLogo = "";
-        let idPublicoLogo = "";
+        // Faz o upload usando o seu sistema interno do ClubeDB
+        const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
+        const urlFinal = res.url || res.secure_url || res;
 
-        // RESTAURAÇÃO DA LÓGICA ORIGINAL: Tenta os métodos internos primeiro
-        if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadFoto === "function") {
-            const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
-            urlLogo = res.url || res.secure_url || res;
-            idPublicoLogo = res.public_id || res.publicId || "";
-        } else if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadImagem === "function") {
-            const res = await window.ClubeDB.acoesAdmin.uploadImagem(arquivo);
-            urlLogo = res.url || res.secure_url || res;
-            idPublicoLogo = res.public_id || res.publicId || "";
-        } else {
-            // Fallback manual
-            const formData = new FormData();
-            formData.append("file", arquivo);
-            formData.append("upload_preset", "guardioes_preset");
-            const response = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", { method: "POST", body: formData } );
-            if (response.ok) {
-                const data = await response.json();
-                urlLogo = data.secure_url || data.url;
-                idPublicoLogo = data.public_id || "";
-            } else {
-                throw new Error("Erro na resposta do servidor de imagem.");
-            }
-        }
+        if (urlFinal) {
+            await window.ClubeDB.textoDB.collection("configuracoes").doc("geral").set({
+                [campoBanco]: urlFinal,
+                [campoBanco.replace("Url", "IdPublico")]: res.public_id || ""
+            }, { merge: true });
 
-        if (urlLogo) {
-            const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
-            const doc = await docRef.get();
-            
-            const campoUrl = tipo === 'site' ? "logoUrl" : (tipo === 'app' ? "logoAppUrl" : (tipo === 'favicon' ? "faviconUrl" : "avatarPadraoUrl"));
-            const campoId = tipo === 'site' ? "logoIdPublico" : (tipo === 'app' ? "logoAppIdPublico" : (tipo === 'favicon' ? "faviconIdPublico" : "avatarPadraoIdPublico"));
-
-            if (doc.exists) {
-                const dados = doc.data();
-                const idPublicoAntigo = dados[campoId];
-                if (idPublicoAntigo && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
-                    try { await window.ClubeDB.acoesAdmin.excluirFoto(idPublicoAntigo); } catch (e) {}
-                }
-            }
-
-            const atualizacao = {};
-            atualizacao[campoUrl] = urlLogo;
-            atualizacao[campoId] = idPublicoLogo;
-            await docRef.set(atualizacao, { merge: true });
-
-            alert("Salvo com sucesso! 🛡️");
-            carregarLogoClubeConfig();
-            if (fileInput) fileInput.value = "";
+            alert("Avatar padrão atualizado com sucesso! 🛡️");
+            carregarLogoClubeConfig(); // Recarrega para aplicar a mudança
         }
     } catch (e) {
-        alert(`Erro ao salvar: ` + e.message);
+        alert("Erro ao salvar: " + e.message);
     } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = tipo === 'avatar_padrao' ? "Salvar Avatar" : (tipo === 'favicon' ? "Salvar Miniatura" : `Salvar Logo ${tipo === 'site' ? 'Site' : 'App'}`);
-        }
+        if (btn) { btn.disabled = false; btn.textContent = "Salvar Avatar"; }
     }
 }
+
 
 
 
@@ -3065,7 +3033,7 @@ async function carregarMembrosCadastrados() {
         snapshot.forEach(doc => {
             const membro = doc.data() || {};
             const id = doc.id;
-            const foto = membro.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+            const foto = membro.fotoUrl || window.AVATAR_USUARIO_PADRAO;
 
             const card = document.createElement("div" );
             card.className = "item-membro";
@@ -9045,8 +9013,7 @@ function criarCardPublicacao(
     const avatar =
         normalizarUrlPublicacao(
             dados.autorFotoUrl
-        ) ||
-        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+            ) || window.AVATAR_USUARIO_PADRAO;
 
     const texto =
         escaparHtml(
