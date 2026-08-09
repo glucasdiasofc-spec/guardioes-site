@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.111.0 - versão alpha";
+const VERSAO_ATUAL = "v0.112.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -10504,7 +10504,7 @@ async function abrirComentariosPublicacao(
      * PUBLICAR COMENTÁRIO
      * =====================================================
      */
-    formEl.addEventListener(
+        formEl.addEventListener(
         "submit",
         async (evento) => {
 
@@ -10599,11 +10599,99 @@ async function abrirComentariosPublicacao(
                         );
                 }
 
-                fechar();
+                /*
+                 * =====================================================
+                 * ADICIONA O NOVO COMENTÁRIO DIRETAMENTE NA LISTA
+                 * =====================================================
+                 */
 
-                await abrirComentariosPublicacao(
-                    idPublicacao
+                const estadoVazio =
+                    listaEl.querySelector(
+                        ".feed-x-reels-vazio"
+                    );
+
+                if (estadoVazio) {
+                    estadoVazio.remove();
+                }
+
+                const novoComentario =
+                    document.createElement("article");
+
+                novoComentario.className =
+                    "feed-x-reels-comentario";
+
+                const nomeComentario =
+                    escaparHtml(
+                        autorComentario.nome ||
+                        autorComentario.username ||
+                        "Membro"
+                    );
+
+                const usernameComentario =
+                    escaparHtml(
+                        autorComentario.username ||
+                        "usuario"
+                    );
+
+                const textoComentarioHtml =
+                    escaparHtml(
+                        textoComentario
+                    );
+
+                novoComentario.innerHTML = `
+                    <img
+                        class="feed-x-reels-avatar"
+                        src="${escaparHtml(avatarComentario)}"
+                        alt="Foto de ${nomeComentario}"
+                    >
+
+                    <div class="feed-x-reels-comentario-corpo">
+
+                        <div class="feed-x-reels-comentario-nome">
+                            <strong>${nomeComentario}</strong>
+                            <span>@${usernameComentario}</span>
+                        </div>
+
+                        <div
+                            class="feed-x-reels-comentario-texto"
+                            style="
+                                display: block !important;
+                                width: 100% !important;
+                                margin: 2px 0 0 0 !important;
+                                padding: 0 !important;
+                                text-align: left !important;
+                                align-self: flex-start !important;
+                                justify-self: flex-start !important;
+                            "
+                        >${textoComentarioHtml}</div>
+
+                    </div>
+                `;
+
+                listaEl.appendChild(
+                    novoComentario
                 );
+
+                /*
+                 * Mantém a lista posicionada no comentário recém-publicado.
+                 */
+                listaEl.scrollTop =
+                    listaEl.scrollHeight;
+
+                /*
+                 * Limpa o campo e mantém o modal aberto.
+                 */
+                inputEl.value = "";
+
+                enviarEl.disabled =
+                    false;
+
+                enviarEl.textContent =
+                    "Publicar";
+
+                inputEl.focus({
+                    preventScroll: true
+                });
 
             } catch (erro) {
 
