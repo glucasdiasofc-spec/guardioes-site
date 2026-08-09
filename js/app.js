@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.96.0 - versão alpha";
+const VERSAO_ATUAL = "v0.97.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -562,7 +562,10 @@ async function carregarListaDeContatosChat() {
 
 
 function criarCardContatoChat(username, nome, cargo, fotoUrl) {
-    const img = fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+    let img = fotoUrl || window.AVATAR_USUARIO_PADRAO;
+if (fotoUrl && fotoUrl !== window.AVATAR_USUARIO_PADRAO) {
+    img += (img.includes("?") ? "&" : "?") + "v=" + Date.now();
+}
     return `
         <div onclick="abrirSalaChat('${username}', '${nome}', '${cargo}', '${img}' )" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; transition: background-color 0.2s ease;">
             <img src="${img}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
@@ -1822,15 +1825,13 @@ async function carregarPerfilDoUsuario() {
         }
 
         if (avatarEl) {
-            const fotoPerfil = normalizarUrlPublicacao(dados.fotoUrl);
-
-            avatarEl.onerror = function () {
-                this.onerror = null;
-                this.src = avatarPadrao;
-            };
-
-            avatarEl.src = fotoPerfil || avatarPadrao;
-        }
+    let fotoPerfil = dados.fotoUrl ? dados.fotoUrl : avatarPadrao;
+    if (fotoPerfil && fotoPerfil !== avatarPadrao) {
+        fotoPerfil += (fotoPerfil.includes("?") ? "&" : "?") + "v=" + Date.now();
+    }
+    avatarEl.onerror = function () { this.onerror = null; this.src = avatarPadrao; };
+    avatarEl.src = fotoPerfil;
+}
 
         const classes = Array.isArray(dados.classesConcluidas) ? dados.classesConcluidas : [];
         const especialidades = Array.isArray(dados.especialidades) ? dados.especialidades : [];
@@ -3121,7 +3122,10 @@ async function carregarMembrosCadastrados() {
         snapshot.forEach(doc => {
             const membro = doc.data() || {};
             const id = doc.id;
-            const foto = membro.fotoUrl || window.AVATAR_USUARIO_PADRAO;
+            let foto = membro.fotoUrl || window.AVATAR_USUARIO_PADRAO;
+if (membro.fotoUrl && membro.fotoUrl !== window.AVATAR_USUARIO_PADRAO) {
+    foto += (foto.includes("?") ? "&" : "?") + "v=" + Date.now();
+}
 
             const card = document.createElement("div" );
             card.className = "item-membro";
