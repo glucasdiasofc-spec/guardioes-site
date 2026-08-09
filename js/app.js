@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.103.0 - versão alpha";
+const VERSAO_ATUAL = "v0.104.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -10056,15 +10056,34 @@ async function abrirComentariosPublicacao(
                 </div>
 
                 <form class="feed-x-reels-form" id="feed-x-reels-form">
-                    <img class="feed-x-reels-avatar" src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" alt="Seu avatar">
-                    <input class="feed-x-reels-input" id="feed-x-reels-input" type="text" maxlength="500" autocomplete="off" placeholder="Adicione um comentário...">
-                    <button class="feed-x-reels-enviar" type="submit">Publicar</button>
+                    <img
+                        class="feed-x-reels-avatar"
+                        id="feed-x-reels-avatar-usuario"
+                        src="${escaparHtml(window.AVATAR_USUARIO_PADRAO)}"
+                        alt="Seu avatar"
+                    >
+
+                    <input
+                        class="feed-x-reels-input"
+                        id="feed-x-reels-input"
+                        type="text"
+                        maxlength="500"
+                        autocomplete="off"
+                        placeholder="Adicione um comentário..."
+                    >
+
+                    <button
+                        class="feed-x-reels-enviar"
+                        type="submit"
+                    >
+                        Publicar
+                    </button>
                 </form>
             </section>
         </div>
     `;
 
-    document.body.appendChild(modal );
+    document.body.appendChild(modal);
     document.body.classList.add("feed-x-modal-aberto");
 
     const fechar = () => {
@@ -10081,43 +10100,167 @@ async function abrirComentariosPublicacao(
     });
 
     const banco = window.ClubeDB.textoDB;
+
     const referenciaPublicacao = banco
         .collection("publicacoes")
         .doc(idPublicacao);
 
-    const midiaEl = modal.querySelector("#feed-x-reels-midia");
-    const listaEl = modal.querySelector("#feed-x-reels-lista");
-    const inputEl = modal.querySelector("#feed-x-reels-input");
-    const formEl = modal.querySelector("#feed-x-reels-form");
-    const enviarEl = modal.querySelector(".feed-x-reels-enviar");
+    const midiaEl = modal.querySelector(
+        "#feed-x-reels-midia"
+    );
+
+    const listaEl = modal.querySelector(
+        "#feed-x-reels-lista"
+    );
+
+    const inputEl = modal.querySelector(
+        "#feed-x-reels-input"
+    );
+
+    const formEl = modal.querySelector(
+        "#feed-x-reels-form"
+    );
+
+    const enviarEl = modal.querySelector(
+        ".feed-x-reels-enviar"
+    );
+
+    const avatarUsuarioEl = modal.querySelector(
+        "#feed-x-reels-avatar-usuario"
+    );
 
     try {
-        const documento = await referenciaPublicacao.get();
+        /*
+         * =====================================================
+         * FOTO ATUAL DO USUÁRIO LOGADO
+         * =====================================================
+         */
+        try {
+            const usuarioAtual =
+                window.ClubeDB &&
+                window.ClubeDB.loginDB
+                    ? window.ClubeDB.loginDB.currentUser
+                    : null;
 
-        if (!documento.exists) {
-            throw new Error("Esta publicação não existe mais.");
+            if (usuarioAtual) {
+                const usernameLogado =
+                    localStorage.getItem(
+                        "usernameLogado"
+                    );
+
+                let usuarioSnap = null;
+
+                if (usernameLogado) {
+                    usuarioSnap = await banco
+                        .collection("usuarios")
+                        .where(
+                            "username",
+                            "==",
+                            usernameLogado
+                        )
+                        .limit(1)
+                        .get();
+                }
+
+                let fotoUsuario =
+                    "";
+
+                if (
+                    usuarioSnap &&
+                    !usuarioSnap.empty
+                ) {
+                    const dadosUsuario =
+                        usuarioSnap.docs[0].data() || {};
+
+                    fotoUsuario =
+                        normalizarUrlPublicacao(
+                            dadosUsuario.fotoUrl
+                        );
+                }
+
+                const avatarFinal =
+                    fotoUsuario ||
+                    window.AVATAR_USUARIO_PADRAO;
+
+                avatarUsuarioEl.src =
+                    avatarFinal;
+
+                avatarUsuarioEl.onerror =
+                    function () {
+                        this.onerror = null;
+                        this.src =
+                            window.AVATAR_USUARIO_PADRAO;
+                    };
+            }
+        } catch (erroAvatarUsuario) {
+            console.error(
+                "Erro ao carregar avatar do usuário nos comentários:",
+                erroAvatarUsuario
+            );
+
+            avatarUsuarioEl.src =
+                window.AVATAR_USUARIO_PADRAO;
         }
 
-        const dados = documento.data() || {};
-        const autor = escaparHtml(
-            dados.autorNome || dados.autorUsername || "Membro"
-        );
-        const texto = escaparHtml(dados.texto || "");
+        /*
+         * =====================================================
+         * PUBLICAÇÃO
+         * =====================================================
+         */
+        const documento =
+            await referenciaPublicacao.get();
+
+        if (!documento.exists) {
+            throw new Error(
+                "Esta publicação não existe mais."
+            );
+        }
+
+        const dados =
+            documento.data() || {};
+
+        const autor =
+            escaparHtml(
+                dados.autorNome ||
+                dados.autorUsername ||
+                "Membro"
+            );
+
+        const texto =
+            escaparHtml(
+                dados.texto || ""
+            );
 
         let blocoMidia = "";
 
         if (dados.telegramFileId) {
-            const urlMidia = escaparHtml(
-                criarUrlMidiaTelegram(dados.telegramFileId)
-            );
+            const urlMidia =
+                escaparHtml(
+                    criarUrlMidiaTelegram(
+                        dados.telegramFileId
+                    )
+                );
 
-            if (dados.tipoMidia === "video") {
+            if (
+                dados.tipoMidia ===
+                "video"
+            ) {
                 blocoMidia = `
-                    <video class="feed-x-reels-video" src="${urlMidia}" controls playsinline preload="metadata"></video>
+                    <video
+                        class="feed-x-reels-video"
+                        src="${urlMidia}"
+                        controls
+                        playsinline
+                        preload="metadata"
+                    ></video>
                 `;
             } else {
                 blocoMidia = `
-                    <img class="feed-x-reels-imagem" src="${urlMidia}" alt="Publicação de ${autor}">
+                    <img
+                        class="feed-x-reels-imagem"
+                        src="${urlMidia}"
+                        alt="Publicação de ${autor}"
+                    >
                 `;
             }
         } else {
@@ -10130,16 +10273,23 @@ async function abrirComentariosPublicacao(
 
         midiaEl.innerHTML = `
             ${blocoMidia}
+
             <div class="feed-x-reels-legenda">
                 <strong>${autor}</strong>
                 ${texto ? `<span>${texto}</span>` : ""}
             </div>
         `;
 
-        const comentarios = await referenciaPublicacao
-            .collection("comentarios")
-            .orderBy("criadoEm", "asc")
-            .get();
+        /*
+         * =====================================================
+         * COMENTÁRIOS
+         * =====================================================
+         */
+        const comentarios =
+            await referenciaPublicacao
+                .collection("comentarios")
+                .orderBy("criadoEm", "asc")
+                .get();
 
         if (comentarios.empty) {
             listaEl.innerHTML = `
@@ -10149,117 +10299,322 @@ async function abrirComentariosPublicacao(
                 </div>
             `;
         } else {
-            listaEl.innerHTML = comentarios.docs.map((docComentario) => {
-                const comentario = docComentario.data() || {};
-                const nome = escaparHtml(
-                    comentario.autorNome || comentario.autorUsername || "Membro"
-                );
-                const username = escaparHtml(
-                    comentario.autorUsername || "usuario"
-                );
-                const textoComentario = escaparHtml(
-                    comentario.texto || ""
-                );
-                const avatar = escaparHtml(
-                    normalizarUrlPublicacao(comentario.autorFotoUrl) ||
-                    "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
-                 );
 
-                return `
-                    <article class="feed-x-reels-comentario">
-                        <img class="feed-x-reels-avatar" src="${avatar}" alt="Foto de ${nome}">
-                        <div class="feed-x-reels-comentario-corpo">
-                            <div class="feed-x-reels-comentario-nome">
-                                <strong>${nome}</strong>
-                                <span>@${username}</span>
-                            </div>
-                            <div class="feed-x-reels-comentario-texto">${textoComentario}</div>
-                        </div>
-                    </article>
-                `;
-            }).join("");
-        }
+            /*
+             * =================================================
+             * BUSCA DAS FOTOS ATUAIS DOS AUTORES
+             * =================================================
+             *
+             * Não usamos mais somente
+             * comentario.autorFotoUrl.
+             *
+             * Isso permite que comentários antigos
+             * acompanhem a foto atual do usuário.
+             */
+            const usernamesComentarios = [
+                ...new Set(
+                    comentarios.docs
+                        .map(docComentario => {
+                            const comentario =
+                                docComentario.data() || {};
 
-        setTimeout(() => inputEl.focus({ preventScroll: true }), 100);
-    } catch (erro) {
-        console.error("Erro ao carregar comentários:", erro);
-        midiaEl.innerHTML = "";
-        listaEl.innerHTML = `
-            <div class="feed-x-reels-erro">Não foi possível carregar esta publicação.</div>
-        `;
-    }
-
-    formEl.addEventListener("submit", async (evento) => {
-        evento.preventDefault();
-
-        const textoComentario = inputEl.value.trim();
-        if (!textoComentario || enviarEl.disabled) {
-            return;
-        }
-
-        const usuario =
-            window.ClubeDB &&
-            window.ClubeDB.loginDB
-                ? window.ClubeDB.loginDB.currentUser
-                : null;
-
-        if (!usuario) {
-            alert("Sua sessão expirou. Faça login novamente.");
-            return;
-        }
-
-        enviarEl.disabled = true;
-        enviarEl.textContent = "Enviando...";
-
-        try {
-            const autorComentario =
-                await obterDadosAutorPublicacao();
-
-            await referenciaPublicacao
-                .collection("comentarios")
-                .add({
-                    uid: usuario.uid,
-                    autorId: autorComentario.uid,
-                    autorNome: autorComentario.nome,
-                    autorUsername: autorComentario.username,
-                    autorFotoUrl: autorComentario.fotoUrl,
-                    texto: textoComentario,
-                    criadoEm:
-                        firebase.firestore.FieldValue
-                            .serverTimestamp()
-                });
-
-            await referenciaPublicacao.update({
-                comentarios:
-                    firebase.firestore.FieldValue.increment(1)
-            });
-
-            const card = document.querySelector(
-                `.feed-x-post[data-publicacao-id="${idPublicacao}"]`
-            );
-
-            const contador = card
-                ? card.querySelector(
-                    '[data-acao="comentarios"] .feed-x-contador'
+                            return String(
+                                comentario.autorUsername || ""
+                            )
+                                .trim()
+                                .toLowerCase();
+                        })
+                        .filter(Boolean)
                 )
-                : null;
+            ];
 
-            if (contador) {
-                contador.textContent = String(
-                    Number(contador.textContent || 0) + 1
+            const avataresAtuais =
+                new Map();
+
+            const tamanhoBloco =
+                10;
+
+            for (
+                let i = 0;
+                i < usernamesComentarios.length;
+                i += tamanhoBloco
+            ) {
+                const bloco =
+                    usernamesComentarios.slice(
+                        i,
+                        i + tamanhoBloco
+                    );
+
+                if (!bloco.length) {
+                    continue;
+                }
+
+                const usuariosSnapshot =
+                    await banco
+                        .collection("usuarios")
+                        .where(
+                            "username",
+                            "in",
+                            bloco
+                        )
+                        .get();
+
+                usuariosSnapshot.forEach(
+                    docUsuario => {
+                        const dadosUsuario =
+                            docUsuario.data() || {};
+
+                        const username =
+                            String(
+                                dadosUsuario.username ||
+                                ""
+                            )
+                                .trim()
+                                .toLowerCase();
+
+                        if (!username) {
+                            return;
+                        }
+
+                        const fotoAtual =
+                            normalizarUrlPublicacao(
+                                dadosUsuario.fotoUrl
+                            ) ||
+                            window.AVATAR_USUARIO_PADRAO;
+
+                        avataresAtuais.set(
+                            username,
+                            fotoAtual
+                        );
+                    }
                 );
             }
 
-            fechar();
-            await abrirComentariosPublicacao(idPublicacao);
-        } catch (erro) {
-            console.error("Erro ao publicar comentário:", erro);
-            alert(
-                erro.message ||
-                "Não foi possível publicar o comentário."
-            );
-            enviarEl.disabled = false;
-            enviarEl.textContent = "Publicar";
+            listaEl.innerHTML =
+                comentarios.docs
+                    .map(docComentario => {
+
+                        const comentario =
+                            docComentario.data() || {};
+
+                        const nome =
+                            escaparHtml(
+                                comentario.autorNome ||
+                                comentario.autorUsername ||
+                                "Membro"
+                            );
+
+                        const username =
+                            escaparHtml(
+                                comentario.autorUsername ||
+                                "usuario"
+                            );
+
+                        const usernameNormalizado =
+                            String(
+                                comentario.autorUsername ||
+                                ""
+                            )
+                                .trim()
+                                .toLowerCase();
+
+                        const textoComentario =
+                            escaparHtml(
+                                comentario.texto ||
+                                ""
+                            );
+
+                        /*
+                         * Prioridade:
+                         *
+                         * 1. Foto atual do usuário.
+                         * 2. Foto salva no comentário.
+                         * 3. Avatar padrão.
+                         */
+                        const avatar =
+                            avataresAtuais.get(
+                                usernameNormalizado
+                            ) ||
+                            normalizarUrlPublicacao(
+                                comentario.autorFotoUrl
+                            ) ||
+                            window.AVATAR_USUARIO_PADRAO;
+
+                        return `
+                            <article class="feed-x-reels-comentario">
+
+                                <img
+                                    class="feed-x-reels-avatar"
+                                    src="${escaparHtml(avatar)}"
+                                    alt="Foto de ${nome}"
+                                    onerror="this.onerror=null;this.src='${escaparHtml(window.AVATAR_USUARIO_PADRAO)}';"
+                                >
+
+                                <div class="feed-x-reels-comentario-corpo">
+
+                                    <div class="feed-x-reels-comentario-nome">
+                                        <strong>${nome}</strong>
+                                        <span>@${username}</span>
+                                    </div>
+
+                                    <div class="feed-x-reels-comentario-texto">
+                                        ${textoComentario}
+                                    </div>
+
+                                </div>
+
+                            </article>
+                        `;
+                    })
+                    .join("");
         }
-    });
+
+        setTimeout(() => {
+            inputEl.focus({
+                preventScroll: true
+            });
+        }, 100);
+
+    } catch (erro) {
+
+        console.error(
+            "Erro ao carregar comentários:",
+            erro
+        );
+
+        midiaEl.innerHTML = "";
+
+        listaEl.innerHTML = `
+            <div class="feed-x-reels-erro">
+                Não foi possível carregar esta publicação.
+            </div>
+        `;
+    }
+
+    /*
+     * =====================================================
+     * PUBLICAR COMENTÁRIO
+     * =====================================================
+     */
+    formEl.addEventListener(
+        "submit",
+        async (evento) => {
+
+            evento.preventDefault();
+
+            const textoComentario =
+                inputEl.value.trim();
+
+            if (
+                !textoComentario ||
+                enviarEl.disabled
+            ) {
+                return;
+            }
+
+            const usuario =
+                window.ClubeDB &&
+                window.ClubeDB.loginDB
+                    ? window.ClubeDB.loginDB.currentUser
+                    : null;
+
+            if (!usuario) {
+                alert(
+                    "Sua sessão expirou. Faça login novamente."
+                );
+                return;
+            }
+
+            enviarEl.disabled = true;
+            enviarEl.textContent =
+                "Enviando...";
+
+            try {
+
+                const autorComentario =
+                    await obterDadosAutorPublicacao();
+
+                /*
+                 * Sempre salva a foto atual do usuário.
+                 */
+                const avatarComentario =
+                    normalizarUrlPublicacao(
+                        autorComentario.fotoUrl
+                    ) ||
+                    window.AVATAR_USUARIO_PADRAO;
+
+                await referenciaPublicacao
+                    .collection("comentarios")
+                    .add({
+                        uid: usuario.uid,
+                        autorId:
+                            autorComentario.uid,
+                        autorNome:
+                            autorComentario.nome,
+                        autorUsername:
+                            autorComentario.username,
+                        autorFotoUrl:
+                            avatarComentario,
+                        texto:
+                            textoComentario,
+                        criadoEm:
+                            firebase.firestore.FieldValue
+                                .serverTimestamp()
+                    });
+
+                await referenciaPublicacao.update({
+                    comentarios:
+                        firebase.firestore.FieldValue.increment(
+                            1
+                        )
+                });
+
+                const card =
+                    document.querySelector(
+                        `.feed-x-post[data-publicacao-id="${idPublicacao}"]`
+                    );
+
+                const contador =
+                    card
+                        ? card.querySelector(
+                            '[data-acao="comentarios"] .feed-x-contador'
+                        )
+                        : null;
+
+                if (contador) {
+                    contador.textContent =
+                        String(
+                            Number(
+                                contador.textContent ||
+                                0
+                            ) + 1
+                        );
+                }
+
+                fechar();
+
+                await abrirComentariosPublicacao(
+                    idPublicacao
+                );
+
+            } catch (erro) {
+
+                console.error(
+                    "Erro ao publicar comentário:",
+                    erro
+                );
+
+                alert(
+                    erro.message ||
+                    "Não foi possível publicar o comentário."
+                );
+
+                enviarEl.disabled =
+                    false;
+
+                enviarEl.textContent =
+                    "Publicar";
+            }
+        }
+    );
 }
