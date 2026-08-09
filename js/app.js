@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.97.0 - versão alpha";
+const VERSAO_ATUAL = "v0.96.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -425,6 +425,30 @@ function mudarSubAbaSite(abaAlvo) {
 
     if (abaAlvo === "feed") {
         if (feedAba) feedAba.style.display = "block";
+
+        // LÓGICA SÊNIOR: Sincroniza em tempo real a foto de perfil do autor no gatilho da UI
+        const avatarCriadorModal = document.getElementById("criador-publicacao-avatar");
+        const usernameLogado = localStorage.getItem("usernameLogado");
+        
+        if (avatarCriadorModal && usernameLogado && window.ClubeDB && window.ClubeDB.textoDB) {
+            // Fallback Imediato: Evita "piscar" uma imagem quebrada caso a rede demore
+            avatarCriadorModal.src = avatarCriadorModal.src || window.AVATAR_USUARIO_PADRAO;
+            
+            window.ClubeDB.textoDB.collection("membros").doc(usernameLogado).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const dados = doc.data();
+                        // Se o desbravador alterou a foto, pega a nova URL, do contrário renderiza o padrão global do admin
+                        avatarCriadorModal.src = dados.foto || window.AVATAR_USUARIO_PADRAO;
+                    } else {
+                        avatarCriadorModal.src = window.AVATAR_USUARIO_PADRAO;
+                    }
+                })
+                .catch(err => {
+                    console.error("Erro ao validar foto para a área de publicações:", err);
+                    avatarCriadorModal.src = window.AVATAR_USUARIO_PADRAO;
+                });
+        }
 
         if (typeof carregarPublicacoesFeed === "function") {
             carregarPublicacoesFeed();
