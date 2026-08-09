@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.92.0 - versão alpha";
+const VERSAO_ATUAL = "v0.93.0 - versão alpha";
 
 /*
  * =====================================================
@@ -3173,6 +3173,116 @@ async function carregarMembrosCadastrados() {
 }
 
 
+
+}
+
+async function deletarMembro(id, idFoto) {
+    const banco = window.ClubeDB && window.ClubeDB.textoDB
+        ? window.ClubeDB.textoDB
+        : null;
+
+    if (!banco || !id) {
+        alert("Não foi possível identificar o membro para apagar.");
+        return;
+    }
+
+    const usuarioLogado = window.ClubeDB &&
+        window.ClubeDB.loginDB
+        ? window.ClubeDB.loginDB.currentUser
+        : null;
+
+    if (usuarioLogado && usuarioLogado.uid === id) {
+        alert("Por segurança, você não pode apagar a própria conta enquanto estiver logado nela.");
+        return;
+    }
+
+    const referenciaMembro = banco.collection("usuarios").doc(id);
+
+    try {
+        const documentoMembro = await referenciaMembro.get();
+
+        if (!documentoMembro.exists) {
+            alert("Este membro já não existe no banco de dados.");
+            await carregarMembrosCadastrados();
+            return;
+        }
+
+        const membro = documentoMembro.data() || {};
+        const username = String(membro.username || "").trim();
+        const nomeMembro = membro.nomeReal || username || "este membro";
+        const fotoIdFinal = idFoto || membro.fotoIdPublico || "";
+
+        if (!confirm(
+            `Tem certeza que deseja apagar ${nomeMembro}?\n\n` +
+            "Os progressos e solicitações de aprovação desse membro também serão removidos."
+        )) {
+            return;
+        }
+
+        const apagarConsultaEmLotes = async consulta => {
+            while (true) {
+                const resultado = await consulta.limit(400).get();
+
+                if (resultado.empty) {
+                    return;
+                }
+
+                const lote = banco.batch();
+
+                resultado.docs.forEach(documento => {
+                    lote.delete(documento.ref);
+                });
+
+                await lote.commit();
+            }
+        };
+
+        if (username) {
+            const colecoesVinculadas = [
+                "progresso_especialidades",
+                "progresso_mestrados",
+                "progresso_classes",
+                "pendencias_aprovacao"
+            ];
+
+            for (const colecao of colecoesVinculadas) {
+                await apagarConsultaEmLotes(
+                    banco
+                        .collection(colecao)
+                        .where("usuario", "==", username)
+                );
+            }
+        }
+
+        await referenciaMembro.delete();
+
+        if (
+            fotoIdFinal &&
+            fotoIdFinal !== "undefined" &&
+            window.ClubeDB.acoesAdmin &&
+            typeof window.ClubeDB.acoesAdmin.excluirFoto === "function"
+        ) {
+            try {
+                await window.ClubeDB.acoesAdmin.excluirFoto(fotoIdFinal);
+            } catch (erroFoto) {
+                console.warn(
+                    "O membro foi apagado, mas a foto não pôde ser removida:",
+                    erroFoto
+                );
+            }
+        }
+
+        alert(`Membro ${nomeMembro} apagado com sucesso.`);
+        await carregarMembrosCadastrados();
+
+    } catch (erro) {
+        console.error("Erro ao apagar membro:", erro);
+        alert(
+            "Não foi possível apagar o membro. Erro: " +
+            (erro.message || "desconhecido")
+        );
+    }
+}
 
 async function prepararEdicaoMembro(id) {
     if (!window.ClubeDB || !window.ClubeDB.textoDB) return;
