@@ -3174,7 +3174,7 @@ async function carregarMembrosCadastrados() {
 
 
 
-}
+
 
 async function deletarMembro(id, idFoto) {
     const banco = window.ClubeDB && window.ClubeDB.textoDB
