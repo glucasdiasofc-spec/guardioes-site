@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.94.0 - versão alpha";
+const VERSAO_ATUAL = "v0.95.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("tela-admin").style.display = "flex";
             carregarUnidadesCadastradas(); 
             carregarMembrosCadastrados();
+            carregarCargosParaSelect();
             // carregarPendenciasAprovacaoAdmin(); // Agora carregado na aba de especialidades do site
         } else {
 
@@ -178,6 +179,8 @@ async function executarLoginMembro() {
 
             carregarMembrosCadastrados();
 
+            carregarCargosParaSelect();
+
             if (
                 typeof carregarAprovacoesSite ===
                 "function"
@@ -279,7 +282,60 @@ function irParaPainel() {
     
     carregarUnidadesCadastradas();
     carregarMembrosCadastrados();
+    carregarCargosParaSelect();
     if (typeof carregarAprovacoesSite === 'function') carregarAprovacoesSite();
+}
+
+// Carrega os cargos cadastrados no Firestore para os campos de seleção de membros
+async function carregarCargosParaSelect() {
+    const selectCadastro = document.getElementById("membro-cargo");
+    const selectEdicao = document.getElementById("edit-membro-cargo");
+
+    if (!selectCadastro && !selectEdicao) return;
+
+    try {
+        const db = window.ClubeDB ? window.ClubeDB.textoDB : firebase.firestore();
+        const snapshot = await db.collection("cargos").get();
+
+        let optionsHTML = '<option value="">Selecionar Cargo...</option>';
+
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            const nomeCargo = data.nome || data.cargo || doc.id;
+            const funcaoCargo = data.funcao || "nenhuma";
+            optionsHTML += `<option value="${doc.id}" data-funcao="${funcaoCargo}">${nomeCargo}</option>`;
+        });
+
+        if (selectCadastro) selectCadastro.innerHTML = optionsHTML;
+        if (selectEdicao) selectEdicao.innerHTML = optionsHTML;
+    } catch (erro) {
+        console.error("Erro ao carregar cargos para os selects:", erro);
+    }
+}
+
+// Atualiza a prévia da função associada ao cargo selecionado
+function atualizarFuncaoCargoSelecionado(selectId, previewId) {
+    const select = document.getElementById(selectId);
+    const preview = document.getElementById(previewId);
+    if (!select || !preview) return;
+
+    const opSelecionada = select.options[select.selectedIndex];
+    if (!opSelecionada || !opSelecionada.value) {
+        preview.textContent = "Nenhuma função adicional associada.";
+        return;
+    }
+
+    const funcao = opSelecionada.getAttribute("data-funcao") || "nenhuma";
+    const mapaFuncoes = {
+        "nenhuma": "Nenhuma função adicional associada.",
+        "publicar": "Pode publicar no feed",
+        "gerenciar_membros": "Pode gerenciar membros",
+        "gerenciar_conquistas": "Pode gerenciar conquistas",
+        "gerenciar_unidades": "Pode gerenciar unidades",
+        "acesso_total": "Acesso administrativo total"
+    };
+
+    preview.textContent = mapaFuncoes[funcao] || `Função: ${funcao}`;
 }
 
 // Alterna entre o Feed e o Perfil no App do Usuário
