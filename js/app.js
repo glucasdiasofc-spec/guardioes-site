@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.92.0 - versão alpha";
+const VERSAO_ATUAL = "v0.93.0 - versão alpha";
 
 /*
  * =====================================================
@@ -2654,29 +2654,91 @@ async function salvarNovaUnidadeAdmin() {
 
 async function carregarUnidadesCadastradas() {
     const container = document.getElementById("lista-unidades-render");
-    const menuSelecao = document.getElementById("membro-unidade-vinculo");
-    if (container) container.innerHTML = "";
-    if (menuSelecao) menuSelecao.innerHTML = '<option value="">Selecione a Unidade...</option>';
-    const snapshot = await window.ClubeDB.textoDB.collection("unidades").get();
-    snapshot.forEach(doc => {
-        const d = doc.data();
-        const id = doc.id;
-        const urlFoto = d.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png';
+    const selectsUnidade = [
+        document.getElementById("membro-unidade-vinculo"),
+        document.getElementById("edit-membro-unidade-vinculo")
+    ].filter(Boolean);
+
+    if (container) {
+        container.innerHTML = "";
+    }
+
+    const valoresAtuais = selectsUnidade.map(select => select.value);
+
+    selectsUnidade.forEach(select => {
+        select.innerHTML = '<option value="">Selecione a Unidade...</option>';
+    });
+
+    try {
+        const snapshot = await window.ClubeDB.textoDB
+            .collection("unidades")
+            .orderBy("nome")
+            .get();
+
+        snapshot.forEach((doc, indice) => {
+            const dadosUnidade = doc.data() || {};
+            const nomeUnidade = dadosUnidade.nome || "";
+            const fotoUnidade = dadosUnidade.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
+            if (container ) {
+                const item = document.createElement("div");
+                item.className = "item-unidade";
+                item.style.cssText = "text-align: center; margin-bottom: 20px; border: 1px solid #444; padding: 10px; border-radius: 8px;";
+
+                item.innerHTML = `
+                    <img src="${escaparHtml(fotoUnidade)}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px;">
+                    <div style="font-weight: bold; margin-bottom: 10px;">${escaparHtml(nomeUnidade)}</div>
+                    <div style="display: flex; gap: 5px;">
+                        <button type="button" style="flex: 1; padding: 5px;">✏️ Editar</button>
+                        <button type="button" style="flex: 1; padding: 5px; background:#ff4d4d; color:white; border:none;">🗑️ Apagar</button>
+                    </div>
+                `;
+
+                item.querySelector("button:nth-of-type(1)").addEventListener("click", () => {
+                    iniciarEdicaoUnidade(
+                        doc.id,
+                        nomeUnidade,
+                        dadosUnidade.fotoIdPublico || ""
+                    );
+                });
+
+                item.querySelector("button:nth-of-type(2)").addEventListener("click", () => {
+                    deletarUnidadeComFoto(
+                        doc.id,
+                        dadosUnidade.fotoIdPublico || ""
+                    );
+                });
+
+                container.appendChild(item);
+            }
+
+            selectsUnidade.forEach(select => {
+                const option = document.createElement("option");
+                option.value = nomeUnidade;
+                option.textContent = nomeUnidade;
+                select.appendChild(option);
+            });
+        });
+
+        selectsUnidade.forEach((select, indice) => {
+            if (valoresAtuais[indice]) {
+                const unidadeExiste = Array.from(select.options)
+                    .some(option => option.value === valoresAtuais[indice]);
+
+                if (unidadeExiste) {
+                    select.value = valoresAtuais[indice];
+                }
+            }
+        });
+    } catch (erro) {
+        console.error("Erro ao carregar unidades:", erro);
 
         if (container) {
-            container.innerHTML += `
-                <div class="item-unidade" style="text-align: center; margin-bottom: 20px; border: 1px solid #444; padding: 10px; border-radius: 8px;">
-                    <img src="${urlFoto}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px;">
-                    <div style="font-weight: bold; margin-bottom: 10px;">${d.nome}</div>
-                    <div style="display: flex; gap: 5px;">
-                        <button onclick="iniciarEdicaoUnidade('${id}', '${d.nome}', '${d.fotoIdPublico || ''}')" style="flex: 1; padding: 5px;">✏️ Editar</button>
-                        <button onclick="deletarUnidadeComFoto('${id}', '${d.fotoIdPublico || ''}')" style="flex: 1; padding: 5px; background:#ff4d4d; color:white; border:none;">🗑️ Apagar</button>
-                    </div>
-                </div>`;
+            container.innerHTML = `<p style="color:#ff4d4d;">Erro ao carregar unidades: ${escaparHtml(erro.message)}</p>`;
         }
-        if (menuSelecao) menuSelecao.innerHTML += `<option value="${d.nome}">${d.nome}</option>`;
-    });
+    }
 }
+
 
 async function iniciarEdicaoUnidade(id, nomeAtual, fotoIdAntiga) {
     // 1. Edita o nome normalmente
@@ -3028,7 +3090,10 @@ async function prepararEdicaoMembro(id) {
     if (!window.ClubeDB || !window.ClubeDB.textoDB) return;
 
     try {
-        const documento = await window.ClubeDB.textoDB.collection("usuarios").doc(id).get();
+        const documento = await window.ClubeDB.textoDB
+            .collection("usuarios")
+            .doc(id)
+            .get();
 
         if (!documento.exists) {
             alert("Membro não encontrado.");
@@ -3036,10 +3101,20 @@ async function prepararEdicaoMembro(id) {
         }
 
         const dados = documento.data() || {};
+
+        await carregarUnidadesCadastradas();
+        await carregarCargosAdmin();
+
         document.getElementById("edit-membro-id").value = id;
         document.getElementById("edit-membro-nome-real").value = dados.nomeReal || "";
         document.getElementById("edit-membro-username").value = dados.username || "";
-        document.getElementById("edit-membro-senha").value = dados.senha || "";
+
+        // O campo vazio significa: manter a senha atual.
+        // A senha antiga não é exibida nem apagada.
+        const campoSenha = document.getElementById("edit-membro-senha");
+        campoSenha.value = "";
+        campoSenha.placeholder = "Deixe em branco para manter a senha atual";
+
         document.getElementById("edit-membro-tipo").value = dados.tipo || "Desbravador";
         document.getElementById("edit-membro-unidade-vinculo").value = dados.unidade || "";
         document.getElementById("edit-membro-nascimento").value = dados.dataNascimento || "";
@@ -3048,11 +3123,20 @@ async function prepararEdicaoMembro(id) {
         const cargoAtual = cargosAdminCache.find(cargo => cargo.id === dados.cargoId) ||
             cargosAdminCache.find(cargo => cargo.nome === dados.cargo);
 
-        cargoSelect.value = cargoAtual ? cargoAtual.id : "";
-        atualizarFuncaoCargoSelecionado("edit-membro-cargo", "edit-membro-funcao-preview");
+        if (cargoSelect) {
+            cargoSelect.value = cargoAtual ? cargoAtual.id : "";
+        }
 
-        document.getElementById("edit-previa-membro-img").src = dados.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        atualizarFuncaoCargoSelecionado(
+            "edit-membro-cargo",
+            "edit-membro-funcao-preview"
+        );
+
+        document.getElementById("edit-previa-membro-img").src =
+            dados.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+
         controlarExibicaoSelecaoUnidadeEdicao( );
+
         document.getElementById("edit-membro-foto").value = "";
         document.getElementById("modal-edicao-membro").style.display = "block";
     } catch (erro) {
@@ -3060,6 +3144,7 @@ async function prepararEdicaoMembro(id) {
         alert("Não foi possível carregar os dados do membro: " + erro.message);
     }
 }
+
 
 function fecharModalEdicaoMembro() {
     const modal = document.getElementById("modal-edicao-membro");
@@ -3082,11 +3167,11 @@ async function salvarEdicaoMembroAdmin() {
     const cargoSelecionado = cargosAdminCache.find(cargo => cargo.id === cargoId);
     const fotoInput = document.getElementById("edit-membro-foto");
     const arquivoFoto = fotoInput ? fotoInput.files[0] : null;
+    const senhaDigitada = document.getElementById("edit-membro-senha").value.trim();
 
-    const dadosAtualizados = {
+    const dadosBasicos = {
         nomeReal: document.getElementById("edit-membro-nome-real").value.trim(),
         username: document.getElementById("edit-membro-username").value.trim().toLowerCase(),
-        senha: document.getElementById("edit-membro-senha").value,
         tipo: document.getElementById("edit-membro-tipo").value,
         unidade: document.getElementById("edit-membro-unidade-vinculo").value,
         cargoId,
@@ -3095,36 +3180,75 @@ async function salvarEdicaoMembroAdmin() {
         dataNascimento: document.getElementById("edit-membro-nascimento").value
     };
 
-    if (!id || !dadosAtualizados.nomeReal || !dadosAtualizados.username || !dadosAtualizados.senha || !cargoId || !dadosAtualizados.dataNascimento) {
+    if (
+        !id ||
+        !dadosBasicos.nomeReal ||
+        !dadosBasicos.username ||
+        !cargoId ||
+        !dadosBasicos.dataNascimento
+    ) {
         alert("Preencha todos os campos obrigatórios.");
         return;
     }
 
-    if (dadosAtualizados.tipo === "Desbravador" && !dadosAtualizados.unidade) {
+    if (dadosBasicos.tipo === "Desbravador" && !dadosBasicos.unidade) {
         alert("Desbravadores precisam obrigatoriamente estar vinculados a uma unidade!");
         return;
     }
 
     try {
-        const referencia = window.ClubeDB.textoDB.collection("usuarios").doc(id);
+        const referencia = window.ClubeDB.textoDB
+            .collection("usuarios")
+            .doc(id);
+
+        const documentoAtual = await referencia.get();
+
+        if (!documentoAtual.exists) {
+            alert("Membro não encontrado.");
+            return;
+        }
+
+        const dadosAtuais = documentoAtual.data() || {};
+        const senhaAtual = dadosAtuais.senha || "";
+
+        // Se o administrador digitou uma nova senha, ela substitui a antiga.
+        // Se deixou vazio, a senha existente é mantida.
+        const senhaFinal = senhaDigitada || senhaAtual;
+
+        if (!senhaFinal) {
+            alert("Este usuário não possui uma senha cadastrada. Informe uma senha para continuar.");
+            return;
+        }
+
+        const dadosAtualizados = {
+            ...dadosBasicos,
+            senha: senhaFinal
+        };
 
         if (arquivoFoto && window.ClubeDB.acoesAdmin && window.ClubeDB.acoesAdmin.cadastrarMembro) {
-            const anterior = await referencia.get();
-            const dadosComFoto = { ...dadosAtualizados, fotoUrl: anterior.data().fotoUrl || "" };
+            const dadosComFoto = {
+                ...dadosAtualizados,
+                fotoUrl: dadosAtuais.fotoUrl || ""
+            };
+
             await referencia.update(dadosComFoto);
-            await window.ClubeDB.acoesAdmin.cadastrarMembro(dadosAtualizados, arquivoFoto);
+            await window.ClubeDB.acoesAdmin.cadastrarMembro(
+                dadosAtualizados,
+                arquivoFoto
+            );
         } else {
             await referencia.update(dadosAtualizados);
         }
 
         alert(`🎉 Membro ${dadosAtualizados.nomeReal} atualizado com sucesso!`);
         fecharModalEdicaoMembro();
-        carregarMembrosCadastrados();
+        await carregarMembrosCadastrados();
     } catch (erro) {
         console.error("Erro ao salvar edição:", erro);
         alert("Erro ao atualizar membro: " + erro.message);
     }
 }
+
 
 
 // ==========================================
