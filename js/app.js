@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.95.0 - versão alpha";
+const VERSAO_ATUAL = "v0.96.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -2209,6 +2209,22 @@ async function uploadFotoPerfilUsuario(input) {
                     fotoIdPublico: novoIdPublico || ""
                 });
 
+                // 3. Atualizando avatar em todas as publicações já feitas pelo usuário
+                try {
+                    const pubsSnapshot = await window.ClubeDB.textoDB.collection("publicacoes").where("autorUsername", "==", username).get();
+                    if (!pubsSnapshot.empty) {
+                        const batch = window.ClubeDB.textoDB.batch();
+                        pubsSnapshot.docs.forEach(docPub => {
+                            batch.update(docPub.ref, {
+                                autorAvatar: novaUrl || window.AVATAR_USUARIO_PADRAO
+                            });
+                        });
+                        await batch.commit();
+                    }
+                } catch(errPubs) {
+                    console.error("Erro ao atualizar avatar nas publicações do feed:", errPubs);
+                }
+
                 alert("Sua foto de perfil foi atualizada com sucesso! 🎉");
                 await carregarPerfilDoUsuario();
                 fecharModalFoto();
@@ -2251,6 +2267,22 @@ async function removerFotoPerfilUsuario() {
                 fotoUrl: "",
                 fotoIdPublico: ""
             });
+
+            // Retorna o avatar das publicações no feed para o padrão global do site
+            try {
+                const pubsSnapshot = await window.ClubeDB.textoDB.collection("publicacoes").where("autorUsername", "==", username).get();
+                if (!pubsSnapshot.empty) {
+                    const batch = window.ClubeDB.textoDB.batch();
+                    pubsSnapshot.docs.forEach(docPub => {
+                        batch.update(docPub.ref, {
+                            autorAvatar: window.AVATAR_USUARIO_PADRAO
+                        });
+                    });
+                    await batch.commit();
+                }
+            } catch(errPubs) {
+                console.error("Erro ao remover avatar das publicações do feed:", errPubs);
+            }
 
             alert("Foto de perfil removida com sucesso.");
             carregarPerfilDoUsuario();
