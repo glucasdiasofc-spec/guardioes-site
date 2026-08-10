@@ -1747,7 +1747,7 @@
                 <!-- Sala de Chat -->
                 <div id="tela-sala-chat" style="display: none; flex-direction: column; height: 100%; background: #000; position: fixed; inset: 0; width: 100%; z-index: 99999; overflow: hidden;">
                 <!-- Header do Chat -->
-                    <div style="position: fixed; top: 0; left: 0; width: 100%; z-index: 100000; display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #262626; background: #000; height: 60px; box-sizing: border-box;">
+                    <div style="position: sticky; top: 0; z-index: 100000; display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #262626; background: #000; height: 60px; box-sizing: border-box; flex-shrink: 0; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
                         <button onclick="fecharSalaChat()" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; padding: 0;">⬅</button>
                         <div style="display: flex; align-items: center; text-align: right; gap: 12px;">
                             <div>
@@ -1757,8 +1757,6 @@
                             <img id="chat-avatar-atual" src="" style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
                         </div>
                     </div>
-                    <!-- Espaçador para compensar a altura do header fixado no topo e manter a integridade do flexbox e JS -->
-                    <div style="height: 60px; flex-shrink: 0; width: 100%;"></div>
                     
                     <!-- Area de Mensagens -->
                     <div id="chat-mensagens-container" style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #000; min-height: 200px;">
