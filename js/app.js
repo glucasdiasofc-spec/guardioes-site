@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.123.0 - versão alpha";
+const VERSAO_ATUAL = "v0.124.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1344,26 +1344,21 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
      */
     inputMsg.onfocus =
         () => {
-            setTimeout(() => {
-                ajustarViewportChat();
-
-                requestAnimationFrame(() => {
-                    if (container) {
-                        container.scrollTop =
-                            container.scrollHeight;
-                    }
-                });
-            }, 100);
-
-            setTimeout(() => {
-                ajustarViewportChat();
-
+            /*
+             * Não força novos recálculos de viewport ao focar
+             * o input. No iOS, esses recálculos duplicados fazem
+             * o header piscar e se mover enquanto o teclado sobe.
+             * O listener existente de visualViewport já atualiza
+             * o layout no momento correto.
+             */
+            requestAnimationFrame(() => {
                 if (container) {
                     container.scrollTop =
                         container.scrollHeight;
                 }
-            }, 350);
+            });
         };
+
 
     /*
      * Usuário logado.
