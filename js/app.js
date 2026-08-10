@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.122.0 - versão alpha";
+const VERSAO_ATUAL = "v0.121.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1248,32 +1248,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             const viewport =
                 window.visualViewport;
 
-            /*
-             * No iOS, nunca altere o top da sala usando
-             * viewport.offsetTop. Esse valor oscila quando
-             * o teclado virtual aparece e faz o header piscar
-             * ou se deslocar.
-             *
-             * A sala permanece sempre presa ao topo e apenas
-             * sua altura é reduzida para acompanhar o teclado.
-             */
-            telaChat.style.top =
-                "0px";
-
-            if (cabecalhoChat) {
-                cabecalhoChat.style.position =
-                    "absolute";
-
-                cabecalhoChat.style.top =
-                    "0px";
-
-                cabecalhoChat.style.left =
-                    "0px";
-
-                cabecalhoChat.style.right =
-                    "0px";
-            }
-
             if (viewport) {
                 const alturaVisivel =
                     Math.max(
@@ -1283,12 +1257,24 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                         )
                     );
 
+                const deslocamentoSuperior =
+                    Math.max(
+                        0,
+                        Math.round(
+                            viewport.offsetTop
+                        )
+                    );
+
                 telaChat.style.height =
                     `${alturaVisivel}px`;
 
+                telaChat.style.top =
+                    `${deslocamentoSuperior}px`;
+
                 /*
-                 * Somente a área de mensagens acompanha
-                 * a redução causada pelo teclado.
+                 * Mantém a caixa de mensagem
+                 * sempre imediatamente acima
+                 * da barra de digitação.
                  */
                 if (
                     container &&
@@ -1316,7 +1302,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 }
             }
         };
-
 
     telaChat._ajustarViewportChat =
         ajustarViewportChat;
