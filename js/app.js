@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.137.0 - versão alpha";
+const VERSAO_ATUAL = "v0.138.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -615,1005 +615,182 @@ function gerarIdChat(user1, user2) {
 function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     usuarioChatDestino = usernameAlvo;
 
-    const telaLista = document.getElementById(
-        "tela-lista-mensagens"
-    );
+    const telaLista = document.getElementById("tela-lista-mensagens");
+    const telaChat = document.getElementById("tela-sala-chat");
+    const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
+    const container = document.getElementById("chat-mensagens-container");
+    const inputMsg = document.getElementById("input-nova-mensagem");
+    const areaDeEscrita = inputMsg.parentElement;
 
-    const telaChat = document.getElementById(
-        "tela-sala-chat"
-    );
+    if (!telaChat || !inputMsg) return;
 
-    const cabecalhoChat =
-        document.getElementById(
-            "cabecalho-sala-chat"
-        );
-
-    const container =
-        document.getElementById(
-            "chat-mensagens-container"
-        );
-
-    const inputMsg =
-        document.getElementById(
-            "input-nova-mensagem"
-        );
-
-    if (!telaChat) {
-        console.error(
-            "Elemento #tela-sala-chat não encontrado."
-        );
-        return;
+    /* Limpeza de listeners anteriores */
+    if (telaChat._ajustarViewportChat && window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", telaChat._ajustarViewportChat);
+        window.visualViewport.removeEventListener("scroll", telaChat._ajustarViewportChat);
     }
-
-    if (!inputMsg) {
-        console.error(
-            "Elemento #input-nova-mensagem não encontrado."
-        );
-        return;
-    }
-
-    /*
-     * Remove listeners de uma conversa anterior,
-     * caso o usuário tenha aberto outra sala sem
-     * destruir o elemento do chat.
-     */
-    if (telaChat._ajustarViewportChat) {
-        if (window.visualViewport) {
-            window.visualViewport.removeEventListener(
-                "resize",
-                telaChat._ajustarViewportChat
-            );
-
-            window.visualViewport.removeEventListener(
-                "scroll",
-                telaChat._ajustarViewportChat
-            );
-        }
-
-        window.removeEventListener(
-            "resize",
-            telaChat._ajustarViewportChat
-        );
-    }
-
     if (telaChat._fecharTecladoAoTocar) {
-        telaChat.removeEventListener(
-            "pointerdown",
-            telaChat._fecharTecladoAoTocar,
-            true
-        );
+        telaChat.removeEventListener("pointerdown", telaChat._fecharTecladoAoTocar, true);
     }
-
-    /*
-     * Cancela o listener anterior das mensagens.
-     */
     if (unsubscribeChatAtivo) {
         unsubscribeChatAtivo();
         unsubscribeChatAtivo = null;
     }
 
-    /*
-     * Esconde a lista de contatos.
-     */
-    if (telaLista) {
-        telaLista.style.display = "none";
-    }
-
-    /*
-     * Bloqueia somente o scroll da página principal.
-     */
+    if (telaLista) telaLista.style.display = "none";
     document.body.style.overflow = "hidden";
 
-    /*
-     * =====================================================
-     * CONFIGURAÇÃO DA SALA
-     * =====================================================
-     *
-     * A sala acompanha a altura REALMENTE visível do aparelho.
-     * Isso permite que o teclado reduza a altura da sala sem
-     * mover o header.
-     */
-    telaChat.style.display = "flex";
-    telaChat.style.position = "fixed";
-    telaChat.style.left = "0";
-    telaChat.style.top = "0";
-    telaChat.style.right = "0";
-    telaChat.style.bottom = "auto";
-    telaChat.style.width = "100%";
-    telaChat.style.height = "100dvh";
-    telaChat.style.flexDirection = "column";
-    telaChat.style.backgroundColor = "#000";
-    telaChat.style.zIndex = "99999";
-    telaChat.style.boxSizing = "border-box";
-    telaChat.style.overflow = "hidden";
+    /* 1. CONFIGURAÇÃO DO CONTAINER PRINCIPAL (ESTILO WHATSAPP) */
+    Object.assign(telaChat.style, {
+        display: "flex",
+        flexDirection: "column",
+        position: "fixed",
+        top: "0",
+        left: "0",
+        width: "100%",
+        height: "100dvh",
+        backgroundColor: "#000",
+        zIndex: "99999",
+        overflow: "hidden"
+    });
 
-    /*
-     * =====================================================
-     * HEADER FIXO
-     * =====================================================
-     *
-     * O header deixa de participar do scroll da conversa.
-     * Ele fica absolutamente preso no topo da sala.
-     */
-    if (cabecalhoChat) {
-        if (
-            cabecalhoChat.parentElement !==
-            document.body
-        ) {
-            telaChat._referenciaCabecalhoChat =
-                cabecalhoChat.nextElementSibling;
+    /* 2. HEADER (Fica dentro do container, sem mover para o body) */
+    Object.assign(cabecalhoChat.style, {
+        position: "relative",
+        width: "100%",
+        height: "60px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 16px",
+        background: "#000",
+        borderBottom: "1px solid #262626",
+        flexShrink: "0",
+        zIndex: "10"
+    });
 
-            document.body.appendChild(
-                cabecalhoChat
-            );
-        }
+    /* 3. ÁREA DE MENSAGENS (Ocupa o centro) */
+    Object.assign(container.style, {
+        position: "relative",
+        flex: "1",
+        top: "0",
+        left: "0",
+        right: "0",
+        bottom: "0",
+        width: "100%",
+        padding: "16px 15px",
+        overflowY: "auto",
+        webkitOverflowScrolling: "touch",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px",
+        background: "#000"
+    });
 
-        cabecalhoChat.style.position = "fixed";
-        cabecalhoChat.style.top = "0";
-        cabecalhoChat.style.left = "0";
-        cabecalhoChat.style.right = "0";
-        cabecalhoChat.style.width = "100%";
-        cabecalhoChat.style.height = "60px";
-        cabecalhoChat.style.display = "flex";
-        cabecalhoChat.style.flexDirection = "row";
-        cabecalhoChat.style.alignItems = "center";
-        cabecalhoChat.style.justifyContent =
-            "space-between";
-        cabecalhoChat.style.padding = "10px 16px";
-        cabecalhoChat.style.margin = "0";
-        cabecalhoChat.style.boxSizing = "border-box";
-        cabecalhoChat.style.background = "#000";
-        cabecalhoChat.style.borderBottom =
-            "1px solid #262626";
-        cabecalhoChat.style.zIndex = "100000";
-        cabecalhoChat.style.flexShrink = "0";
-        cabecalhoChat.style.transition = "none";
-        cabecalhoChat.style.webkitTransition = "none";
-        cabecalhoChat.style.animation = "none";
-        cabecalhoChat.style.webkitAnimation = "none";
-        cabecalhoChat.style.transform =
-            "translate3d(0, 0, 0)";
-        cabecalhoChat.style.webkitTransform =
-            "translate3d(0, 0, 0)";
-        cabecalhoChat.style.backfaceVisibility =
-            "hidden";
-        cabecalhoChat.style.webkitBackfaceVisibility =
-            "hidden";
-        cabecalhoChat.style.willChange =
-            "transform";
+    /* 4. BARRA DE DIGITAÇÃO (Fica no rodapé do container) */
+    Object.assign(areaDeEscrita.style, {
+        position: "relative",
+        width: "100%",
+        padding: "8px 12px",
+        paddingBottom: "calc(8px + env(safe-area-inset-bottom))",
+        background: "#000",
+        borderTop: "1px solid #262626",
+        flexShrink: "0",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px"
+    });
 
-        /*
-         * Botão VOLTAR:
-         * permanece sempre no lado esquerdo.
-         */
-        const btnVoltarChat =
-            cabecalhoChat.querySelector(
-                "button"
-            ) ||
-            cabecalhoChat.querySelector(
-                "[onclick*='fecharSalaChat']"
-            );
+    /* 5. LÓGICA DO VIEWPORT (IMPEDE O HEADER DE PULAR) */
+    const ajustarAlturaVisual = () => {
+        const vv = window.visualViewport;
+        telaChat.style.height = `${vv.height}px`;
+        telaChat.style.top = `${vv.offsetTop}px`;
+        container.scrollTop = container.scrollHeight;
+    };
 
-        if (btnVoltarChat) {
-            btnVoltarChat.style.order = "1";
-            btnVoltarChat.style.flex = "0 0 42px";
-            btnVoltarChat.style.width = "42px";
-            btnVoltarChat.style.height = "42px";
-            btnVoltarChat.style.display = "flex";
-            btnVoltarChat.style.alignItems = "center";
-            btnVoltarChat.style.justifyContent =
-                "flex-start";
-            btnVoltarChat.style.padding = "0";
-            btnVoltarChat.style.margin = "0";
-            btnVoltarChat.style.background = "none";
-            btnVoltarChat.style.border = "none";
-            btnVoltarChat.style.color = "#fff";
-            btnVoltarChat.style.fontSize = "24px";
-            btnVoltarChat.style.cursor = "pointer";
-            btnVoltarChat.style.touchAction =
-                "manipulation";
-        }
-
-        /*
-         * BLOCO DO USUÁRIO:
-         * permanece sempre no lado direito.
-         */
-        const infoUsuario =
-            document.getElementById(
-                "chat-avatar-atual"
-            )?.parentElement;
-
-        if (infoUsuario) {
-            infoUsuario.style.order = "2";
-            infoUsuario.style.display = "flex";
-            infoUsuario.style.flex = "1 1 auto";
-            infoUsuario.style.minWidth = "0";
-            infoUsuario.style.height = "100%";
-            infoUsuario.style.alignItems = "center";
-            infoUsuario.style.justifyContent =
-                "flex-end";
-            infoUsuario.style.gap = "12px";
-            infoUsuario.style.overflow = "hidden";
-
-            /*
-             * Texto fica antes do avatar.
-             */
-            const textoContainer =
-                infoUsuario.querySelector(
-                    "div"
-                );
-
-            if (textoContainer) {
-                textoContainer.style.order = "1";
-                textoContainer.style.flex =
-                    "1 1 auto";
-                textoContainer.style.minWidth = "0";
-                textoContainer.style.overflow =
-                    "hidden";
-                textoContainer.style.textAlign =
-                    "right";
-            }
-
-            /*
-             * Avatar fica à direita do nome/cargo.
-             */
-            const chatAvatar =
-                document.getElementById(
-                    "chat-avatar-atual"
-                );
-
-            if (chatAvatar) {
-                chatAvatar.style.order = "2";
-                chatAvatar.style.width = "38px";
-                chatAvatar.style.height = "38px";
-                chatAvatar.style.minWidth =
-                    "38px";
-                chatAvatar.style.minHeight =
-                    "38px";
-                chatAvatar.style.flex =
-                    "0 0 38px";
-                chatAvatar.style.borderRadius =
-                    "50%";
-                chatAvatar.style.objectFit =
-                    "cover";
-            }
-        }
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", ajustarAlturaVisual);
+        window.visualViewport.addEventListener("scroll", ajustarAlturaVisual);
+        telaChat._ajustarViewportChat = ajustarAlturaVisual;
+        ajustarAlturaVisual();
     }
 
-    /*
-     * Atualiza dados do usuário.
-     */
-    const nomeEl =
-        document.getElementById(
-            "chat-nome-atual"
-        );
-
-    const cargoEl =
-        document.getElementById(
-            "chat-cargo-atual"
-        );
-
-    const avatarEl =
-        document.getElementById(
-            "chat-avatar-atual"
-        );
-
-    if (nomeEl) {
-        nomeEl.textContent =
-            nomeAlvo;
-
-        nomeEl.style.display =
-            "block";
-
-        nomeEl.style.whiteSpace =
-            "nowrap";
-
-        nomeEl.style.overflow =
-            "hidden";
-
-        nomeEl.style.textOverflow =
-            "ellipsis";
-
-        nomeEl.style.textAlign =
-            "right";
-    }
-
-    if (cargoEl) {
-        cargoEl.textContent =
-            cargoAlvo;
-
-        cargoEl.style.display =
-            "block";
-
-        cargoEl.style.whiteSpace =
-            "nowrap";
-
-        cargoEl.style.overflow =
-            "hidden";
-
-        cargoEl.style.textOverflow =
-            "ellipsis";
-
-        cargoEl.style.textAlign =
-            "right";
-    }
-
-    if (avatarEl) {
-        avatarEl.src =
-            fotoAlvo;
-    }
-
-    /*
-     * =====================================================
-     * ÁREA DE MENSAGENS
-     * =====================================================
-     *
-     * A conversa fica entre:
-     *
-     * HEADER
-     * ↓
-     * MENSAGENS
-     * ↓
-     * INPUT
-     *
-     * O header nunca entra na área de scroll.
-     */
-    if (container) {
-        container.style.position =
-            "absolute";
-
-        container.style.top =
-            "60px";
-
-        container.style.left =
-            "0";
-
-        container.style.right =
-            "0";
-
-        container.style.bottom =
-            "60px";
-
-        container.style.width =
-            "100%";
-
-        container.style.boxSizing =
-            "border-box";
-
-        container.style.display =
-            "flex";
-
-        container.style.flexDirection =
-            "column";
-
-        container.style.gap =
-            "12px";
-
-        container.style.padding =
-            "16px 15px";
-
-        container.style.overflowY =
-            "auto";
-
-        container.style.overflowX =
-            "hidden";
-
-        container.style.webkitOverflowScrolling =
-            "touch";
-
-        container.style.overscrollBehavior =
-            "contain";
-
-        container.style.background =
-            "#000";
-
-        container.style.minHeight =
-            "0";
-
-        container.style.height =
-            "auto";
-
-        container.style.scrollBehavior =
-            "auto";
-    }
-
-    /*
-     * =====================================================
-     * ÁREA DE DIGITAÇÃO
-     * =====================================================
-     *
-     * O input fica preso no rodapé da sala.
-     * Quando o teclado aparece, a sala diminui e
-     * esta barra continua imediatamente acima dele.
-     */
-    const areaDeEscrita =
-        inputMsg.parentElement;
-
-    const btnEnviar =
-        areaDeEscrita
-            ? areaDeEscrita.querySelector(
-                "button"
-            )
-            : null;
-
-    if (areaDeEscrita) {
-        areaDeEscrita.style.position =
-            "absolute";
-
-        areaDeEscrita.style.left =
-            "0";
-
-        areaDeEscrita.style.right =
-            "0";
-
-        areaDeEscrita.style.bottom =
-            "0";
-
-        areaDeEscrita.style.width =
-            "100%";
-
-        areaDeEscrita.style.boxSizing =
-            "border-box";
-
-        areaDeEscrita.style.display =
-            "flex";
-
-        areaDeEscrita.style.alignItems =
-            "center";
-
-        areaDeEscrita.style.gap =
-            "8px";
-
-        areaDeEscrita.style.margin =
-            "0";
-
-        areaDeEscrita.style.padding =
-            "8px 12px";
-
-        areaDeEscrita.style.paddingBottom =
-            "calc(8px + env(safe-area-inset-bottom))";
-
-        areaDeEscrita.style.background =
-            "#000";
-
-        areaDeEscrita.style.borderTop =
-            "1px solid #262626";
-
-        areaDeEscrita.style.zIndex =
-            "21";
-
-        areaDeEscrita.style.flexShrink =
-            "0";
-    }
-
-    inputMsg.style.flex =
-        "1 1 auto";
-
-    inputMsg.style.minWidth =
-        "0";
-
-    inputMsg.style.boxSizing =
-        "border-box";
-
-    inputMsg.style.fontSize =
-        "16px";
-
-    inputMsg.style.touchAction =
-        "manipulation";
-
-    inputMsg.style.webkitAppearance =
-        "none";
-
-    /*
-     * Botão enviar:
-     *
-     * O comportamento original do onclick é substituído.
-     * O botão não recebe foco e, portanto, não tira o foco
-     * do campo de mensagem.
-     *
-     * O envio acontece no pointerup.
-     */
-    if (btnEnviar) {
-        btnEnviar.type =
-            "button";
-
-        btnEnviar.style.flexShrink =
-            "0";
-
-        btnEnviar.style.width =
-            "40px";
-
-        btnEnviar.style.height =
-            "40px";
-
-        btnEnviar.style.padding =
-            "0";
-
-        btnEnviar.style.display =
-            "flex";
-
-        btnEnviar.style.alignItems =
-            "center";
-
-        btnEnviar.style.justifyContent =
-            "center";
-
-        btnEnviar.style.borderRadius =
-            "50%";
-
-        btnEnviar.style.touchAction =
-            "manipulation";
-
-        /*
-         * Sobrescreve o onclick inline existente.
-         */
-        btnEnviar.onclick =
-            () => {};
-
-        /*
-         * Impede que o toque no botão
-         * transfira o foco do input.
-         */
-        btnEnviar.onpointerdown =
-            event => {
-                event.preventDefault();
-            };
-
-        /*
-         * Envia a mensagem sem fechar o teclado.
-         */
-        btnEnviar.onpointerup =
-            async event => {
-                event.preventDefault();
-
-                await enviarMensagemChat();
-
-                requestAnimationFrame(() => {
-                    inputMsg.focus({
-                        preventScroll: true
-                    });
-
-                    if (container) {
-                        container.scrollTop =
-                            container.scrollHeight;
-                    }
-                });
-            };
-
-        /*
-         * Permite enviar pelo teclado físico
-         * quando o botão estiver focado.
-         */
-        btnEnviar.onkeydown =
-            event => {
-                if (
-                    event.key === "Enter" ||
-                    event.key === " "
-                ) {
-                    event.preventDefault();
-
-                    enviarMensagemChat();
-
-                    requestAnimationFrame(() => {
-                        inputMsg.focus({
-                            preventScroll: true
-                        });
-                    });
-                }
-            };
-    }
-
-    /*
-     * =====================================================
-     * FECHAR TECLADO AO TOCAR FORA DO INPUT
-     * =====================================================
-     *
-     * O teclado fecha quando o usuário toca em:
-     * - uma mensagem;
-     * - o fundo da conversa;
-     * - o header;
-     * - qualquer outra parte da sala.
-     *
-     * O teclado NÃO fecha ao tocar no botão enviar.
-     */
-    const fecharTecladoAoTocar =
-        event => {
-            if (
-                !inputMsg ||
-                document.activeElement !==
-                    inputMsg
-            ) {
-                return;
-            }
-
-            const tocouNoInput =
-                event.target ===
-                    inputMsg ||
-                inputMsg.contains(
-                    event.target
-                );
-
-            const tocouNoEnviar =
-                btnEnviar &&
-                btnEnviar.contains(
-                    event.target
-                );
-
-            if (
-                tocouNoInput ||
-                tocouNoEnviar
-            ) {
-                return;
-            }
-
+    /* Fechar teclado ao tocar fora */
+    const fecharTecladoAoTocar = (e) => {
+        if (document.activeElement === inputMsg && e.target !== inputMsg && !inputMsg.contains(e.target) && !e.target.closest('button')) {
             inputMsg.blur();
-        };
+        }
+    };
+    telaChat._fecharTecladoAoTocar = fecharTecladoAoTocar;
+    telaChat.addEventListener("pointerdown", fecharTecladoAoTocar, true);
 
-    telaChat._fecharTecladoAoTocar =
-        fecharTecladoAoTocar;
+    /* Atualiza dados do cabeçalho */
+    document.getElementById("chat-nome-atual").textContent = nomeAlvo;
+    document.getElementById("chat-cargo-atual").textContent = cargoAlvo;
+    document.getElementById("chat-avatar-atual").src = fotoAlvo;
 
-    telaChat.addEventListener(
-        "pointerdown",
-        fecharTecladoAoTocar,
-        true
-    );
+    const meuUsername = localStorage.getItem("usernameLogado");
+    if (!meuUsername) return;
 
-    /*
-     * Sala e header independentes:
-     * a sala usa a altura dinâmica nativa e o header,
-     * agora no body, não recebe ajustes de viewport.
-     */
-    telaChat.style.top =
-        "0";
+    const chatId = gerarIdChat(meuUsername, usernameAlvo);
+    container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Carregando chat...</p>";
 
-    telaChat.style.height =
-        "100dvh";
-
-    if (
-        container &&
-        areaDeEscrita
-    ) {
-        container.style.top =
-            "60px";
-
-        container.style.bottom =
-            `${areaDeEscrita.offsetHeight}px`;
-    }
-
-    inputMsg.onfocus =
-        () => {
-            requestAnimationFrame(() => {
-                if (container) {
-                    container.scrollTop =
-                        container.scrollHeight;
-                }
+    unsubscribeChatAtivo = window.ClubeDB.textoDB
+        .collection("chats").doc(chatId).collection("mensagens")
+        .orderBy("timestamp", "asc")
+        .onSnapshot(snapshot => {
+            if (!container) return;
+            container.innerHTML = "";
+            if (snapshot.empty) {
+                container.innerHTML = `<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Diga oi para ${nomeAlvo}!</p>`;
+                return;
+            }
+            snapshot.forEach(doc => {
+                const msg = doc.data();
+                const isMinha = msg.remetente === meuUsername;
+                const div = document.createElement("div");
+                div.style.cssText = `display:flex; width:100%; margin-bottom:8px; justify-content:${isMinha ? 'flex-end' : 'flex-start'};`;
+                const balao = document.createElement("div");
+                balao.textContent = msg.texto;
+                balao.style.cssText = `max-width:75%; padding:10px 14px; border-radius:18px; font-size:14px; line-height:1.4; word-break:break-word; background:${isMinha ? '#0095f6' : '#262626'}; color:#fff; ${isMinha ? 'border-bottom-right-radius:4px;' : 'border-bottom-left-radius:4px;'}`;
+                div.appendChild(balao);
+                container.appendChild(div);
             });
-        };
-
-
-
-    /*
-     * Usuário logado.
-     */
-    const meuUsername =
-        localStorage.getItem(
-            "usernameLogado"
-        );
-
-    if (!meuUsername) {
-        console.error(
-            "Usuário não encontrado para abrir o chat."
-        );
-        return;
-    }
-
-    const chatId =
-        gerarIdChat(
-            meuUsername,
-            usernameAlvo
-        );
-
-    if (container) {
-        container.innerHTML =
-            "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando ao chat protegido...</p>";
-    }
-
-    /*
-     * Listener em tempo real da conversa.
-     */
-    unsubscribeChatAtivo =
-        window.ClubeDB.textoDB
-            .collection("chats")
-            .doc(chatId)
-            .collection("mensagens")
-            .orderBy(
-                "timestamp",
-                "asc"
-            )
-            .onSnapshot(
-                snapshot => {
-                    if (!container) {
-                        return;
-                    }
-
-                    container.innerHTML =
-                        "";
-
-                    if (snapshot.empty) {
-                        container.innerHTML =
-                            "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>O histórico está vazio. Envie a primeira mensagem para " +
-                            nomeAlvo +
-                            ".</p>";
-
-                        return;
-                    }
-
-                    snapshot.forEach(
-                        doc => {
-                            const msg =
-                                doc.data();
-
-                            const isMinha =
-                                msg.remetente ===
-                                meuUsername;
-
-                            const div =
-                                document.createElement(
-                                    "div"
-                                );
-
-                            div.style.display =
-                                "flex";
-
-                            div.style.width =
-                                "100%";
-
-                            div.style.flexShrink =
-                                "0";
-
-                            div.style.marginBottom =
-                                "8px";
-
-                            div.style.justifyContent =
-                                isMinha
-                                    ? "flex-end"
-                                    : "flex-start";
-
-                            const balao =
-                                document.createElement(
-                                    "div"
-                                );
-
-                            balao.textContent =
-                                msg.texto;
-
-                            balao.style.maxWidth =
-                                "75%";
-
-                            balao.style.padding =
-                                "10px 14px";
-
-                            balao.style.borderRadius =
-                                "18px";
-
-                            balao.style.fontSize =
-                                "14px";
-
-                            balao.style.lineHeight =
-                                "1.4";
-
-                            balao.style.wordBreak =
-                                "break-word";
-
-                            balao.style.boxShadow =
-                                "0 1px 3px rgba(0, 0, 0, 0.15)";
-
-                            if (isMinha) {
-                                balao.style.background =
-                                    "#0095f6";
-
-                                balao.style.color =
-                                    "#fff";
-
-                                balao.style.borderBottomRightRadius =
-                                    "4px";
-                            } else {
-                                balao.style.background =
-                                    "#262626";
-
-                                balao.style.color =
-                                    "#fff";
-
-                                balao.style.borderBottomLeftRadius =
-                                    "4px";
-                            }
-
-                            div.appendChild(
-                                balao
-                            );
-
-                            container.appendChild(
-                                div
-                            );
-                        }
-                    );
-
-                    requestAnimationFrame(
-                        () => {
-                            container.scrollTop =
-                                container.scrollHeight;
-                        }
-                    );
-                }
-            );
+            container.scrollTop = container.scrollHeight;
+        });
 }
 function fecharSalaChat() {
-    const telaChat =
-        document.getElementById(
-            "tela-sala-chat"
-        );
+    const telaChat = document.getElementById("tela-sala-chat");
+    const telaLista = document.getElementById("tela-lista-mensagens");
+    const inputMsg = document.getElementById("input-nova-mensagem");
 
-    const telaLista =
-        document.getElementById(
-            "tela-lista-mensagens"
-        );
-
-    const inputMsg =
-        document.getElementById(
-            "input-nova-mensagem"
-        );
-
-    const cabecalhoChat =
-        document.getElementById(
-            "cabecalho-sala-chat"
-        );
-
-    /*
-     * Remove listener de ajuste do viewport.
-     */
-    if (
-        telaChat &&
-        telaChat._ajustarViewportChat
-    ) {
-        if (window.visualViewport) {
-            window.visualViewport.removeEventListener(
-                "resize",
-                telaChat._ajustarViewportChat
-            );
-
-            window.visualViewport.removeEventListener(
-                "scroll",
-                telaChat._ajustarViewportChat
-            );
-        }
-
-        window.removeEventListener(
-            "resize",
-            telaChat._ajustarViewportChat
-        );
-
-        telaChat._ajustarViewportChat =
-            null;
+    if (telaChat && telaChat._ajustarViewportChat && window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", telaChat._ajustarViewportChat);
+        window.visualViewport.removeEventListener("scroll", telaChat._ajustarViewportChat);
+        telaChat._ajustarViewportChat = null;
     }
 
-    /*
-     * Remove listener que fecha o teclado
-     * ao tocar fora do campo.
-     */
-    if (
-        telaChat &&
-        telaChat._fecharTecladoAoTocar
-    ) {
-        telaChat.removeEventListener(
-            "pointerdown",
-            telaChat._fecharTecladoAoTocar,
-            true
-        );
-
-        telaChat._fecharTecladoAoTocar =
-            null;
+    if (telaChat && telaChat._fecharTecladoAoTocar) {
+        telaChat.removeEventListener("pointerdown", telaChat._fecharTecladoAoTocar, true);
+        telaChat._fecharTecladoAoTocar = null;
     }
 
-    /*
-     * Remove foco para fechar o teclado
-     * antes de sair da conversa.
-     */
-    if (
-        inputMsg &&
-        document.activeElement ===
-            inputMsg
-    ) {
-        inputMsg.blur();
-    }
+    if (inputMsg) inputMsg.blur();
 
-    /*
-     * Devolve o header à estrutura original antes
-     * de esconder a sala.
-     */
-    if (
-        telaChat &&
-        cabecalhoChat &&
-        cabecalhoChat.parentElement ===
-            document.body
-    ) {
-        const referencia =
-            telaChat._referenciaCabecalhoChat;
-
-        if (
-            referencia &&
-            referencia.parentElement ===
-                telaChat
-        ) {
-            telaChat.insertBefore(
-                cabecalhoChat,
-                referencia
-            );
-        } else {
-            telaChat.insertBefore(
-                cabecalhoChat,
-                telaChat.firstElementChild
-            );
-        }
-
-        telaChat._referenciaCabecalhoChat =
-            null;
-    }
-
-    /*
-     * Fecha a sala.
-     */
     if (telaChat) {
-        telaChat.style.display =
-            "none";
-
-        telaChat.style.height =
-            "";
-
-        telaChat.style.top =
-            "";
-
-        telaChat.style.bottom =
-            "";
-
-        telaChat.style.left =
-            "";
-
-        telaChat.style.right =
-            "";
+        telaChat.style.display = "none";
+        telaChat.style.height = "";
+        telaChat.style.top = "";
     }
 
-    /*
-     * Volta para a lista de contatos.
-     */
-    if (telaLista) {
-        telaLista.style.display =
-            "flex";
-    }
+    if (telaLista) telaLista.style.display = "flex";
+    document.body.style.overflow = "";
+    usuarioChatDestino = null;
 
-    /*
-     * Restaura o comportamento normal
-     * da página.
-     */
-    document.body.style.overflow =
-        "";
-
-    document.body.style.position =
-        "";
-
-    document.body.style.width =
-        "";
-
-    usuarioChatDestino =
-        null;
-
-    /*
-     * Encerra o listener do Firestore.
-     */
     if (unsubscribeChatAtivo) {
         unsubscribeChatAtivo();
-
-        unsubscribeChatAtivo =
-            null;
+        unsubscribeChatAtivo = null;
     }
 }
 
