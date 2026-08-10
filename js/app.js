@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.133.0 - versão alpha";
+const VERSAO_ATUAL = "v0.131.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1271,7 +1271,10 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 telaChat.style.top =
                     `${deslocamentoSuperior}px`;
 
-
+                if (cabecalhoChat) {
+                    cabecalhoChat.style.top =
+                        `${-deslocamentoSuperior}px`;
+                }
 
 
 
