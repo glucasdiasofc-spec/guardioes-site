@@ -1841,14 +1841,18 @@
 
                         <div style="display:flex; align-items:center; gap:10px;">
 
+                            <!-- BOTÃO DE UPLOAD MELHORADO (SÊNIOR) -->
                             <button
                                 type="button"
                                 onclick="selecionarMidiaPublicacao()"
-                                style="width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:none; border:none; border-radius:50%; color:#1d9bf0; font-size:22px; cursor:pointer;"
+                                style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(29, 155, 240, 0.1); border: 1px solid rgba(29, 155, 240, 0.3); border-radius: 20px; color: #1d9bf0; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                                onmouseover="this.style.background='rgba(29, 155, 240, 0.2)'"
+                                onmouseout="this.style.background='rgba(29, 155, 240, 0.1)'"
                                 aria-label="Adicionar foto ou vídeo"
                                 title="Adicionar foto ou vídeo"
                             >
-                                ▧
+                                <span style="font-size: 18px;">📷</span>
+                                <span>Foto ou Vídeo</span>
                             </button>
 
                             <input
@@ -1861,8 +1865,9 @@
 
                             <span
                                 id="publicacao-tipo-midia"
-                                style="color:#71767b; font-size:12px;"
+                                style="color:#1d9bf0; font-size:12px; font-weight: 500;"
                             ></span>
+
 
                         </div>
 
