@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.137.0 - versão alpha";
+const VERSAO_ATUAL = "v0.138.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -749,7 +749,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         }
 
         cabecalhoChat.style.position = "fixed";
-        cabecalhoChat.style.top = "0";
+        cabecalhoChat.style.top =
+            "env(safe-area-inset-top)";
         cabecalhoChat.style.left = "0";
         cabecalhoChat.style.right = "0";
         cabecalhoChat.style.width = "100%";
@@ -1259,9 +1260,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     );
 
     /*
-     * Sala e header independentes:
-     * a sala usa a altura dinâmica nativa e o header,
-     * agora no body, não recebe ajustes de viewport.
+     * Mantém o header na área visível do iOS sem mover
+     * a sala inteira durante a abertura do teclado.
      */
     telaChat.style.top =
         "0";
@@ -1273,15 +1273,57 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container &&
         areaDeEscrita
     ) {
-        container.style.top =
-            "60px";
-
         container.style.bottom =
             `${areaDeEscrita.offsetHeight}px`;
     }
 
+    const ajustarCabecalhoChat =
+        () => {
+            const viewport =
+                window.visualViewport;
+
+            const deslocamentoSuperior =
+                viewport
+                    ? Math.max(
+                        0,
+                        Math.round(
+                            viewport.offsetTop
+                        )
+                    )
+                    : 0;
+
+            if (cabecalhoChat) {
+                cabecalhoChat.style.top =
+                    `calc(env(safe-area-inset-top) + ${deslocamentoSuperior}px)`;
+            }
+
+            if (container) {
+                container.style.top =
+                    `calc(60px + env(safe-area-inset-top) + ${deslocamentoSuperior}px)`;
+            }
+        };
+
+    telaChat._ajustarViewportChat =
+        ajustarCabecalhoChat;
+
+    ajustarCabecalhoChat();
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener(
+            "resize",
+            ajustarCabecalhoChat
+        );
+
+        window.visualViewport.addEventListener(
+            "scroll",
+            ajustarCabecalhoChat
+        );
+    }
+
     inputMsg.onfocus =
         () => {
+            ajustarCabecalhoChat();
+
             requestAnimationFrame(() => {
                 if (container) {
                     container.scrollTop =
