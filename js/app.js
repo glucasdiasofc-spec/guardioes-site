@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.119.0 - versão alpha";
+const VERSAO_ATUAL = "v0.120.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9298,27 +9298,37 @@ function criarCardPublicacao(
 
             <div class="feed-x-conteudo">
 
-                <div class="feed-x-autor">
+                <div class="feed-x-autor" style="display: flex; flex-direction: column; gap: 2px;">
 
-                    <span
-                        class="feed-x-nome"
-                        title="${autorNome}"
-                    >
-                        ${autorNome}
-                    </span>
+                    <div style="display: flex; align-items: center; gap: 4px; line-height: 1.2;">
+                        <span
+                            class="feed-x-nome"
+                            title="${autorNome}"
+                            style="font-weight: 700; color: #e7e9ea;"
+                        >
+                            ${autorNome}
+                        </span>
 
-                    <span
-                        class="feed-x-username"
-                        title="@${autorUsername}"
-                    >
-                        @${autorUsername}
-                    </span>
+                        <span
+                            class="feed-x-username"
+                            title="@${autorUsername}"
+                            style="color: #71767b; font-size: 14px;"
+                        >
+                            @${autorUsername}
+                        </span>
 
-                    <span class="feed-x-data">
-                        · ${dataPublicacao}
-                    </span>
+                        <span class="feed-x-data" style="color: #71767b; font-size: 14px;">
+                            · ${dataPublicacao}
+                        </span>
+                    </div>
+
+                    <!-- LÓGICA SÊNIOR: Cargo estilizado (menor e acinzentado) logo abaixo do nome -->
+                    <div style="color: #71767b; font-size: 12px; font-weight: 400; margin-top: -2px;">
+                        ${autorCargo}
+                    </div>
 
                 </div>
+
 
                 ${
     autorCargo
