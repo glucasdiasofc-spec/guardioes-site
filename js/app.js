@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.136.0 - versão alpha";
+const VERSAO_ATUAL = "v0.137.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -767,8 +767,20 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             "1px solid #262626";
         cabecalhoChat.style.zIndex = "100000";
         cabecalhoChat.style.flexShrink = "0";
-        cabecalhoChat.style.transform = "none";
-        cabecalhoChat.style.webkitTransform = "none";
+        cabecalhoChat.style.transition = "none";
+        cabecalhoChat.style.webkitTransition = "none";
+        cabecalhoChat.style.animation = "none";
+        cabecalhoChat.style.webkitAnimation = "none";
+        cabecalhoChat.style.transform =
+            "translate3d(0, 0, 0)";
+        cabecalhoChat.style.webkitTransform =
+            "translate3d(0, 0, 0)";
+        cabecalhoChat.style.backfaceVisibility =
+            "hidden";
+        cabecalhoChat.style.webkitBackfaceVisibility =
+            "hidden";
+        cabecalhoChat.style.willChange =
+            "transform";
 
         /*
          * Botão VOLTAR:
