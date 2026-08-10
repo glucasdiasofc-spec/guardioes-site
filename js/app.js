@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.133.0 - versão alpha";
+const VERSAO_ATUAL = "v0.134.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -703,8 +703,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
      * Bloqueia somente o scroll da página principal.
      */
     document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.width = "100%";
 
     /*
      * =====================================================
@@ -755,8 +753,10 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         cabecalhoChat.style.background = "#000";
         cabecalhoChat.style.borderBottom =
             "1px solid #262626";
-        cabecalhoChat.style.zIndex = "20";
+        cabecalhoChat.style.zIndex = "100000";
         cabecalhoChat.style.flexShrink = "0";
+        cabecalhoChat.style.transform = "none";
+        cabecalhoChat.style.webkitTransform = "none";
 
         /*
          * Botão VOLTAR:
@@ -1236,8 +1236,12 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     /*
      * =====================================================
-     * AJUSTE DO VIEWPORT / TECLADO
+     * AJUSTE ESTÁVEL DA SALA
      * =====================================================
+     *
+     * A altura dinâmica é responsabilidade do 100dvh.
+     * Não recalcular visualViewport evita reposicionamentos
+     * durante a animação do teclado no iOS.
      */
     const ajustarViewportChat =
         () => {
@@ -1245,113 +1249,37 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 return;
             }
 
-            const viewport =
-                window.visualViewport;
+            telaChat.style.top =
+                "0";
 
-            if (viewport) {
-                const alturaVisivel =
-                    Math.max(
-                        1,
-                        Math.round(
-                            viewport.height
-                        )
-                    );
+            telaChat.style.height =
+                "100dvh";
 
-                telaChat.style.height =
-                    `${alturaVisivel}px`;
+            if (
+                container &&
+                areaDeEscrita
+            ) {
+                container.style.top =
+                    "60px";
 
-                telaChat.style.top =
-                    "0";
-
-
-                /*
-                 * Mantém a caixa de mensagem
-                 * sempre imediatamente acima
-                 * da barra de digitação.
-                 */
-                if (
-                    container &&
-                    areaDeEscrita
-                ) {
-                    const alturaInput =
-                        areaDeEscrita.offsetHeight;
-
-                    container.style.top =
-                        "60px";
-
-                    container.style.bottom =
-                        `${alturaInput}px`;
-                }
-            } else {
-                telaChat.style.height =
-                    `${window.innerHeight}px`;
-
-                if (
-                    container &&
-                    areaDeEscrita
-                ) {
-                    container.style.bottom =
-                        `${areaDeEscrita.offsetHeight}px`;
-                }
+                container.style.bottom =
+                    `${areaDeEscrita.offsetHeight}px`;
             }
         };
 
     telaChat._ajustarViewportChat =
         ajustarViewportChat;
 
-    /*
-     * Primeira aplicação do layout.
-     */
     ajustarViewportChat();
 
-    /*
-     * Atualiza quando:
-     * - teclado abre;
-     * - teclado fecha;
-     * - orientação muda;
-     * - viewport muda.
-     */
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener(
-            "resize",
-            ajustarViewportChat
-        );
-    }
-
-
-    window.addEventListener(
-        "resize",
-        ajustarViewportChat
-    );
-
-    /*
-     * Quando o usuário entra no campo:
-     *
-     * - o header permanece imóvel;
-     * - a sala se adapta ao teclado;
-     * - somente a área de mensagens rola para o final.
-     */
     inputMsg.onfocus =
         () => {
-            setTimeout(() => {
-                ajustarViewportChat();
-
-                requestAnimationFrame(() => {
-                    if (container) {
-                        container.scrollTop =
-                            container.scrollHeight;
-                    }
-                });
-            }, 100);
-
-            setTimeout(() => {
-                ajustarViewportChat();
-
+            requestAnimationFrame(() => {
                 if (container) {
                     container.scrollTop =
                         container.scrollHeight;
                 }
-            }, 350);
+            });
         };
 
 
