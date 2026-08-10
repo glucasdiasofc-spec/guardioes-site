@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.139.0 - versão alpha";
+const VERSAO_ATUAL = "v0.138.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1260,24 +1260,27 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     );
 
     /*
-     * Header separado e estático.
-     * Somente a sala acompanha a área visível acima
-     * do teclado, mantendo input e mensagens visíveis.
+     * Mantém o header na área visível do iOS sem mover
+     * a sala inteira durante a abertura do teclado.
      */
-    const ajustarViewportChat =
+    telaChat.style.top =
+        "0";
+
+    telaChat.style.height =
+        "100dvh";
+
+    if (
+        container &&
+        areaDeEscrita
+    ) {
+        container.style.bottom =
+            `${areaDeEscrita.offsetHeight}px`;
+    }
+
+    const ajustarCabecalhoChat =
         () => {
             const viewport =
                 window.visualViewport;
-
-            const alturaVisivel =
-                viewport
-                    ? Math.max(
-                        1,
-                        Math.round(
-                            viewport.height
-                        )
-                    )
-                    : window.innerHeight;
 
             const deslocamentoSuperior =
                 viewport
@@ -1289,49 +1292,37 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                     )
                     : 0;
 
-            telaChat.style.top =
-                `${deslocamentoSuperior}px`;
-
-            telaChat.style.height =
-                `${alturaVisivel}px`;
-
             if (cabecalhoChat) {
                 cabecalhoChat.style.top =
-                    "env(safe-area-inset-top)";
+                    `calc(env(safe-area-inset-top) + ${deslocamentoSuperior}px)`;
             }
 
-            if (
-                container &&
-                areaDeEscrita
-            ) {
+            if (container) {
                 container.style.top =
-                    "calc(60px + env(safe-area-inset-top))";
-
-                container.style.bottom =
-                    `${areaDeEscrita.offsetHeight}px`;
+                    `calc(60px + env(safe-area-inset-top) + ${deslocamentoSuperior}px)`;
             }
         };
 
     telaChat._ajustarViewportChat =
-        ajustarViewportChat;
+        ajustarCabecalhoChat;
 
-    ajustarViewportChat();
+    ajustarCabecalhoChat();
 
     if (window.visualViewport) {
         window.visualViewport.addEventListener(
             "resize",
-            ajustarViewportChat
+            ajustarCabecalhoChat
         );
 
         window.visualViewport.addEventListener(
             "scroll",
-            ajustarViewportChat
+            ajustarCabecalhoChat
         );
     }
 
     inputMsg.onfocus =
         () => {
-            ajustarViewportChat();
+            ajustarCabecalhoChat();
 
             requestAnimationFrame(() => {
                 if (container) {
