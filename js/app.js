@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.135.0 - versão alpha";
+const VERSAO_ATUAL = "v0.136.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -624,9 +624,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     );
 
     const cabecalhoChat =
-        telaChat
-            ? telaChat.children[0]
-            : null;
+        document.getElementById(
+            "cabecalho-sala-chat"
+        );
 
     const container =
         document.getElementById(
@@ -736,6 +736,18 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
      * Ele fica absolutamente preso no topo da sala.
      */
     if (cabecalhoChat) {
+        if (
+            cabecalhoChat.parentElement !==
+            document.body
+        ) {
+            telaChat._referenciaCabecalhoChat =
+                cabecalhoChat.nextElementSibling;
+
+            document.body.appendChild(
+                cabecalhoChat
+            );
+        }
+
         cabecalhoChat.style.position = "fixed";
         cabecalhoChat.style.top = "0";
         cabecalhoChat.style.left = "0";
@@ -1235,13 +1247,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     );
 
     /*
-     * =====================================================
-     * AJUSTE ESTÁVEL DA SALA E DO HEADER
-     * =====================================================
-     *
-     * A sala não acompanha o visualViewport. Somente o
-     * header acompanha o deslocamento visual do iOS para
-     * continuar visível acima do teclado.
+     * Sala e header independentes:
+     * a sala usa a altura dinâmica nativa e o header,
+     * agora no body, não recebe ajustes de viewport.
      */
     telaChat.style.top =
         "0";
@@ -1260,50 +1268,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             `${areaDeEscrita.offsetHeight}px`;
     }
 
-    const ajustarViewportChat =
-        () => {
-            if (!cabecalhoChat) {
-                return;
-            }
-
-            const viewport =
-                window.visualViewport;
-
-            const topoVisivel =
-                viewport
-                    ? Math.max(
-                        0,
-                        Math.round(
-                            viewport.offsetTop
-                        )
-                    )
-                    : 0;
-
-            cabecalhoChat.style.top =
-                `${topoVisivel}px`;
-        };
-
-    telaChat._ajustarViewportChat =
-        ajustarViewportChat;
-
-    ajustarViewportChat();
-
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener(
-            "resize",
-            ajustarViewportChat
-        );
-
-        window.visualViewport.addEventListener(
-            "scroll",
-            ajustarViewportChat
-        );
-    }
-
     inputMsg.onfocus =
         () => {
-            ajustarViewportChat();
-
             requestAnimationFrame(() => {
                 if (container) {
                     container.scrollTop =
@@ -1485,6 +1451,11 @@ function fecharSalaChat() {
             "input-nova-mensagem"
         );
 
+    const cabecalhoChat =
+        document.getElementById(
+            "cabecalho-sala-chat"
+        );
+
     /*
      * Remove listener de ajuste do viewport.
      */
@@ -1541,6 +1512,39 @@ function fecharSalaChat() {
             inputMsg
     ) {
         inputMsg.blur();
+    }
+
+    /*
+     * Devolve o header à estrutura original antes
+     * de esconder a sala.
+     */
+    if (
+        telaChat &&
+        cabecalhoChat &&
+        cabecalhoChat.parentElement ===
+            document.body
+    ) {
+        const referencia =
+            telaChat._referenciaCabecalhoChat;
+
+        if (
+            referencia &&
+            referencia.parentElement ===
+                telaChat
+        ) {
+            telaChat.insertBefore(
+                cabecalhoChat,
+                referencia
+            );
+        } else {
+            telaChat.insertBefore(
+                cabecalhoChat,
+                telaChat.firstElementChild
+            );
+        }
+
+        telaChat._referenciaCabecalhoChat =
+            null;
     }
 
     /*
