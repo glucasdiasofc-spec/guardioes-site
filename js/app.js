@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.125.0 - versão alpha";
+const VERSAO_ATUAL = "v0.126.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -738,7 +738,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
      * Ele fica absolutamente preso no topo da sala.
      */
     if (cabecalhoChat) {
-        cabecalhoChat.style.position = "sticky";
+        cabecalhoChat.style.position = "absolute";
         cabecalhoChat.style.top = "0";
         cabecalhoChat.style.left = "0";
         cabecalhoChat.style.right = "0";
@@ -1271,13 +1271,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 telaChat.style.top =
                     `${deslocamentoSuperior}px`;
 
-                if (cabecalhoChat) {
-                    cabecalhoChat.style.transform =
-                        `translate3d(0, -${deslocamentoSuperior}px, 0)`;
 
-                    cabecalhoChat.style.transition =
-                        "none";
-                }
 
 
                 /*
@@ -1353,20 +1347,27 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
      */
     inputMsg.onfocus =
         () => {
-            /*
-             * Não força novos recálculos de viewport ao focar
-             * o input. No iOS, esses recálculos duplicados fazem
-             * o header piscar e se mover enquanto o teclado sobe.
-             * O listener existente de visualViewport já atualiza
-             * o layout no momento correto.
-             */
-            requestAnimationFrame(() => {
+            setTimeout(() => {
+                ajustarViewportChat();
+
+                requestAnimationFrame(() => {
+                    if (container) {
+                        container.scrollTop =
+                            container.scrollHeight;
+                    }
+                });
+            }, 100);
+
+            setTimeout(() => {
+                ajustarViewportChat();
+
                 if (container) {
                     container.scrollTop =
                         container.scrollHeight;
                 }
-            });
+            }, 350);
         };
+
 
 
     /*
