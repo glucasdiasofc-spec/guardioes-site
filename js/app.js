@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.134.0 - versão alpha";
+const VERSAO_ATUAL = "v0.135.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1236,35 +1236,51 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     /*
      * =====================================================
-     * AJUSTE ESTÁVEL DA SALA
+     * AJUSTE ESTÁVEL DA SALA E DO HEADER
      * =====================================================
      *
-     * A altura dinâmica é responsabilidade do 100dvh.
-     * Não recalcular visualViewport evita reposicionamentos
-     * durante a animação do teclado no iOS.
+     * A sala não acompanha o visualViewport. Somente o
+     * header acompanha o deslocamento visual do iOS para
+     * continuar visível acima do teclado.
      */
+    telaChat.style.top =
+        "0";
+
+    telaChat.style.height =
+        "100dvh";
+
+    if (
+        container &&
+        areaDeEscrita
+    ) {
+        container.style.top =
+            "60px";
+
+        container.style.bottom =
+            `${areaDeEscrita.offsetHeight}px`;
+    }
+
     const ajustarViewportChat =
         () => {
-            if (!telaChat) {
+            if (!cabecalhoChat) {
                 return;
             }
 
-            telaChat.style.top =
-                "0";
+            const viewport =
+                window.visualViewport;
 
-            telaChat.style.height =
-                "100dvh";
+            const topoVisivel =
+                viewport
+                    ? Math.max(
+                        0,
+                        Math.round(
+                            viewport.offsetTop
+                        )
+                    )
+                    : 0;
 
-            if (
-                container &&
-                areaDeEscrita
-            ) {
-                container.style.top =
-                    "60px";
-
-                container.style.bottom =
-                    `${areaDeEscrita.offsetHeight}px`;
-            }
+            cabecalhoChat.style.top =
+                `${topoVisivel}px`;
         };
 
     telaChat._ajustarViewportChat =
@@ -1272,8 +1288,22 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     ajustarViewportChat();
 
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener(
+            "resize",
+            ajustarViewportChat
+        );
+
+        window.visualViewport.addEventListener(
+            "scroll",
+            ajustarViewportChat
+        );
+    }
+
     inputMsg.onfocus =
         () => {
+            ajustarViewportChat();
+
             requestAnimationFrame(() => {
                 if (container) {
                     container.scrollTop =
