@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.117.0 - versão alpha";
+const VERSAO_ATUAL = "v0.118.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -434,12 +434,15 @@ function mudarSubAbaSite(abaAlvo) {
             // Fallback Imediato: Evita "piscar" uma imagem quebrada caso a rede demore
             avatarCriadorModal.src = avatarCriadorModal.src || window.AVATAR_USUARIO_PADRAO;
             
-            window.ClubeDB.textoDB.collection("membros").doc(usernameLogado).get()
-                .then(doc => {
-                    if (doc.exists) {
-                        const dados = doc.data();
-                        // Se o desbravador alterou a foto, pega a nova URL, do contrário renderiza o padrão global do admin
-                        avatarCriadorModal.src = dados.foto || window.AVATAR_USUARIO_PADRAO;
+            window.ClubeDB.textoDB.collection("usuarios")
+                .where("username", "==", usernameLogado)
+                .limit(1)
+                .get()
+                .then(snap => {
+                    if (!snap.empty) {
+                        const dados = snap.docs[0].data();
+                        // Ajustado para usar fotoUrl e a coleção correta (usuarios)
+                        avatarCriadorModal.src = normalizarUrlPublicacao(dados.fotoUrl || dados.foto) || window.AVATAR_USUARIO_PADRAO;
                     } else {
                         avatarCriadorModal.src = window.AVATAR_USUARIO_PADRAO;
                     }
@@ -449,6 +452,7 @@ function mudarSubAbaSite(abaAlvo) {
                     avatarCriadorModal.src = window.AVATAR_USUARIO_PADRAO;
                 });
         }
+
 
         if (typeof carregarPublicacoesFeed === "function") {
             carregarPublicacoesFeed();
@@ -8509,8 +8513,8 @@ function abrirCriadorPublicacao() {
     const avatarCriador =
         document.getElementById("criador-publicacao-avatar");
 
-    const avatarPerfil =
-        document.getElementById("perfil-usuario-avatar");
+    const usernameLogado =
+        localStorage.getItem("usernameLogado");
 
     if (!modal) {
         console.error(
@@ -8521,15 +8525,33 @@ function abrirCriadorPublicacao() {
     }
 
     /*
-     * Usa a mesma foto carregada no perfil.
+     * LÓGICA SÊNIOR: Sincroniza a foto do autor em tempo real ao abrir o modal,
+     * buscando diretamente na coleção de usuários para garantir que apareça.
      */
     if (
         avatarCriador &&
-        avatarPerfil &&
-        avatarPerfil.src
+        usernameLogado &&
+        window.ClubeDB &&
+        window.ClubeDB.textoDB
     ) {
-        avatarCriador.src =
-            avatarPerfil.src;
+        // Fallback imediato para evitar imagem vazia
+        avatarCriador.src = avatarCriador.src || window.AVATAR_USUARIO_PADRAO;
+
+        window.ClubeDB.textoDB
+            .collection("usuarios")
+            .where("username", "==", usernameLogado)
+            .limit(1)
+            .get()
+            .then((snap) => {
+                if (!snap.empty) {
+                    const dados = snap.docs[0].data() || {};
+                    const foto = normalizarUrlPublicacao(dados.fotoUrl || dados.foto) || window.AVATAR_USUARIO_PADRAO;
+                    avatarCriador.src = foto;
+                }
+            })
+            .catch((err) => {
+                console.error("Erro ao carregar avatar no modal:", err);
+            });
     }
 
     modal.style.display =
@@ -8546,6 +8568,7 @@ function abrirCriadorPublicacao() {
         }
     }, 50);
 }
+
 
 
 function fecharCriadorPublicacao() {
