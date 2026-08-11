@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.131.0 - versão alpha";
+const VERSAO_ATUAL = "v0.132.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -623,11 +623,10 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     if (!telaChat || !inputMsg) return;
 
-    // 1. Atualiza dados do contato
+    // 1. Dados do contato
     const nomeEl = document.getElementById("chat-nome-atual");
     const cargoEl = document.getElementById("chat-cargo-atual");
     const avatarEl = document.getElementById("chat-avatar-atual");
-
     if (nomeEl) nomeEl.textContent = nomeAlvo || "Usuário";
     if (cargoEl) cargoEl.textContent = cargoAlvo || "";
     if (avatarEl) {
@@ -635,7 +634,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
     }
 
-    // 2. Isolamento de Interface (Trava o fundo e esconde o site)
+    // 2. Isolamento Radical (Elimina micro-pulos e vazamentos)
     const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
     telaChat._backupBody = {
         overflow: document.body.style.overflow,
@@ -645,6 +644,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         htmlOverflow: document.documentElement.style.overflow
     };
 
+    // Esconde o site e trava o scroll no zero absoluto
     if (telaLista) telaLista.style.display = "none";
     const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
     if (siteHeader) siteHeader.style.visibility = "hidden";
@@ -658,7 +658,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     document.body.style.height = "100%";
     telaChat._scrollPos = scrollPos;
 
-    // 3. Configuração da Sala (Estática e Grampeada no Topo 0)
+    // 3. Configuração Estática (Header soldado no topo)
     telaChat.style.display = "flex";
     telaChat.style.flexDirection = "column";
     telaChat.style.position = "fixed";
@@ -683,14 +683,14 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.webkitOverflowScrolling = "touch";
     }
 
-    // 4. Sincronização Estática (Elimina o Pulo ao Abrir)
+    // 4. Sincronização Estática (O segredo da imobilidade)
     const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv && telaChat.style.display !== "none") {
-            // BLOQUEIO TOTAL: Forçamos o navegador a não rolar (impede o pulo do Safari)
+            // Neutralização forçada do scroll nativo do Safari (impede o pulo)
             if (window.scrollY !== 0) window.scrollTo(0, 0);
             
-            // O segredo: Mantemos o top em 0 sempre, e apenas encolhemos a altura
+            // Mantemos o top em 0 sempre. Apenas a altura da sala encolhe.
             telaChat.style.top = "0px";
             telaChat.style.height = `${vv.height}px`;
             
@@ -705,10 +705,10 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Neutralização Imediata do Foco
+    // 5. Neutralização do Foco (Garante que o header não suba nem desça)
     inputMsg.onfocus = () => {
         window.scrollTo(0, 0);
-        setTimeout(syncViewport, 10); // Executa quase instantaneamente
+        setTimeout(syncViewport, 5); // Resposta quase instantânea
     };
 
     // 6. Firebase Listener
@@ -734,7 +734,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 div.style.width = "100%";
                 div.style.marginBottom = "8px";
                 div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
-
                 const balao = document.createElement("div");
                 balao.textContent = msg.texto;
                 balao.style.maxWidth = "75%";
@@ -746,17 +745,12 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 balao.style.color = "#fff";
                 if (isMinha) balao.style.borderBottomRightRadius = "4px";
                 else balao.style.borderBottomLeftRadius = "4px";
-
                 div.appendChild(balao);
                 container.appendChild(div);
             });
             container.scrollTop = container.scrollHeight;
         });
 }
-
-
-
-
 
 
 
@@ -801,13 +795,6 @@ function fecharSalaChat() {
         unsubscribeChatAtivo = null;
     }
 }
-
-
-
-
-
-
-
 
 
 async function enviarMensagemChat() {
