@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.132.0 - versão alpha";
+const VERSAO_ATUAL = "v0.133.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -634,65 +634,49 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
     }
 
-    // 2. Isolamento Radical (Elimina micro-pulos e vazamentos)
+    // 2. Travamento de Viewport (O segredo contra o pulo do Safari)
     const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
-    telaChat._backupBody = {
-        overflow: document.body.style.overflow,
-        position: document.body.style.position,
-        top: document.body.style.top,
-        height: document.body.style.height,
-        htmlOverflow: document.documentElement.style.overflow
-    };
-
-    // Esconde o site e trava o scroll no zero absoluto
-    if (telaLista) telaLista.style.display = "none";
-    const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
-    if (siteHeader) siteHeader.style.visibility = "hidden";
-
+    telaChat._scrollPos = scrollPos;
+    
+    // Trava o HTML e o Body para que o Safari não tenha "espaço" para rolar
+    document.documentElement.style.height = "100%";
     document.documentElement.style.overflow = "hidden";
-    document.body.style.backgroundColor = "#000";
+    document.body.style.height = "100%";
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
     document.body.style.top = `-${scrollPos}px`;
     document.body.style.width = "100%";
-    document.body.style.height = "100%";
-    telaChat._scrollPos = scrollPos;
 
-    // 3. Configuração Estática (Header soldado no topo)
+    // 3. Configuração da Sala (Camada Absoluta sobre o Body travado)
     telaChat.style.display = "flex";
     telaChat.style.flexDirection = "column";
     telaChat.style.position = "fixed";
-    telaChat.style.top = "0"; // NUNCA MUDA
+    telaChat.style.top = "0";
     telaChat.style.left = "0";
     telaChat.style.width = "100%";
     telaChat.style.height = "100%";
     telaChat.style.zIndex = "2147483647";
     telaChat.style.backgroundColor = "#000";
-    telaChat.style.overflow = "hidden";
-
+    
     if (cabecalhoChat) {
-        cabecalhoChat.style.position = "relative";
+        cabecalhoChat.style.position = "sticky";
         cabecalhoChat.style.top = "0";
-        cabecalhoChat.style.flexShrink = "0";
         cabecalhoChat.style.zIndex = "10";
     }
 
-    if (container) {
-        container.style.flex = "1";
-        container.style.overflowY = "auto";
-        container.style.webkitOverflowScrolling = "touch";
-    }
-
-    // 4. Sincronização Estática (O segredo da imobilidade)
+    // 4. Sincronização Dinâmica (Compensa o deslocamento do teclado sem "pular")
     const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv && telaChat.style.display !== "none") {
-            // Neutralização forçada do scroll nativo do Safari (impede o pulo)
+            // Se o Safari tentar rolar, nós forçamos a volta imediata
             if (window.scrollY !== 0) window.scrollTo(0, 0);
+
+            // Ajustamos a altura da sala para o espaço visível
+            telaChat.style.height = vv.height + "px";
             
-            // Mantemos o top em 0 sempre. Apenas a altura da sala encolhe.
-            telaChat.style.top = "0px";
-            telaChat.style.height = `${vv.height}px`;
+            // O PULO ACONTECE AQUI: Em vez de mudar o 'top', usamos transform 
+            // para mover a tela na mesma medida que o Safari tentou rolar o viewport.
+            telaChat.style.transform = `translateY(${vv.offsetTop}px)`;
             
             if (container) container.scrollTop = container.scrollHeight;
         }
@@ -705,10 +689,11 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Neutralização do Foco (Garante que o header não suba nem desça)
+    // 5. Interceptação de Foco
     inputMsg.onfocus = () => {
-        window.scrollTo(0, 0);
-        setTimeout(syncViewport, 5); // Resposta quase instantânea
+        // Pequeno delay para sincronizar com a animação nativa do teclado
+        requestAnimationFrame(syncViewport);
+        setTimeout(syncViewport, 50);
     };
 
     // 6. Firebase Listener
@@ -755,6 +740,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
 
 
+
 function fecharSalaChat() {
     const telaChat = document.getElementById("tela-sala-chat");
     const telaLista = document.getElementById("tela-lista-mensagens");
@@ -769,21 +755,18 @@ function fecharSalaChat() {
         telaChat._vvSync = null;
     }
 
-    // 2. Restaura o Estado do Site
-    if (telaChat && telaChat._backupBody) {
-        document.documentElement.style.overflow = telaChat._backupBody.htmlOverflow || "";
-        document.body.style.overflow = telaChat._backupBody.overflow;
-        document.body.style.position = telaChat._backupBody.position;
-        document.body.style.top = telaChat._backupBody.top;
-        document.body.style.height = telaChat._backupBody.height;
-        
-        const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
-        if (siteHeader) siteHeader.style.visibility = "visible";
-    }
+    // 2. Restaura o Estado do Site (Libera o scroll)
+    document.documentElement.style.height = "";
+    document.documentElement.style.overflow = "";
+    document.body.style.height = "";
+    document.body.style.overflow = "";
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.width = "";
 
     if (telaChat) {
         telaChat.style.display = "none";
-        telaChat.style.top = "0";
+        telaChat.style.transform = "none";
         window.scrollTo(0, telaChat._scrollPos || 0);
     }
     
@@ -795,6 +778,7 @@ function fecharSalaChat() {
         unsubscribeChatAtivo = null;
     }
 }
+
 
 
 async function enviarMensagemChat() {
