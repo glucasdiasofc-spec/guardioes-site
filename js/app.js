@@ -673,6 +673,11 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     telaChat.style.zIndex = "2147483647";
     telaChat.style.backgroundColor = "#000";
     telaChat.style.overflow = "hidden";
+    // Transition curta: é ELA quem absorve os vários eventos de resize/scroll que o
+    // iOS dispara durante a animação do teclado, transformando os "saltos" abruptos
+    // em uma interpolação suave — sem isso, cada evento aplicava o novo height/transform
+    // instantaneamente, e era isso que parecia pulo/piscada.
+    telaChat.style.transition = "height 0.15s ease-out, transform 0.15s ease-out";
 
     if (cabecalhoChat) {
         cabecalhoChat.style.position = "relative";
@@ -687,34 +692,41 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.webkitOverflowScrolling = "touch";
     }
 
-    // 4. Sincronização do Viewport — SÓ cuida da rolagem das mensagens.
-    // O <meta viewport> já tem "interactive-widget=resizes-content", ou seja, o
-    // PRÓPRIO Safari já redimensiona o layout viewport (e o height:100% da
-    // telaChat) de forma nativa, suave e sincronizada com a animação do teclado.
-    // Forçar telaChat.style.height / transform aqui via JS estava competindo com
-    // esse redimensionamento nativo — dois ajustes de altura acontecendo ao mesmo
-    // tempo, em ritmos diferentes — e ERA ISSO que causava o header pulando/
-    // piscando ao abrir. Agora não tocamos mais na altura nem no transform da
-    // telaChat: o header (flex-shrink:0) fica 100% parado no topo, e o rodapé com
-    // o input (também flex-shrink:0, último item do flex column) sobe sozinho
-    // junto com o teclado, porque é o navegador quem encolhe a telaChat.
+    // 4. Sincronização do Viewport (altura + posição), suavizada pela transition do passo 3.
+    // vv.height define quanto espaço sobra ACIMA do teclado (sem isso o container de
+    // mensagens não encolhia e o conteúdo ficava escondido atrás do teclado).
+    // vv.offsetTop compensa o deslocamento que o iOS aplica ao visual viewport ao
+    // focar o input (sem isso o header ficava fora da área visível, exigindo rolar
+    // pra cima pra vê-lo). Os dois SÃO necessários — o que gerava o pulo/piscada era
+    // aplicá-los sem suavização; agora a transition (passo 3) interpola cada mudança,
+    // então os vários eventos disparados durante a animação do teclado viram um único
+    // movimento fluido em vez de saltos.
     const syncViewport = () => {
-        if (telaChat.style.display !== "none" && container) {
-            container.scrollTop = container.scrollHeight;
+        const vv = window.visualViewport;
+        if (vv && telaChat.style.display !== "none") {
+            // Neutraliza o scroll nativo do Safari (impede o pulo da tela toda)
+            if (window.scrollY !== 0) window.scrollTo(0, 0);
+
+            telaChat.style.height = vv.height + "px";
+            telaChat.style.transform = `translateY(${vv.offsetTop}px)`;
+
+            if (container) container.scrollTop = container.scrollHeight;
         }
     };
 
     if (window.visualViewport) {
         window.visualViewport.addEventListener("resize", syncViewport);
+        window.visualViewport.addEventListener("scroll", syncViewport);
         telaChat._vvSync = syncViewport;
     }
     syncViewport();
 
-    // 5. Ao focar o input, só garante que a última mensagem continue visível.
-    // Sem scrollTo/transform forçado — é isso que deixa a subida do teclado lisa,
-    // cuidada inteiramente pelo navegador via interactive-widget=resizes-content.
+    // 5. Interceptação de Foco — só neutraliza o scroll nativo do Safari.
+    // Não chama syncViewport() manualmente aqui: os listeners de "resize"/"scroll"
+    // do visualViewport (passo 4) já vão disparar sozinhos assim que o teclado
+    // começar a animar, e a transition cuida da suavização.
     inputMsg.onfocus = () => {
-        requestAnimationFrame(syncViewport);
+        if (window.scrollY !== 0) window.scrollTo(0, 0);
     };
 }
 
@@ -756,6 +768,8 @@ function fecharSalaChat() {
     if (telaChat) {
         telaChat.style.display = "none";
         telaChat.style.top = "0";
+        telaChat.style.transform = "";
+        telaChat.style.transition = "";
         window.scrollTo(0, telaChat._scrollPos || 0);
     }
     
