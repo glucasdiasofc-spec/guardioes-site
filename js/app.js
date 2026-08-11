@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.124.0 - versão alpha";
+const VERSAO_ATUAL = "v0.125.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -623,7 +623,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     if (!telaChat || !inputMsg) return;
 
-    // 1. Atualiza dados do contato no cabeçalho
+    // 1. Atualiza dados do contato
     const nomeEl = document.getElementById("chat-nome-atual");
     const cargoEl = document.getElementById("chat-cargo-atual");
     const avatarEl = document.getElementById("chat-avatar-atual");
@@ -635,56 +635,79 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
     }
 
-    // 2. Trava o scroll do fundo (body) para evitar que a página suba no iOS
-    const scrollAtual = window.pageYOffset || document.documentElement.scrollTop;
+    // 2. Isolamento Total do Site (Evita ver o fundo ou rolar o site atrás)
+    const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
+    telaChat._backupStyle = {
+        overflow: document.body.style.overflow,
+        position: document.body.style.position,
+        top: document.body.style.top,
+        width: document.body.style.width,
+        height: document.body.style.height
+    };
+
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollAtual}px`;
+    document.body.style.top = `-${scrollPos}px`;
     document.body.style.width = "100%";
-    telaChat._scrollPos = scrollAtual;
+    document.body.style.height = "100%";
+    telaChat._scrollPos = scrollPos;
 
-    // 3. Configura a Sala como uma "Nova Página" (Overlay Fixo)
+    // 3. Configuração Profissional do Container de Chat
     telaChat.style.display = "flex";
+    telaChat.style.flexDirection = "column";
     telaChat.style.position = "fixed";
-    telaChat.style.top = "0";
     telaChat.style.left = "0";
     telaChat.style.width = "100%";
-    telaChat.style.height = "100%";
-    telaChat.style.zIndex = "100000";
+    telaChat.style.zIndex = "2147483647"; // Máximo possível
     telaChat.style.backgroundColor = "#000";
+    telaChat.style.boxSizing = "border-box";
+    telaChat.style.margin = "0";
+    telaChat.style.padding = "0";
 
-    // 4. Lógica de Teclado Inteligente (iOS/Android)
-    const ajustarLayout = () => {
+    // Reset de estilos internos para garantir consistência
+    if (cabecalhoChat) {
+        cabecalhoChat.style.position = "relative";
+        cabecalhoChat.style.top = "0";
+        cabecalhoChat.style.flexShrink = "0";
+        cabecalhoChat.style.zIndex = "10";
+    }
+    if (container) {
+        container.style.flex = "1";
+        container.style.overflowY = "auto";
+        container.style.webkitOverflowScrolling = "touch";
+    }
+
+    // 4. Sincronização em Tempo Real com o Viewport (Correção iOS)
+    const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv) {
-            // Ajusta a altura da sala para o espaço visível (acima do teclado)
+            // Ajusta a altura exata para o que o usuário vê (descontando o teclado)
             telaChat.style.height = `${vv.height}px`;
-            // Garante que a sala comece no topo do viewport, ignorando o scroll do sistema
+            // Move o container para acompanhar o "pulo" do Safari
             telaChat.style.top = `${vv.offsetTop}px`;
+            
+            // Força o scroll para o fim se o teclado abrir
+            if (container) container.scrollTop = container.scrollHeight;
         }
     };
 
     if (window.visualViewport) {
-        window.visualViewport.addEventListener("resize", ajustarLayout);
-        window.visualViewport.addEventListener("scroll", ajustarLayout);
-        telaChat._vvAjuste = ajustarLayout;
+        window.visualViewport.addEventListener("resize", syncViewport);
+        window.visualViewport.addEventListener("scroll", syncViewport);
+        telaChat._vvSync = syncViewport;
     }
-    ajustarLayout();
+    syncViewport();
 
-    // 5. Scroll automático ao focar no campo de texto
+    // 5. Tratamento de Foco
     inputMsg.onfocus = () => {
-        setTimeout(() => {
-            ajustarLayout();
-            if (container) container.scrollTop = container.scrollHeight;
-        }, 300);
+        setTimeout(syncViewport, 100);
+        setTimeout(syncViewport, 300); // Garante após animação do teclado
     };
 
-    // 6. Conexão com Firebase (Mensagens)
+    // 6. Firebase Listener
     if (unsubscribeChatAtivo) unsubscribeChatAtivo();
-
-    if (container) {
-        container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando ao chat protegido...</p>";
-    }
+    if (container) container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando...</p>";
 
     const meuUsername = localStorage.getItem("usernameLogado");
     const chatId = [meuUsername, usernameAlvo].sort().join("_");
@@ -697,10 +720,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         .onSnapshot(snapshot => {
             if (!container) return;
             container.innerHTML = "";
-            if (snapshot.empty) {
-                container.innerHTML = `<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Envie a primeira mensagem para ${nomeAlvo}.</p>`;
-                return;
-            }
             snapshot.forEach(doc => {
                 const msg = doc.data();
                 const isMinha = msg.remetente === meuUsername;
@@ -738,23 +757,28 @@ function fecharSalaChat() {
     if (inputMsg) inputMsg.blur();
 
     // 1. Remove listeners do viewport
-    if (telaChat && telaChat._vvAjuste && window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", telaChat._vvAjuste);
-        window.visualViewport.removeEventListener("scroll", telaChat._vvAjuste);
-        telaChat._vvAjuste = null;
+    if (telaChat && telaChat._vvSync && window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", telaChat._vvSync);
+        window.visualViewport.removeEventListener("scroll", telaChat._vvSync);
+        telaChat._vvSync = null;
     }
 
-    // 2. Esconde a sala e restaura a lista
-    if (telaChat) telaChat.style.display = "none";
-    if (telaLista) telaLista.style.display = "flex";
+    // 2. Restaura o Estado do Site
+    if (telaChat && telaChat._backupStyle) {
+        document.documentElement.style.overflow = "";
+        document.body.style.overflow = telaChat._backupStyle.overflow;
+        document.body.style.position = telaChat._backupStyle.position;
+        document.body.style.top = telaChat._backupStyle.top;
+        document.body.style.width = telaChat._backupStyle.width;
+        document.body.style.height = telaChat._backupStyle.height;
+    }
 
-    // 3. Destrava o scroll do body e volta para a posição original
-    const scrollOriginal = (telaChat && telaChat._scrollPos) || 0;
-    document.body.style.overflow = "";
-    document.body.style.position = "";
-    document.body.style.top = "";
-    document.body.style.width = "";
-    window.scrollTo(0, scrollOriginal);
+    if (telaChat) {
+        telaChat.style.display = "none";
+        window.scrollTo(0, telaChat._scrollPos || 0);
+    }
+    
+    if (telaLista) telaLista.style.display = "flex";
 
     usuarioChatDestino = null;
     if (unsubscribeChatAtivo) {
