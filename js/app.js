@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.144.0 - versão alpha";
+const VERSAO_ATUAL = "v0.128.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -485,46 +485,8 @@ function mudarSubAbaSite(abaAlvo) {
 // ==========================================
 // LÓGICA DE MENSAGENS / CHAT DIRECT
 // ==========================================
-unsubscribeChatAtivo = window.ClubeDB.textoDB
-        .collection("chats")
-        .doc(chatId)
-        .collection("mensagens")
-        .orderBy("timestamp", "asc")
-        .onSnapshot(snapshot => {
-            if (!container) return;
-            container.innerHTML = "";
-            snapshot.forEach(doc => {
-                const msg = doc.data();
-                const isMinha = msg.remetente === meuUsername;
-                const div = document.createElement("div");
-                div.style.display = "flex";
-                div.style.width = "100%";
-                div.style.marginBottom = "8px";
-                div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
-                const balao = document.createElement("div");
-                balao.textContent = msg.texto;
-                balao.style.maxWidth = "75%";
-                balao.style.padding = "10px 14px";
-                balao.style.borderRadius = "18px";
-                balao.style.fontSize = "14px";
-                balao.style.wordBreak = "break-word";
-                balao.style.background = isMinha ? "#0095f6" : "#262626";
-                balao.style.color = "#fff";
-                if (isMinha) balao.style.borderBottomRightRadius = "4px";
-                else balao.style.borderBottomLeftRadius = "4px";
-                div.appendChild(balao);
-                container.appendChild(div);
-            });
-            container.scrollTop = container.scrollHeight;
-        }, erro => {
-            // Se cair aqui (ex.: regra de permissão do Firestore negando a leitura),
-            // hoje isso falhava em silêncio e a tela ficava travada em "Conectando...".
-            console.error("Erro ao carregar mensagens do chat:", erro);
-            if (container) {
-                container.innerHTML = `<p style="color:#ff6b6b; text-align:center; margin-top:20px; font-size:12px;">Erro ao carregar mensagens: ${erro.message}</p>`;
-            }
-        });
-
+let unsubscribeChatAtivo = null;
+let usuarioChatDestino = null;
 
 async function carregarListaDeContatosChat() {
     const usernameLogado = localStorage.getItem("usernameLogado");
@@ -665,6 +627,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     const nomeEl = document.getElementById("chat-nome-atual");
     const cargoEl = document.getElementById("chat-cargo-atual");
     const avatarEl = document.getElementById("chat-avatar-atual");
+
     if (nomeEl) nomeEl.textContent = nomeAlvo || "Usuário";
     if (cargoEl) cargoEl.textContent = cargoAlvo || "";
     if (avatarEl) {
@@ -672,35 +635,29 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
     }
 
-    // 2. Isolamento Total de Viewport (O segredo para eliminar o pulo da tela toda)
+    // 2. Isolamento de Interface (Oculta o site e trava o fundo)
     const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
-    telaChat._scrollPos = scrollPos;
-    
-    // Backup e travamento agressivo do HTML e Body
     telaChat._backupBody = {
         overflow: document.body.style.overflow,
         position: document.body.style.position,
         top: document.body.style.top,
-        height: document.body.style.height,
-        htmlHeight: document.documentElement.style.height,
-        htmlOverflow: document.documentElement.style.overflow
+        height: document.body.style.height
     };
 
-    document.documentElement.style.height = "100%";
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.height = "100%";
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollPos}px`;
-    document.body.style.width = "100%";
-    document.body.style.backgroundColor = "#000";
-
-    // Oculta o site atrás para garantir zero vazamento visual
+    // Esconde fisicamente a lista e o header do site para não haver "vazamento" visual
     if (telaLista) telaLista.style.display = "none";
     const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
     if (siteHeader) siteHeader.style.visibility = "hidden";
 
-    // 3. Configuração da Sala (Camada Estática Inabalável)
+    document.body.style.backgroundColor = "#000";
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollPos}px`;
+    document.body.style.width = "100%";
+    document.body.style.height = "100%";
+    telaChat._scrollPos = scrollPos;
+
+    // 3. Configuração do Container de Chat (Fixo e Imóvel no topo)
     telaChat.style.display = "flex";
     telaChat.style.flexDirection = "column";
     telaChat.style.position = "fixed";
@@ -711,12 +668,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     telaChat.style.zIndex = "2147483647";
     telaChat.style.backgroundColor = "#000";
     telaChat.style.overflow = "hidden";
-    // Transition SÓ no transform (barato, GPU). Tirei "height" da transition:
-    // transicionar height num pai com overflow:hidden é o que provavelmente estava
-    // fazendo o Safari parar de repintar o filho com scroll próprio (container de
-    // mensagens) — um bug conhecido do iOS, o conteúdo existe no DOM mas não é
-    // desenhado até algo forçar o repaint.
-    telaChat.style.transition = "transform 0.15s ease-out";
+    telaChat.style.transform = "none"; // Remove qualquer transformação anterior
 
     if (cabecalhoChat) {
         cabecalhoChat.style.position = "relative";
@@ -729,22 +681,20 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.flex = "1";
         container.style.overflowY = "auto";
         container.style.webkitOverflowScrolling = "touch";
-        // Camada de composição própria: isola o container do repaint do pai,
-        // evitando que ele "suma" durante a animação do teclado.
-        container.style.transform = "translateZ(0)";
-        container.style.willChange = "scroll-position";
     }
 
-    // 4. Sincronização do Viewport (altura + posição), suavizada pela transition do passo 3.
+    // 4. Sincronização Estrita do Viewport (Evita que o header suba)
     const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv && telaChat.style.display !== "none") {
-            // Neutraliza o scroll nativo do Safari (impede o pulo da tela toda)
-            if (window.scrollY !== 0) window.scrollTo(0, 0);
-
-            telaChat.style.height = vv.height + "px";
-            telaChat.style.transform = `translateY(${vv.offsetTop}px)`;
-
+            // Forçamos o navegador a não rolar a página (o que faria o header sumir)
+            window.scrollTo(0, 0);
+            
+            // Mantemos o container sempre no topo visível
+            telaChat.style.top = "0px";
+            // Ajustamos a altura para o espaço que sobra acima do teclado
+            telaChat.style.height = `${vv.height}px`;
+            
             if (container) container.scrollTop = container.scrollHeight;
         }
     };
@@ -756,35 +706,54 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Interceptação de Foco/Blur — dispara UMA vez por abertura/fechamento do
-    // teclado, de forma determinística (nada de medir altura, que é instável
-    // durante a animação e fazia o brilho ligar "de vez em quando").
+    // 5. Tratamento de Foco (Sincronização imediata)
     inputMsg.onfocus = () => {
-        if (window.scrollY !== 0) window.scrollTo(0, 0);
-        if (cabecalhoChat) cabecalhoChat.classList.add("chat-teclado-ativo");
+        syncViewport();
+        setTimeout(syncViewport, 100);
     };
 
-    inputMsg.onblur = () => {
-        if (cabecalhoChat) {
-            cabecalhoChat.classList.remove("chat-teclado-ativo", "chat-tecla-apagar");
-        }
-    };
+    // 6. Firebase Listener
+    if (unsubscribeChatAtivo) unsubscribeChatAtivo();
+    if (container) container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando...</p>";
 
-    // 6. Efeito de "apagar": Backspace/Delete pisca o brilho em vermelho e volta
-    // sozinho pro verde logo em seguida.
-    inputMsg.onkeydown = (evento) => {
-        if (cabecalhoChat && (evento.key === "Backspace" || evento.key === "Delete")) {
-            cabecalhoChat.classList.add("chat-tecla-apagar");
-            clearTimeout(cabecalhoChat._apagarTimeout);
-            cabecalhoChat._apagarTimeout = setTimeout(() => {
-                cabecalhoChat.classList.remove("chat-tecla-apagar");
-            }, 220);
-        }
-    };
+    const meuUsername = localStorage.getItem("usernameLogado");
+    const chatId = [meuUsername, usernameAlvo].sort().join("_");
+
+    unsubscribeChatAtivo = window.ClubeDB.textoDB
+        .collection("chats")
+        .doc(chatId)
+        .collection("mensagens")
+        .orderBy("timestamp", "asc")
+        .onSnapshot(snapshot => {
+            if (!container) return;
+            container.innerHTML = "";
+            snapshot.forEach(doc => {
+                const msg = doc.data();
+                const isMinha = msg.remetente === meuUsername;
+                const div = document.createElement("div");
+                div.style.display = "flex";
+                div.style.width = "100%";
+                div.style.marginBottom = "8px";
+                div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
+
+                const balao = document.createElement("div");
+                balao.textContent = msg.texto;
+                balao.style.maxWidth = "75%";
+                balao.style.padding = "10px 14px";
+                balao.style.borderRadius = "18px";
+                balao.style.fontSize = "14px";
+                balao.style.wordBreak = "break-word";
+                balao.style.background = isMinha ? "#0095f6" : "#262626";
+                balao.style.color = "#fff";
+                if (isMinha) balao.style.borderBottomRightRadius = "4px";
+                else balao.style.borderBottomLeftRadius = "4px";
+
+                div.appendChild(balao);
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        });
 }
-
-
-
 
 
 
@@ -795,15 +764,8 @@ function fecharSalaChat() {
     const telaChat = document.getElementById("tela-sala-chat");
     const telaLista = document.getElementById("tela-lista-mensagens");
     const inputMsg = document.getElementById("input-nova-mensagem");
-    const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
 
     if (inputMsg) inputMsg.blur();
-
-    // Retira o brilho do header. A transição de "opacity" já definida no CSS
-    // cuida da animação de saída sozinha — o header em si não se move.
-    if (cabecalhoChat) {
-        cabecalhoChat.classList.remove("chat-teclado-ativo", "chat-tecla-apagar");
-    }
 
     // 1. Remove listeners do viewport
     if (telaChat && telaChat._vvSync && window.visualViewport) {
@@ -814,8 +776,6 @@ function fecharSalaChat() {
 
     // 2. Restaura o Estado do Site
     if (telaChat && telaChat._backupBody) {
-        document.documentElement.style.height = telaChat._backupBody.htmlHeight || "";
-        document.documentElement.style.overflow = telaChat._backupBody.htmlOverflow || "";
         document.body.style.overflow = telaChat._backupBody.overflow;
         document.body.style.position = telaChat._backupBody.position;
         document.body.style.top = telaChat._backupBody.top;
@@ -827,9 +787,7 @@ function fecharSalaChat() {
 
     if (telaChat) {
         telaChat.style.display = "none";
-        telaChat.style.top = "0";
-        telaChat.style.transform = "";
-        telaChat.style.transition = "";
+        telaChat.style.transform = "none";
         window.scrollTo(0, telaChat._scrollPos || 0);
     }
     
@@ -10124,19 +10082,3 @@ async function abrirComentariosPublicacao(
         }
     );
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-    const inputMsg = document.getElementById("input-nova-mensagem");
-    const containerMsg = document.getElementById("chat-mensagens-container");
-
-    if (inputMsg && containerMsg) {
-        inputMsg.addEventListener("focus", () => {
-            setTimeout(() => {
-                containerMsg.scrollTo({
-                    top: containerMsg.scrollHeight,
-                    behavior: "smooth"
-                });
-            }, 100);
-        });
-    }
-});

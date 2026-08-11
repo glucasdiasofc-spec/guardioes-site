@@ -3,7 +3,7 @@
 <head>
     <!-- === CATEGORIA 1: CONFIGURAÇÕES E RESPONSIVIDADE MULTIPLATAFORMA === -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Clube Guardiões</title>
 
     <!-- Manifesto PWA para Android e PC -->
@@ -1248,83 +1248,6 @@
                     border-radius: 0;
                 }
             }
-
-            /* ================================================
-               BRILHO DO HEADER DO CHAT (liga com teclado aberto)
-               ================================================ */
-            #cabecalho-sala-chat {
-                position: relative;
-            }
-
-            /* Moldura fina e ESTÁTICA — sempre no lugar, envolve toda a borda */
-            #cabecalho-sala-chat::before {
-                content: "";
-                position: absolute;
-                inset: -6px;
-                border-radius: 14px;
-                padding: 2px;
-                background: rgba(0, 255, 136, 0.35);
-                -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                -webkit-mask-composite: xor;
-                mask-composite: exclude;
-                opacity: 0;
-                pointer-events: none;
-                transition: opacity 0.4s ease, background 0.25s ease;
-            }
-
-            /* Luz brilhante que PERCORRE a moldura sem parar, escapando das bordas */
-            #cabecalho-sala-chat::after {
-                content: "";
-                position: absolute;
-                inset: -6px;
-                border-radius: 14px;
-                padding: 3px;
-                background: conic-gradient(
-                    from 0deg,
-                    transparent 0%,
-                    transparent 78%,
-                    #baffde 86%,
-                    #00ff88 90%,
-                    #baffde 94%,
-                    transparent 100%
-                );
-                -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                -webkit-mask-composite: xor;
-                mask-composite: exclude;
-                opacity: 0;
-                pointer-events: none;
-                filter: drop-shadow(0 0 4px #00ff88);
-                transition: opacity 0.4s ease;
-                animation: chatHeaderLuzViajante 2.4s linear infinite;
-            }
-
-            /* Teclado aberto: moldura + luz visíveis */
-            #cabecalho-sala-chat.chat-teclado-ativo::before,
-            #cabecalho-sala-chat.chat-teclado-ativo::after {
-                opacity: 1;
-            }
-
-            /* Backspace/Delete: tudo pisca vermelho por um instante */
-            #cabecalho-sala-chat.chat-tecla-apagar::before {
-                background: rgba(255, 59, 59, 0.35);
-            }
-            #cabecalho-sala-chat.chat-tecla-apagar::after {
-                background: conic-gradient(
-                    from 0deg,
-                    transparent 0%,
-                    transparent 78%,
-                    #ffc2c2 86%,
-                    #ff3b3b 90%,
-                    #ffc2c2 94%,
-                    transparent 100%
-                );
-                filter: drop-shadow(0 0 5px #ff3b3b);
-            }
-
-            @keyframes chatHeaderLuzViajante {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-            }
         </style>
 
         <section id="tela-site" class="secao-app" style="display: none; flex-direction: column; background-color: #000; height: 100dvh; max-height: 100vh; overflow: hidden; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
@@ -1822,9 +1745,9 @@
                 </div>
 
                 <!-- Sala de Chat -->
-                <div id="tela-sala-chat" style="display: none; flex-direction: column; height: 100dvh; background: #000; position: fixed; inset: 0; width: 100%; z-index: 99999; overflow: hidden; transform: translateZ(0); -webkit-transform: translateZ(0);">
+                <div id="tela-sala-chat" style="display: none; flex-direction: column; height: 100%; background: #000; position: fixed; inset: 0; width: 100%; z-index: 99999; overflow: hidden;">
                 <!-- Header do Chat -->
-                   <div id="cabecalho-sala-chat" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #262626; background: #000; height: 60px; box-sizing: border-box; flex-shrink: 0; width: 100%;">
+                   <div id="cabecalho-sala-chat" style="position: fixed; top: 0; left: 0; right: 0; z-index: 100000; display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #262626; background: #000; height: 60px; box-sizing: border-box; flex-shrink: 0;">
                         <button onclick="fecharSalaChat()" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; padding: 0;">⬅</button>
                         <div style="display: flex; align-items: center; text-align: right; gap: 12px;">
                             <div>
@@ -1836,12 +1759,12 @@
                     </div>
                     
                     <!-- Area de Mensagens -->
-                    <div id="chat-mensagens-container" style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #000; min-height: 0; -webkit-overflow-scrolling: touch;">
+                    <div id="chat-mensagens-container" style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #000; min-height: 200px;">
                         <!-- Balões renderizados via JS -->
                     </div>
                     
                     <!-- Input Fixo no Rodapé do Chat -->
-                    <div style="padding: 8px 12px; border-top: 1px solid #262626; background: #000; display: flex; gap: 8px; align-items: center; flex-shrink: 0; width: 100%; box-sizing: border-box;">
+                    <div style="padding: 8px 12px; border-top: 1px solid #262626; background: #000; display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
                         <input type="text" id="input-nova-mensagem" onkeypress="if(event.key === 'Enter') enviarMensagemChat()" placeholder="Mensagem..." style="flex: 1; background: #262626; border: 1px solid #363636; border-radius: 20px; padding: 8px 12px; color: #fff; font-size: 14px; outline: none;">
                         <button onclick="enviarMensagemChat()" style="background: none; border: none; color: #0095f6; font-weight: bold; font-size: 14px; cursor: pointer; padding: 0;">Enviar</button>
                     </div>
