@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.121.0 - versão alpha";
+const VERSAO_ATUAL = "v0.122.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -701,10 +701,26 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     /*
      * Bloqueia somente o scroll da página principal.
+     *
+     * IMPORTANTE PARA O iOS:
+     * Guardamos a posição atual do scroll antes de travar o
+     * body. Sem isso, ao fechar o chat, o Safari no iOS reseta
+     * a página para o topo em vez de voltar para onde o usuário
+     * estava — o que nunca acontece no WhatsApp.
      */
+    const scrollAtualAntesDoChat =
+        window.scrollY ||
+        document.documentElement.scrollTop ||
+        0;
+
+    telaChat._scrollYAnterior =
+        scrollAtualAntesDoChat;
+
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
     document.body.style.width = "100%";
+    document.body.style.top = `-${scrollAtualAntesDoChat}px`;
+
 
     /*
      * =====================================================
@@ -1239,6 +1255,24 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
      * AJUSTE DO VIEWPORT / TECLADO
      * =====================================================
      */
+        /*
+     * =====================================================
+     * CORREÇÃO PARA iOS (COMPORTAMENTO IDÊNTICO AO WHATSAPP)
+     * =====================================================
+     *
+     * O bug do header "pulando" ao abrir/fechar o chat no iOS
+     * era causado por esta função tentar corrigir a posição da
+     * sala usando "viewport.offsetTop".
+     *
+     * O Safari no iOS dispara os eventos "resize" e "scroll" do
+     * visualViewport de forma independente e fora de ordem. Isso
+     * fazia a sala (telaChat) mover o "top" em um momento e a
+     * altura mudar em outro, criando um pulo visual no header.
+     *
+     * O WhatsApp resolve isso de um jeito muito mais simples:
+     * a tela FICA SEMPRE FIXA NO TOPO (top: 0). Somente a altura
+     * acompanha o teclado. É exatamente isso que fazemos agora.
+     */
     const ajustarViewportChat =
         () => {
             if (!telaChat) {
@@ -1248,60 +1282,49 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             const viewport =
                 window.visualViewport;
 
-            if (viewport) {
-                const alturaVisivel =
-                    Math.max(
-                        1,
-                        Math.round(
-                            viewport.height
-                        )
-                    );
+            const alturaVisivel = viewport
+                ? Math.max(
+                    1,
+                    Math.round(
+                        viewport.height
+                    )
+                )
+                : window.innerHeight;
 
-                const deslocamentoSuperior =
-                    Math.max(
-                        0,
-                        Math.round(
-                            viewport.offsetTop
-                        )
-                    );
+            /*
+             * A sala NUNCA muda de posição.
+             * Apenas a altura é ajustada — exatamente como o
+             * teclado "empurra" a tela de baixo para cima no
+             * WhatsApp, sem mover o header.
+             */
+            telaChat.style.top =
+                "0";
 
-                telaChat.style.height =
-                    `${alturaVisivel}px`;
+            telaChat.style.height =
+                `${alturaVisivel}px`;
 
-                telaChat.style.top =
-                    `${deslocamentoSuperior}px`;
+            /*
+             * Mantém a caixa de mensagens sempre imediatamente
+             * acima da barra de digitação. A altura dessa barra
+             * não é afetada pelo teclado, apenas pela área segura
+             * do aparelho (notch / home indicator), por isso pode
+             * ser recalculada aqui sem gerar instabilidade.
+             */
+            if (
+                container &&
+                areaDeEscrita
+            ) {
+                const alturaInput =
+                    areaDeEscrita.offsetHeight || 60;
 
-                /*
-                 * Mantém a caixa de mensagem
-                 * sempre imediatamente acima
-                 * da barra de digitação.
-                 */
-                if (
-                    container &&
-                    areaDeEscrita
-                ) {
-                    const alturaInput =
-                        areaDeEscrita.offsetHeight;
+                container.style.top =
+                    "60px";
 
-                    container.style.top =
-                        "60px";
-
-                    container.style.bottom =
-                        `${alturaInput}px`;
-                }
-            } else {
-                telaChat.style.height =
-                    `${window.innerHeight}px`;
-
-                if (
-                    container &&
-                    areaDeEscrita
-                ) {
-                    container.style.bottom =
-                        `${areaDeEscrita.offsetHeight}px`;
-                }
+                container.style.bottom =
+                    `${alturaInput}px`;
             }
         };
+
 
     telaChat._ajustarViewportChat =
         ajustarViewportChat;
@@ -1628,7 +1651,14 @@ function fecharSalaChat() {
     /*
      * Restaura o comportamento normal
      * da página.
+     *
+     * Também devolve o scroll exatamente para onde o usuário
+     * estava antes de abrir o chat — igual ao comportamento do
+     * WhatsApp ao voltar para a lista de conversas.
      */
+    const scrollParaRestaurar =
+        (telaChat && telaChat._scrollYAnterior) || 0;
+
     document.body.style.overflow =
         "";
 
@@ -1638,8 +1668,18 @@ function fecharSalaChat() {
     document.body.style.width =
         "";
 
+    document.body.style.top =
+        "";
+
+    window.scrollTo(0, scrollParaRestaurar);
+
+    if (telaChat) {
+        telaChat._scrollYAnterior = null;
+    }
+
     usuarioChatDestino =
         null;
+
 
     /*
      * Encerra o listener do Firestore.
