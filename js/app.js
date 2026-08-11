@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.142.0 - versão alpha";
+const VERSAO_ATUAL = "v0.143.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -693,14 +693,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
 
     // 4. Sincronização do Viewport (altura + posição), suavizada pela transition do passo 3.
-    // vv.height define quanto espaço sobra ACIMA do teclado (sem isso o container de
-    // mensagens não encolhia e o conteúdo ficava escondido atrás do teclado).
-    // vv.offsetTop compensa o deslocamento que o iOS aplica ao visual viewport ao
-    // focar o input (sem isso o header ficava fora da área visível, exigindo rolar
-    // pra cima pra vê-lo). Os dois SÃO necessários — o que gerava o pulo/piscada era
-    // aplicá-los sem suavização; agora a transition (passo 3) interpola cada mudança,
-    // então os vários eventos disparados durante a animação do teclado viram um único
-    // movimento fluido em vez de saltos.
     const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv && telaChat.style.display !== "none") {
@@ -711,6 +703,19 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             telaChat.style.transform = `translateY(${vv.offsetTop}px)`;
 
             if (container) container.scrollTop = container.scrollHeight;
+
+            // Liga/desliga o brilho verde do header conforme o teclado abre ou fecha.
+            // "alturaTeclado" é só um sensor (diferença entre a tela cheia e o que
+            // sobrou de viewport visível) — não mexe em layout nenhum, só decide
+            // se a classe do brilho entra ou sai.
+            if (cabecalhoChat) {
+                const alturaTeclado = window.innerHeight - vv.height - vv.offsetTop;
+                if (alturaTeclado > 100) {
+                    cabecalhoChat.classList.add("chat-teclado-ativo");
+                } else {
+                    cabecalhoChat.classList.remove("chat-teclado-ativo", "chat-tecla-apagar");
+                }
+            }
         }
     };
 
@@ -722,11 +727,20 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     syncViewport();
 
     // 5. Interceptação de Foco — só neutraliza o scroll nativo do Safari.
-    // Não chama syncViewport() manualmente aqui: os listeners de "resize"/"scroll"
-    // do visualViewport (passo 4) já vão disparar sozinhos assim que o teclado
-    // começar a animar, e a transition cuida da suavização.
     inputMsg.onfocus = () => {
         if (window.scrollY !== 0) window.scrollTo(0, 0);
+    };
+
+    // 6. Efeito de "apagar": Backspace/Delete pisca o brilho em vermelho e volta
+    // sozinho pro verde logo em seguida.
+    inputMsg.onkeydown = (evento) => {
+        if (cabecalhoChat && (evento.key === "Backspace" || evento.key === "Delete")) {
+            cabecalhoChat.classList.add("chat-tecla-apagar");
+            clearTimeout(cabecalhoChat._apagarTimeout);
+            cabecalhoChat._apagarTimeout = setTimeout(() => {
+                cabecalhoChat.classList.remove("chat-tecla-apagar");
+            }, 220);
+        }
     };
 }
 
@@ -742,8 +756,15 @@ function fecharSalaChat() {
     const telaChat = document.getElementById("tela-sala-chat");
     const telaLista = document.getElementById("tela-lista-mensagens");
     const inputMsg = document.getElementById("input-nova-mensagem");
+    const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
 
     if (inputMsg) inputMsg.blur();
+
+    // Retira o brilho do header. A transição de "opacity" já definida no CSS
+    // cuida da animação de saída sozinha — o header em si não se move.
+    if (cabecalhoChat) {
+        cabecalhoChat.classList.remove("chat-teclado-ativo", "chat-tecla-apagar");
+    }
 
     // 1. Remove listeners do viewport
     if (telaChat && telaChat._vvSync && window.visualViewport) {

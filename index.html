@@ -1248,6 +1248,44 @@
                     border-radius: 0;
                 }
             }
+
+            /* ================================================
+               BRILHO DO HEADER DO CHAT (liga com teclado aberto)
+               ================================================ */
+            #cabecalho-sala-chat {
+                position: relative;
+            }
+
+            #cabecalho-sala-chat::before {
+                content: "";
+                position: absolute;
+                inset: -6px;
+                border-radius: 14px;
+                padding: 3px;
+                background: conic-gradient(from 0deg, #00ff88, #00ffc8, #00ff88, transparent 55%, #00ff88);
+                -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                -webkit-mask-composite: xor;
+                mask-composite: exclude;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.4s ease, background 0.25s ease;
+                animation: chatHeaderBrilhoGirar 2.2s linear infinite;
+            }
+
+            /* Teclado aberto: brilho verde visível */
+            #cabecalho-sala-chat.chat-teclado-ativo::before {
+                opacity: 1;
+            }
+
+            /* Backspace/Delete: pisca vermelho por cima do verde */
+            #cabecalho-sala-chat.chat-tecla-apagar::before {
+                background: conic-gradient(from 0deg, #ff3b3b, #ff8080, #ff3b3b, transparent 55%, #ff3b3b);
+            }
+
+            @keyframes chatHeaderBrilhoGirar {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
         </style>
 
         <section id="tela-site" class="secao-app" style="display: none; flex-direction: column; background-color: #000; height: 100dvh; max-height: 100vh; overflow: hidden; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
