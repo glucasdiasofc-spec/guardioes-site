@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.123.0 - versão alpha";
+const VERSAO_ATUAL = "v0.124.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -621,17 +621,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     const inputMsg = document.getElementById("input-nova-mensagem");
     const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
 
-    if (!telaChat) {
-        console.error("Elemento #tela-sala-chat não encontrado.");
-        return;
-    }
+    if (!telaChat || !inputMsg) return;
 
-    if (!inputMsg) {
-        console.error("Elemento #input-nova-mensagem não encontrado.");
-        return;
-    }
-
-    // Atualiza os dados do contato no cabeçalho
+    // 1. Atualiza dados do contato no cabeçalho
     const nomeEl = document.getElementById("chat-nome-atual");
     const cargoEl = document.getElementById("chat-cargo-atual");
     const avatarEl = document.getElementById("chat-avatar-atual");
@@ -643,66 +635,59 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
     }
 
-    // Limpa listeners anteriores
-    if (unsubscribeChatAtivo) {
-        unsubscribeChatAtivo();
-        unsubscribeChatAtivo = null;
-    }
+    // 2. Trava o scroll do fundo (body) para evitar que a página suba no iOS
+    const scrollAtual = window.pageYOffset || document.documentElement.scrollTop;
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollAtual}px`;
+    document.body.style.width = "100%";
+    telaChat._scrollPos = scrollAtual;
 
-    // Esconde a lista de contatos e abre a página de chat como tela dedicada (sem travar o body, evitando bugs no iOS ao abrir o teclado)
-    if (telaLista) {
-        telaLista.style.display = "none";
-    }
+    // 3. Configura a Sala como uma "Nova Página" (Overlay Fixo)
+    telaChat.style.display = "flex";
+    telaChat.style.position = "fixed";
+    telaChat.style.top = "0";
+    telaChat.style.left = "0";
+    telaChat.style.width = "100%";
+    telaChat.style.height = "100%";
+    telaChat.style.zIndex = "100000";
+    telaChat.style.backgroundColor = "#000";
 
-    if (telaChat) {
-        telaChat.style.display = "flex";
-        telaChat.style.position = "absolute";
-        telaChat.style.inset = "0";
-        telaChat.style.width = "100%";
-        telaChat.style.height = "100%";
-        telaChat.style.flexDirection = "column";
-        telaChat.style.backgroundColor = "#000";
-        telaChat.style.zIndex = "999";
-        telaChat.style.overflow = "hidden";
-    }
+    // 4. Lógica de Teclado Inteligente (iOS/Android)
+    const ajustarLayout = () => {
+        const vv = window.visualViewport;
+        if (vv) {
+            // Ajusta a altura da sala para o espaço visível (acima do teclado)
+            telaChat.style.height = `${vv.height}px`;
+            // Garante que a sala comece no topo do viewport, ignorando o scroll do sistema
+            telaChat.style.top = `${vv.offsetTop}px`;
+        }
+    };
 
-    if (cabecalhoChat) {
-        cabecalhoChat.style.position = "sticky";
-        cabecalhoChat.style.top = "0";
-        cabecalhoChat.style.left = "0";
-        cabecalhoChat.style.right = "0";
-        cabecalhoChat.style.width = "100%";
-        cabecalhoChat.style.height = "60px";
-        cabecalhoChat.style.display = "flex";
-        cabecalhoChat.style.alignItems = "center";
-        cabecalhoChat.style.justifyContent = "space-between";
-        cabecalhoChat.style.padding = "10px 16px";
-        cabecalhoChat.style.background = "#000";
-        cabecalhoChat.style.borderBottom = "1px solid #262626";
-        cabecalhoChat.style.zIndex = "10";
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", ajustarLayout);
+        window.visualViewport.addEventListener("scroll", ajustarLayout);
+        telaChat._vvAjuste = ajustarLayout;
     }
+    ajustarLayout();
+
+    // 5. Scroll automático ao focar no campo de texto
+    inputMsg.onfocus = () => {
+        setTimeout(() => {
+            ajustarLayout();
+            if (container) container.scrollTop = container.scrollHeight;
+        }, 300);
+    };
+
+    // 6. Conexão com Firebase (Mensagens)
+    if (unsubscribeChatAtivo) unsubscribeChatAtivo();
 
     if (container) {
-        container.style.position = "relative";
-        container.style.flex = "1";
-        container.style.top = "unset";
-        container.style.bottom = "unset";
-        container.style.overflowY = "auto";
-        container.style.padding = "16px";
-        container.style.display = "flex";
-        container.style.flexDirection = "column";
-        container.style.gap = "12px";
-        container.style.background = "#000";
         container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando ao chat protegido...</p>";
     }
 
     const meuUsername = localStorage.getItem("usernameLogado");
-    if (!meuUsername) {
-        console.error("Usuário não encontrado para abrir o chat.");
-        return;
-    }
-
-    const chatId = gerarIdChat(meuUsername, usernameAlvo);
+    const chatId = [meuUsername, usernameAlvo].sort().join("_");
 
     unsubscribeChatAtivo = window.ClubeDB.textoDB
         .collection("chats")
@@ -712,20 +697,16 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         .onSnapshot(snapshot => {
             if (!container) return;
             container.innerHTML = "";
-
             if (snapshot.empty) {
-                container.innerHTML = `<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>O histórico está vazio. Envie a primeira mensagem para ${nomeAlvo}.</p>`;
+                container.innerHTML = `<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Envie a primeira mensagem para ${nomeAlvo}.</p>`;
                 return;
             }
-
             snapshot.forEach(doc => {
                 const msg = doc.data();
                 const isMinha = msg.remetente === meuUsername;
-
                 const div = document.createElement("div");
                 div.style.display = "flex";
                 div.style.width = "100%";
-                div.style.flexShrink = "0";
                 div.style.marginBottom = "8px";
                 div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
 
@@ -735,29 +716,18 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 balao.style.padding = "10px 14px";
                 balao.style.borderRadius = "18px";
                 balao.style.fontSize = "14px";
-                balao.style.lineHeight = "1.4";
-                balao.style.wordBreak = "break-word";
-                balao.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.15)";
-
-                if (isMinha) {
-                    balao.style.background = "#0095f6";
-                    balao.style.color = "#fff";
-                    balao.style.borderBottomRightRadius = "4px";
-                } else {
-                    balao.style.background = "#262626";
-                    balao.style.color = "#fff";
-                    balao.style.borderBottomLeftRadius = "4px";
-                }
+                balao.style.background = isMinha ? "#0095f6" : "#262626";
+                balao.style.color = "#fff";
+                if (isMinha) balao.style.borderBottomRightRadius = "4px";
+                else balao.style.borderBottomLeftRadius = "4px";
 
                 div.appendChild(balao);
                 container.appendChild(div);
             });
-
-            requestAnimationFrame(() => {
-                container.scrollTop = container.scrollHeight;
-            });
+            container.scrollTop = container.scrollHeight;
         });
 }
+
 
 
 function fecharSalaChat() {
@@ -765,25 +735,34 @@ function fecharSalaChat() {
     const telaLista = document.getElementById("tela-lista-mensagens");
     const inputMsg = document.getElementById("input-nova-mensagem");
 
-    if (inputMsg && document.activeElement === inputMsg) {
-        inputMsg.blur();
+    if (inputMsg) inputMsg.blur();
+
+    // 1. Remove listeners do viewport
+    if (telaChat && telaChat._vvAjuste && window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", telaChat._vvAjuste);
+        window.visualViewport.removeEventListener("scroll", telaChat._vvAjuste);
+        telaChat._vvAjuste = null;
     }
 
-    if (telaChat) {
-        telaChat.style.display = "none";
-    }
+    // 2. Esconde a sala e restaura a lista
+    if (telaChat) telaChat.style.display = "none";
+    if (telaLista) telaLista.style.display = "flex";
 
-    if (telaLista) {
-        telaLista.style.display = "flex";
-    }
+    // 3. Destrava o scroll do body e volta para a posição original
+    const scrollOriginal = (telaChat && telaChat._scrollPos) || 0;
+    document.body.style.overflow = "";
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.width = "";
+    window.scrollTo(0, scrollOriginal);
 
     usuarioChatDestino = null;
-
     if (unsubscribeChatAtivo) {
         unsubscribeChatAtivo();
         unsubscribeChatAtivo = null;
     }
 }
+
 
 
 async function enviarMensagemChat() {
