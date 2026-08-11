@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.138.0 - versão alpha";
+const VERSAO_ATUAL = "v0.139.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -710,13 +710,15 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Interceptação de Foco (Neutraliza o pulo do Safari)
+    // 5. Interceptação de Foco (Mesma filosofia do fechar: sem forçar re-sync manual duplicado)
     inputMsg.onfocus = () => {
-        window.scrollTo(0, 0);
-        requestAnimationFrame(() => {
-            window.scrollTo(0, 0);
-            syncViewport();
-        });
+        // Apenas neutraliza um scroll nativo indesejado do Safari, sem forçar
+        // um segundo ciclo de layout via rAF/syncViewport — isso é o que causava
+        // o pulo/piscada do header e da tela ao abrir o teclado.
+        if (window.scrollY !== 0) window.scrollTo(0, 0);
+        // O próprio evento "resize" do visualViewport (já escutado abaixo)
+        // vai chamar syncViewport() naturalmente assim que o teclado abrir,
+        // exatamente como já acontece de forma fluida ao fechar.
     };
 
     // 6. Firebase Listener
