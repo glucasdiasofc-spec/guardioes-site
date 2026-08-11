@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.139.0 - versão alpha";
+const VERSAO_ATUAL = "v0.140.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -687,18 +687,27 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.webkitOverflowScrolling = "touch";
     }
 
-    // 4. Sincronização Cirúrgica do Viewport (Elimina o pulo ao abrir)
+    // 4. Sincronização Cirúrgica do Viewport (Elimina o pulo ao abrir E ao fechar)
     const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv && telaChat.style.display !== "none") {
             // Neutraliza o scroll nativo do Safari IMEDIATAMENTE (Impede o pulo da tela toda)
             if (window.scrollY !== 0) window.scrollTo(0, 0);
-            
-            // Ancoramos a sala no topo visível compensando o offset do sistema via transform
-            // Isso é mais performático e estável que mudar o 'top'
+
+            // A telaChat já é position:fixed + inset:0, ou seja, o topo dela (e o header,
+            // que é flex-shrink:0) JÁ está ancorado em y=0 permanentemente.
+            // O translateY(vv.offsetTop) que existia aqui foi REMOVIDO de propósito:
+            // durante a ANIMAÇÃO de abertura do teclado no iOS, o Safari dispara vários
+            // eventos "resize"/"scroll" em sequência, cada um com um vv.offsetTop
+            // intermediário diferente — e aplicar isso via transform na telaChat inteira
+            // fazia o painel (header incluso) ser empurrado várias vezes, causando o
+            // pulo/piscada que você via só ao abrir.
+            //
+            // Agora só a ALTURA muda. Como header e rodapé são flex-shrink:0, apenas o
+            // container de mensagens (flex:1) encolhe/cresce — header fica 100% parado,
+            // exatamente como já acontecia ao fechar.
             telaChat.style.height = vv.height + "px";
-            telaChat.style.transform = `translateY(${vv.offsetTop}px)`;
-            
+
             if (container) container.scrollTop = container.scrollHeight;
         }
     };
