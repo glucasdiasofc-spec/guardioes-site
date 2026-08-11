@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.136.0 - versão alpha";
+const VERSAO_ATUAL = "v0.137.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -634,7 +634,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
     }
 
-    // 2. Isolamento Total de Viewport (O segredo para eliminar o pulo da tela)
+    // 2. Isolamento Total de Viewport (O segredo para eliminar o pulo da tela toda)
     const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
     telaChat._scrollPos = scrollPos;
     
@@ -694,9 +694,10 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             // Neutraliza o scroll nativo do Safari IMEDIATAMENTE (Impede o pulo da tela toda)
             if (window.scrollY !== 0) window.scrollTo(0, 0);
             
-            // Ancoramos a sala no topo visível compensando o offset do sistema
-            telaChat.style.top = vv.offsetTop + "px";
+            // Ancoramos a sala no topo visível compensando o offset do sistema via transform
+            // Isso é mais performático e estável que mudar o 'top'
             telaChat.style.height = vv.height + "px";
+            telaChat.style.transform = `translateY(${vv.offsetTop}px)`;
             
             if (container) container.scrollTop = container.scrollHeight;
         }
@@ -709,7 +710,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Interceptação de Foco (Garante que o header não se mova no início da animação)
+    // 5. Interceptação de Foco (Neutraliza o pulo do Safari)
     inputMsg.onfocus = () => {
         window.scrollTo(0, 0);
         requestAnimationFrame(() => {
@@ -758,6 +759,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             container.scrollTop = container.scrollHeight;
         });
 }
+
 
 
 
