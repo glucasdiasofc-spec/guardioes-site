@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.140.0 - versão alpha";
+const VERSAO_ATUAL = "v0.141.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -687,89 +687,35 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.webkitOverflowScrolling = "touch";
     }
 
-    // 4. Sincronização Cirúrgica do Viewport (Elimina o pulo ao abrir E ao fechar)
+    // 4. Sincronização do Viewport — SÓ cuida da rolagem das mensagens.
+    // O <meta viewport> já tem "interactive-widget=resizes-content", ou seja, o
+    // PRÓPRIO Safari já redimensiona o layout viewport (e o height:100% da
+    // telaChat) de forma nativa, suave e sincronizada com a animação do teclado.
+    // Forçar telaChat.style.height / transform aqui via JS estava competindo com
+    // esse redimensionamento nativo — dois ajustes de altura acontecendo ao mesmo
+    // tempo, em ritmos diferentes — e ERA ISSO que causava o header pulando/
+    // piscando ao abrir. Agora não tocamos mais na altura nem no transform da
+    // telaChat: o header (flex-shrink:0) fica 100% parado no topo, e o rodapé com
+    // o input (também flex-shrink:0, último item do flex column) sobe sozinho
+    // junto com o teclado, porque é o navegador quem encolhe a telaChat.
     const syncViewport = () => {
-        const vv = window.visualViewport;
-        if (vv && telaChat.style.display !== "none") {
-            // Neutraliza o scroll nativo do Safari IMEDIATAMENTE (Impede o pulo da tela toda)
-            if (window.scrollY !== 0) window.scrollTo(0, 0);
-
-            // A telaChat já é position:fixed + inset:0, ou seja, o topo dela (e o header,
-            // que é flex-shrink:0) JÁ está ancorado em y=0 permanentemente.
-            // O translateY(vv.offsetTop) que existia aqui foi REMOVIDO de propósito:
-            // durante a ANIMAÇÃO de abertura do teclado no iOS, o Safari dispara vários
-            // eventos "resize"/"scroll" em sequência, cada um com um vv.offsetTop
-            // intermediário diferente — e aplicar isso via transform na telaChat inteira
-            // fazia o painel (header incluso) ser empurrado várias vezes, causando o
-            // pulo/piscada que você via só ao abrir.
-            //
-            // Agora só a ALTURA muda. Como header e rodapé são flex-shrink:0, apenas o
-            // container de mensagens (flex:1) encolhe/cresce — header fica 100% parado,
-            // exatamente como já acontecia ao fechar.
-            telaChat.style.height = vv.height + "px";
-
-            if (container) container.scrollTop = container.scrollHeight;
+        if (telaChat.style.display !== "none" && container) {
+            container.scrollTop = container.scrollHeight;
         }
     };
 
     if (window.visualViewport) {
         window.visualViewport.addEventListener("resize", syncViewport);
-        window.visualViewport.addEventListener("scroll", syncViewport);
         telaChat._vvSync = syncViewport;
     }
     syncViewport();
 
-    // 5. Interceptação de Foco (Mesma filosofia do fechar: sem forçar re-sync manual duplicado)
+    // 5. Ao focar o input, só garante que a última mensagem continue visível.
+    // Sem scrollTo/transform forçado — é isso que deixa a subida do teclado lisa,
+    // cuidada inteiramente pelo navegador via interactive-widget=resizes-content.
     inputMsg.onfocus = () => {
-        // Apenas neutraliza um scroll nativo indesejado do Safari, sem forçar
-        // um segundo ciclo de layout via rAF/syncViewport — isso é o que causava
-        // o pulo/piscada do header e da tela ao abrir o teclado.
-        if (window.scrollY !== 0) window.scrollTo(0, 0);
-        // O próprio evento "resize" do visualViewport (já escutado abaixo)
-        // vai chamar syncViewport() naturalmente assim que o teclado abrir,
-        // exatamente como já acontece de forma fluida ao fechar.
+        requestAnimationFrame(syncViewport);
     };
-
-    // 6. Firebase Listener
-    if (unsubscribeChatAtivo) unsubscribeChatAtivo();
-    if (container) container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando...</p>";
-
-    const meuUsername = localStorage.getItem("usernameLogado");
-    const chatId = [meuUsername, usernameAlvo].sort().join("_");
-
-    unsubscribeChatAtivo = window.ClubeDB.textoDB
-        .collection("chats")
-        .doc(chatId)
-        .collection("mensagens")
-        .orderBy("timestamp", "asc")
-        .onSnapshot(snapshot => {
-            if (!container) return;
-            container.innerHTML = "";
-            snapshot.forEach(doc => {
-                const msg = doc.data();
-                const isMinha = msg.remetente === meuUsername;
-                const div = document.createElement("div");
-                div.style.display = "flex";
-                div.style.width = "100%";
-                div.style.marginBottom = "8px";
-                div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
-                const balao = document.createElement("div");
-                balao.textContent = msg.texto;
-                balao.style.maxWidth = "75%";
-                balao.style.padding = "10px 14px";
-                balao.style.borderRadius = "18px";
-                balao.style.fontSize = "14px";
-                balao.style.wordBreak = "break-word";
-                balao.style.background = isMinha ? "#0095f6" : "#262626";
-                balao.style.color = "#fff";
-                if (isMinha) balao.style.borderBottomRightRadius = "4px";
-                else balao.style.borderBottomLeftRadius = "4px";
-                div.appendChild(balao);
-                container.appendChild(div);
-            });
-            container.scrollTop = container.scrollHeight;
-        });
-}
 
 
 
