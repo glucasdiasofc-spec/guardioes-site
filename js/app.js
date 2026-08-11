@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.143.0 - versão alpha";
+const VERSAO_ATUAL = "v0.144.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -485,8 +485,46 @@ function mudarSubAbaSite(abaAlvo) {
 // ==========================================
 // LÓGICA DE MENSAGENS / CHAT DIRECT
 // ==========================================
-let unsubscribeChatAtivo = null;
-let usuarioChatDestino = null;
+unsubscribeChatAtivo = window.ClubeDB.textoDB
+        .collection("chats")
+        .doc(chatId)
+        .collection("mensagens")
+        .orderBy("timestamp", "asc")
+        .onSnapshot(snapshot => {
+            if (!container) return;
+            container.innerHTML = "";
+            snapshot.forEach(doc => {
+                const msg = doc.data();
+                const isMinha = msg.remetente === meuUsername;
+                const div = document.createElement("div");
+                div.style.display = "flex";
+                div.style.width = "100%";
+                div.style.marginBottom = "8px";
+                div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
+                const balao = document.createElement("div");
+                balao.textContent = msg.texto;
+                balao.style.maxWidth = "75%";
+                balao.style.padding = "10px 14px";
+                balao.style.borderRadius = "18px";
+                balao.style.fontSize = "14px";
+                balao.style.wordBreak = "break-word";
+                balao.style.background = isMinha ? "#0095f6" : "#262626";
+                balao.style.color = "#fff";
+                if (isMinha) balao.style.borderBottomRightRadius = "4px";
+                else balao.style.borderBottomLeftRadius = "4px";
+                div.appendChild(balao);
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        }, erro => {
+            // Se cair aqui (ex.: regra de permissão do Firestore negando a leitura),
+            // hoje isso falhava em silêncio e a tela ficava travada em "Conectando...".
+            console.error("Erro ao carregar mensagens do chat:", erro);
+            if (container) {
+                container.innerHTML = `<p style="color:#ff6b6b; text-align:center; margin-top:20px; font-size:12px;">Erro ao carregar mensagens: ${erro.message}</p>`;
+            }
+        });
+
 
 async function carregarListaDeContatosChat() {
     const usernameLogado = localStorage.getItem("usernameLogado");
@@ -673,11 +711,12 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     telaChat.style.zIndex = "2147483647";
     telaChat.style.backgroundColor = "#000";
     telaChat.style.overflow = "hidden";
-    // Transition curta: é ELA quem absorve os vários eventos de resize/scroll que o
-    // iOS dispara durante a animação do teclado, transformando os "saltos" abruptos
-    // em uma interpolação suave — sem isso, cada evento aplicava o novo height/transform
-    // instantaneamente, e era isso que parecia pulo/piscada.
-    telaChat.style.transition = "height 0.15s ease-out, transform 0.15s ease-out";
+    // Transition SÓ no transform (barato, GPU). Tirei "height" da transition:
+    // transicionar height num pai com overflow:hidden é o que provavelmente estava
+    // fazendo o Safari parar de repintar o filho com scroll próprio (container de
+    // mensagens) — um bug conhecido do iOS, o conteúdo existe no DOM mas não é
+    // desenhado até algo forçar o repaint.
+    telaChat.style.transition = "transform 0.15s ease-out";
 
     if (cabecalhoChat) {
         cabecalhoChat.style.position = "relative";
@@ -690,6 +729,10 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.flex = "1";
         container.style.overflowY = "auto";
         container.style.webkitOverflowScrolling = "touch";
+        // Camada de composição própria: isola o container do repaint do pai,
+        // evitando que ele "suma" durante a animação do teclado.
+        container.style.transform = "translateZ(0)";
+        container.style.willChange = "scroll-position";
     }
 
     // 4. Sincronização do Viewport (altura + posição), suavizada pela transition do passo 3.
@@ -703,19 +746,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             telaChat.style.transform = `translateY(${vv.offsetTop}px)`;
 
             if (container) container.scrollTop = container.scrollHeight;
-
-            // Liga/desliga o brilho verde do header conforme o teclado abre ou fecha.
-            // "alturaTeclado" é só um sensor (diferença entre a tela cheia e o que
-            // sobrou de viewport visível) — não mexe em layout nenhum, só decide
-            // se a classe do brilho entra ou sai.
-            if (cabecalhoChat) {
-                const alturaTeclado = window.innerHeight - vv.height - vv.offsetTop;
-                if (alturaTeclado > 100) {
-                    cabecalhoChat.classList.add("chat-teclado-ativo");
-                } else {
-                    cabecalhoChat.classList.remove("chat-teclado-ativo", "chat-tecla-apagar");
-                }
-            }
         }
     };
 
@@ -726,9 +756,18 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Interceptação de Foco — só neutraliza o scroll nativo do Safari.
+    // 5. Interceptação de Foco/Blur — dispara UMA vez por abertura/fechamento do
+    // teclado, de forma determinística (nada de medir altura, que é instável
+    // durante a animação e fazia o brilho ligar "de vez em quando").
     inputMsg.onfocus = () => {
         if (window.scrollY !== 0) window.scrollTo(0, 0);
+        if (cabecalhoChat) cabecalhoChat.classList.add("chat-teclado-ativo");
+    };
+
+    inputMsg.onblur = () => {
+        if (cabecalhoChat) {
+            cabecalhoChat.classList.remove("chat-teclado-ativo", "chat-tecla-apagar");
+        }
     };
 
     // 6. Efeito de "apagar": Backspace/Delete pisca o brilho em vermelho e volta

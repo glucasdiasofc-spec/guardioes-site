@@ -1256,33 +1256,72 @@
                 position: relative;
             }
 
+            /* Moldura fina e ESTÁTICA — sempre no lugar, envolve toda a borda */
             #cabecalho-sala-chat::before {
                 content: "";
                 position: absolute;
                 inset: -6px;
                 border-radius: 14px;
-                padding: 3px;
-                background: conic-gradient(from 0deg, #00ff88, #00ffc8, #00ff88, transparent 55%, #00ff88);
+                padding: 2px;
+                background: rgba(0, 255, 136, 0.35);
                 -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
                 -webkit-mask-composite: xor;
                 mask-composite: exclude;
                 opacity: 0;
                 pointer-events: none;
                 transition: opacity 0.4s ease, background 0.25s ease;
-                animation: chatHeaderBrilhoGirar 2.2s linear infinite;
             }
 
-            /* Teclado aberto: brilho verde visível */
-            #cabecalho-sala-chat.chat-teclado-ativo::before {
+            /* Luz brilhante que PERCORRE a moldura sem parar, escapando das bordas */
+            #cabecalho-sala-chat::after {
+                content: "";
+                position: absolute;
+                inset: -6px;
+                border-radius: 14px;
+                padding: 3px;
+                background: conic-gradient(
+                    from 0deg,
+                    transparent 0%,
+                    transparent 78%,
+                    #baffde 86%,
+                    #00ff88 90%,
+                    #baffde 94%,
+                    transparent 100%
+                );
+                -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                -webkit-mask-composite: xor;
+                mask-composite: exclude;
+                opacity: 0;
+                pointer-events: none;
+                filter: drop-shadow(0 0 4px #00ff88);
+                transition: opacity 0.4s ease;
+                animation: chatHeaderLuzViajante 2.4s linear infinite;
+            }
+
+            /* Teclado aberto: moldura + luz visíveis */
+            #cabecalho-sala-chat.chat-teclado-ativo::before,
+            #cabecalho-sala-chat.chat-teclado-ativo::after {
                 opacity: 1;
             }
 
-            /* Backspace/Delete: pisca vermelho por cima do verde */
+            /* Backspace/Delete: tudo pisca vermelho por um instante */
             #cabecalho-sala-chat.chat-tecla-apagar::before {
-                background: conic-gradient(from 0deg, #ff3b3b, #ff8080, #ff3b3b, transparent 55%, #ff3b3b);
+                background: rgba(255, 59, 59, 0.35);
+            }
+            #cabecalho-sala-chat.chat-tecla-apagar::after {
+                background: conic-gradient(
+                    from 0deg,
+                    transparent 0%,
+                    transparent 78%,
+                    #ffc2c2 86%,
+                    #ff3b3b 90%,
+                    #ffc2c2 94%,
+                    transparent 100%
+                );
+                filter: drop-shadow(0 0 5px #ff3b3b);
             }
 
-            @keyframes chatHeaderBrilhoGirar {
+            @keyframes chatHeaderLuzViajante {
                 from { transform: rotate(0deg); }
                 to { transform: rotate(360deg); }
             }
