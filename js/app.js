@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.145.0 - versão alpha";
+const VERSAO_ATUAL = "v0.146.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -692,7 +692,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             telaChat.style.top = "0px";
             telaChat.style.height = `${vv.height}px`;
 
-            // Detecta abertura do teclado (viewport diminui significativamente em relação à altura total)
+            // Detecta abertura do teclado
             const tecladoAberto = vv.height < (initialInnerHeight - 120) || document.activeElement === inputMsg;
             if (cabecalhoChat) {
                 if (tecladoAberto) {
@@ -700,6 +700,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 } else {
                     cabecalhoChat.classList.remove("keyboard-open");
                     cabecalhoChat.classList.remove("backspace-flash");
+                    cabecalhoChat.classList.remove("typing-active");
                 }
             }
 
@@ -714,7 +715,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Tratamento de Foco e Evento de Teclado (Backspace / Delete)
+    // 5. Tratamento de Foco e Eventos de Teclado
+    let typingTimer = null;
     inputMsg.onfocus = () => {
         if (cabecalhoChat) cabecalhoChat.classList.add("keyboard-open");
         syncViewport();
@@ -726,6 +728,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             if (document.activeElement !== inputMsg && cabecalhoChat) {
                 cabecalhoChat.classList.remove("keyboard-open");
                 cabecalhoChat.classList.remove("backspace-flash");
+                cabecalhoChat.classList.remove("typing-active");
             }
         }, 150);
     };
@@ -738,7 +741,17 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                     cabecalhoChat.classList.remove("backspace-flash");
                 }, 180);
             }
+        } else if (e.key.length === 1 || e.key === 'Enter') {
+            // Ativa o efeito da Bola Azul ao digitar
+            if (cabecalhoChat) {
+                cabecalhoChat.classList.add("typing-active");
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => {
+                    cabecalhoChat.classList.remove("typing-active");
+                }, 700); // A bola azul gira por 700ms após cada tecla
+            }
         }
+        
         if (e.key === 'Enter') {
             enviarMensagemChat();
         }
@@ -786,6 +799,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             container.scrollTop = container.scrollHeight;
         });
 }
+
 
 
 
