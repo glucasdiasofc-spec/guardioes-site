@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.134.0 - versão alpha";
+const VERSAO_ATUAL = "v0.135.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -634,11 +634,11 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
     }
 
-    // 2. Travamento Total de Layout (Impede o Safari de rolar a página)
+    // 2. Isolamento Total de Viewport (O segredo para eliminar o pulo da tela toda)
     const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
     telaChat._scrollPos = scrollPos;
     
-    // Trava o HTML e o Body no topo absoluto
+    // Travamento agressivo do HTML e Body
     document.documentElement.style.height = "100%";
     document.documentElement.style.overflow = "hidden";
     document.body.style.height = "100%";
@@ -652,7 +652,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
     if (siteHeader) siteHeader.style.visibility = "hidden";
 
-    // 3. Configuração da Sala (Grampeada no Topo 0)
+    // 3. Configuração da Sala (Camada Estática)
     telaChat.style.display = "flex";
     telaChat.style.flexDirection = "column";
     telaChat.style.position = "fixed";
@@ -663,7 +663,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     telaChat.style.zIndex = "2147483647";
     telaChat.style.backgroundColor = "#000";
     telaChat.style.overflow = "hidden";
-    telaChat.style.transform = "none";
+    telaChat.style.margin = "0";
+    telaChat.style.padding = "0";
 
     if (cabecalhoChat) {
         cabecalhoChat.style.position = "relative";
@@ -678,16 +679,16 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.webkitOverflowScrolling = "touch";
     }
 
-    // 4. Sincronização Estática (O segredo para o Header não se mexer)
+    // 4. Lógica de Ancoragem Negativa (Elimina o pulo de toda a tela)
     const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv && telaChat.style.display !== "none") {
-            // Se o Safari tentar rolar, nós forçamos a volta para 0 imediatamente
+            // Se o Safari tentar rolar a tela toda, nós forçamos a volta imediata para o zero
             if (window.scrollY !== 0) window.scrollTo(0, 0);
 
-            // Mantemos o top em 0 SEMPRE. 
-            // O Safari move o Visual Viewport, então nós ajustamos o 'top' para compensar esse movimento
-            // fazendo com que o elemento pareça estar parado no topo físico da tela.
+            // O pulo acontece porque o vv.offsetTop muda quando o teclado abre.
+            // Nós aplicamos esse offset de forma positiva ao 'top' para manter a tela 
+            // exatamente onde o usuário a vê, cancelando o movimento do sistema.
             telaChat.style.top = vv.offsetTop + "px";
             telaChat.style.height = vv.height + "px";
             
@@ -702,10 +703,11 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Tratamento de Foco (Neutraliza o pulo do Safari)
+    // 5. Interceptação de Foco (Garante estabilidade no início da animação do teclado)
     inputMsg.onfocus = () => {
         window.scrollTo(0, 0);
-        requestAnimationFrame(syncViewport);
+        setTimeout(syncViewport, 0);
+        setTimeout(syncViewport, 100);
     };
 
     // 6. Firebase Listener
@@ -754,6 +756,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
 
 
+
 function fecharSalaChat() {
     const telaChat = document.getElementById("tela-sala-chat");
     const telaLista = document.getElementById("tela-lista-mensagens");
@@ -776,6 +779,7 @@ function fecharSalaChat() {
     document.body.style.position = "";
     document.body.style.top = "";
     document.body.style.width = "";
+    document.body.style.backgroundColor = "";
 
     const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
     if (siteHeader) siteHeader.style.visibility = "visible";
@@ -794,6 +798,7 @@ function fecharSalaChat() {
         unsubscribeChatAtivo = null;
     }
 }
+
 
 
 
