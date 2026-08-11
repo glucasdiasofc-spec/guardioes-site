@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.128.0 - versão alpha";
+const VERSAO_ATUAL = "v0.145.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -683,18 +683,26 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.webkitOverflowScrolling = "touch";
     }
 
-    // 4. Sincronização Estrita do Viewport (Evita que o header suba)
+    // 4. Sincronização Estrita do Viewport e Detecção de Teclado
+    let initialInnerHeight = window.innerHeight;
     const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv && telaChat.style.display !== "none") {
-            // Forçamos o navegador a não rolar a página (o que faria o header sumir)
             window.scrollTo(0, 0);
-            
-            // Mantemos o container sempre no topo visível
             telaChat.style.top = "0px";
-            // Ajustamos a altura para o espaço que sobra acima do teclado
             telaChat.style.height = `${vv.height}px`;
-            
+
+            // Detecta abertura do teclado (viewport diminui significativamente em relação à altura total)
+            const tecladoAberto = vv.height < (initialInnerHeight - 120) || document.activeElement === inputMsg;
+            if (cabecalhoChat) {
+                if (tecladoAberto) {
+                    cabecalhoChat.classList.add("keyboard-open");
+                } else {
+                    cabecalhoChat.classList.remove("keyboard-open");
+                    cabecalhoChat.classList.remove("backspace-flash");
+                }
+            }
+
             if (container) container.scrollTop = container.scrollHeight;
         }
     };
@@ -706,10 +714,34 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Tratamento de Foco (Sincronização imediata)
+    // 5. Tratamento de Foco e Evento de Teclado (Backspace / Delete)
     inputMsg.onfocus = () => {
+        if (cabecalhoChat) cabecalhoChat.classList.add("keyboard-open");
         syncViewport();
         setTimeout(syncViewport, 100);
+    };
+
+    inputMsg.onblur = () => {
+        setTimeout(() => {
+            if (document.activeElement !== inputMsg && cabecalhoChat) {
+                cabecalhoChat.classList.remove("keyboard-open");
+                cabecalhoChat.classList.remove("backspace-flash");
+            }
+        }, 150);
+    };
+
+    inputMsg.onkeydown = (e) => {
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            if (cabecalhoChat) {
+                cabecalhoChat.classList.add("backspace-flash");
+                setTimeout(() => {
+                    cabecalhoChat.classList.remove("backspace-flash");
+                }, 180);
+            }
+        }
+        if (e.key === 'Enter') {
+            enviarMensagemChat();
+        }
     };
 
     // 6. Firebase Listener
@@ -754,6 +786,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             container.scrollTop = container.scrollHeight;
         });
 }
+
 
 
 
