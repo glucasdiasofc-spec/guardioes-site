@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.146.0 - versão alpha";
+const VERSAO_ATUAL = "v0.147.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -644,7 +644,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         height: document.body.style.height
     };
 
-    // Esconde fisicamente a lista e o header do site para não haver "vazamento" visual
     if (telaLista) telaLista.style.display = "none";
     const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
     if (siteHeader) siteHeader.style.visibility = "hidden";
@@ -657,7 +656,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     document.body.style.height = "100%";
     telaChat._scrollPos = scrollPos;
 
-    // 3. Configuração do Container de Chat (Fixo e Imóvel no topo)
+    // 3. Configuração do Container de Chat
     telaChat.style.display = "flex";
     telaChat.style.flexDirection = "column";
     telaChat.style.position = "fixed";
@@ -668,7 +667,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     telaChat.style.zIndex = "2147483647";
     telaChat.style.backgroundColor = "#000";
     telaChat.style.overflow = "hidden";
-    telaChat.style.transform = "none"; // Remove qualquer transformação anterior
+    telaChat.style.transform = "none";
 
     if (cabecalhoChat) {
         cabecalhoChat.style.position = "relative";
@@ -692,18 +691,16 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             telaChat.style.top = "0px";
             telaChat.style.height = `${vv.height}px`;
 
-            // Detecta abertura do teclado
             const tecladoAberto = vv.height < (initialInnerHeight - 120) || document.activeElement === inputMsg;
             if (cabecalhoChat) {
                 if (tecladoAberto) {
                     cabecalhoChat.classList.add("keyboard-open");
                 } else {
                     cabecalhoChat.classList.remove("keyboard-open");
+                    cabecalhoChat.classList.remove("typing-flash");
                     cabecalhoChat.classList.remove("backspace-flash");
-                    cabecalhoChat.classList.remove("typing-active");
                 }
             }
-
             if (container) container.scrollTop = container.scrollHeight;
         }
     };
@@ -715,7 +712,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Tratamento de Foco e Eventos de Teclado
+    // 5. Tratamento de Foco e Eventos de Teclado (Flashes Dinâmicos)
     let typingTimer = null;
     inputMsg.onfocus = () => {
         if (cabecalhoChat) cabecalhoChat.classList.add("keyboard-open");
@@ -727,34 +724,26 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         setTimeout(() => {
             if (document.activeElement !== inputMsg && cabecalhoChat) {
                 cabecalhoChat.classList.remove("keyboard-open");
+                cabecalhoChat.classList.remove("typing-flash");
                 cabecalhoChat.classList.remove("backspace-flash");
-                cabecalhoChat.classList.remove("typing-active");
             }
         }, 150);
     };
 
     inputMsg.onkeydown = (e) => {
-        if (e.key === 'Backspace' || e.key === 'Delete') {
-            if (cabecalhoChat) {
+        if (cabecalhoChat) {
+            if (e.key === 'Backspace' || e.key === 'Delete') {
                 cabecalhoChat.classList.add("backspace-flash");
-                setTimeout(() => {
-                    cabecalhoChat.classList.remove("backspace-flash");
-                }, 180);
-            }
-        } else if (e.key.length === 1 || e.key === 'Enter') {
-            // Ativa o efeito da Bola Azul ao digitar
-            if (cabecalhoChat) {
-                cabecalhoChat.classList.add("typing-active");
                 clearTimeout(typingTimer);
-                typingTimer = setTimeout(() => {
-                    cabecalhoChat.classList.remove("typing-active");
-                }, 700); // A bola azul gira por 700ms após cada tecla
+                typingTimer = setTimeout(() => cabecalhoChat.classList.remove("backspace-flash"), 150);
+            } else if (e.key.length === 1 || e.key === 'Enter') {
+                // Flash azul em toda a borda ao digitar
+                cabecalhoChat.classList.add("typing-flash");
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => cabecalhoChat.classList.remove("typing-flash"), 150);
             }
         }
-        
-        if (e.key === 'Enter') {
-            enviarMensagemChat();
-        }
+        if (e.key === 'Enter') enviarMensagemChat();
     };
 
     // 6. Firebase Listener
