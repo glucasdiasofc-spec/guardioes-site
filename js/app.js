@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.158.0 - versão alpha";
+const VERSAO_ATUAL = "v0.159.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -690,9 +690,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             // Forçamos o navegador a não rolar a página (o que faria o header sumir)
             window.scrollTo(0, 0);
             
-            // Mantemos o container sempre no topo visível
-            telaChat.style.top = "0px";
-            // Ajustamos a altura para o espaço que sobra acima do teclado
+            // Acompanhamos o deslocamento real do visualViewport no Android para eliminar o vão preto das abas
+            telaChat.style.top = `${vv.offsetTop}px`;
+            // Ajustamos a altura para o espaço exato que sobra acima do teclado
             telaChat.style.height = `${vv.height}px`;
             
             if (container) container.scrollTop = container.scrollHeight;
