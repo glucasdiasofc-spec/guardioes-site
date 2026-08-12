@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.148.0 - versão alpha";
+const VERSAO_ATUAL = "v0.149.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -712,7 +712,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Tratamento de Foco e Eventos de Teclado
+    // 5. Tratamento de Foco e Eventos de Teclado (Pulsação e Flashes)
     let typingTimer = null;
     inputMsg.onfocus = () => {
         if (cabecalhoChat) cabecalhoChat.classList.add("keyboard-open");
@@ -738,6 +738,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 clearTimeout(typingTimer);
                 typingTimer = setTimeout(() => cabecalhoChat.classList.remove("backspace-flash"), 150);
             } else if (e.key.length === 1 || e.key === 'Enter') {
+                // Flash azul intenso ao digitar qualquer tecla
                 cabecalhoChat.classList.add("typing-flash");
                 cabecalhoChat.classList.remove("backspace-flash");
                 clearTimeout(typingTimer);
@@ -789,6 +790,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             container.scrollTop = container.scrollHeight;
         });
 }
+
 
 
 
