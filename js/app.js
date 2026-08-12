@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.152.0 - versão alpha";
+const VERSAO_ATUAL = "v0.153.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -623,11 +623,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     if (!telaChat || !inputMsg) return;
 
-    // 1. Salva o scroll e limpa o ambiente
+    // 1. Reset absoluto de scroll para evitar que o header/input sumam no Android
     const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
     telaChat._scrollPos = scrollPos;
-    
-    // Força o scroll para o topo absoluto para o Android recalcular o viewport do zero
     window.scrollTo(0, 0);
 
     telaChat._backupBody = {
@@ -637,7 +635,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         height: document.body.style.height
     };
 
-    // 2. Esconde TUDO do site principal para evitar conflito de layout
+    // 2. Isolamento Total: Esconde o site principal para o chat ser a única coisa no DOM visível
     if (telaLista) telaLista.style.display = "none";
     
     const siteHeader = document.querySelector('.feed-x-reels-header') || document.querySelector('header');
@@ -649,16 +647,15 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     const siteFooter = document.querySelector('.rodape-app');
     if (siteFooter) siteFooter.style.display = "none";
 
-    // Trava o body e o html para não permitir scroll de fundo
+    // Trava o body no topo absoluto
     document.documentElement.style.overflow = "hidden";
-    document.documentElement.style.height = "100%";
     document.body.style.overflow = "hidden";
-    document.body.style.height = "100%";
     document.body.style.position = "fixed";
     document.body.style.top = "0";
     document.body.style.width = "100%";
+    document.body.style.height = "100%";
 
-    // 3. Configuração do Overlay de Chat
+    // 3. Configuração do Container de Chat
     telaChat.style.display = "flex";
     telaChat.style.flexDirection = "column";
     telaChat.style.position = "fixed";
@@ -667,14 +664,24 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     telaChat.style.backgroundColor = "#000";
     telaChat.style.height = "100%";
 
-    // 4. Sincronização Dinâmica com o Teclado (Visual Viewport)
+    // 4. Sincronização milimétrica com o Teclado (Visual Viewport)
     const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv && telaChat.style.display !== "none") {
-            // Mantém o container sempre alinhado ao topo visível, ignorando o scroll do body
+            // Ajusta o chat exatamente para a área visível do navegador (ignora barras de endereço que somem)
             telaChat.style.top = `${vv.offsetTop}px`;
             telaChat.style.height = `${vv.height}px`;
             
+            // Detecta teclado para o efeito de brilho verde
+            const tecladoAberto = vv.height < (window.innerHeight - 100) || document.activeElement === inputMsg;
+            if (cabecalhoChat) {
+                if (tecladoAberto) cabecalhoChat.classList.add("keyboard-open");
+                else {
+                    cabecalhoChat.classList.remove("keyboard-open");
+                    cabecalhoChat.classList.remove("typing-flash");
+                    cabecalhoChat.classList.remove("backspace-flash");
+                }
+            }
             if (container) container.scrollTop = container.scrollHeight;
         }
     };
@@ -686,7 +693,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Dados e Eventos
+    // 5. Dados e Eventos de Brilho
     const nomeEl = document.getElementById("chat-nome-atual");
     const cargoEl = document.getElementById("chat-cargo-atual");
     const avatarEl = document.getElementById("chat-avatar-atual");
@@ -698,15 +705,25 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
 
     let typingTimer = null;
-    inputMsg.onfocus = () => setTimeout(syncViewport, 100);
+    inputMsg.onfocus = () => {
+        if (cabecalhoChat) cabecalhoChat.classList.add("keyboard-open");
+        setTimeout(syncViewport, 100);
+    };
+
+    inputMsg.onblur = () => {
+        setTimeout(syncViewport, 150);
+    };
+
     inputMsg.onkeydown = (e) => {
         if (cabecalhoChat) {
             if (e.key === 'Backspace' || e.key === 'Delete') {
                 cabecalhoChat.classList.add("backspace-flash");
+                cabecalhoChat.classList.remove("typing-flash");
                 clearTimeout(typingTimer);
                 typingTimer = setTimeout(() => cabecalhoChat.classList.remove("backspace-flash"), 150);
             } else if (e.key.length === 1 || e.key === 'Enter') {
                 cabecalhoChat.classList.add("typing-flash");
+                cabecalhoChat.classList.remove("backspace-flash");
                 clearTimeout(typingTimer);
                 typingTimer = setTimeout(() => cabecalhoChat.classList.remove("typing-flash"), 120);
             }
@@ -768,8 +785,12 @@ function fecharSalaChat() {
     const telaChat = document.getElementById("tela-sala-chat");
     const telaLista = document.getElementById("tela-lista-mensagens");
     const inputMsg = document.getElementById("input-nova-mensagem");
+    const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
 
     if (inputMsg) inputMsg.blur();
+    if (cabecalhoChat) {
+        cabecalhoChat.classList.remove("keyboard-open", "typing-flash", "backspace-flash");
+    }
 
     // 1. Remove listeners do viewport
     if (telaChat && telaChat._vvSync && window.visualViewport) {
@@ -778,7 +799,7 @@ function fecharSalaChat() {
         telaChat._vvSync = null;
     }
 
-    // 2. Restaura o Estado do Site (Garante display: flex para evitar empilhamento)
+    // 2. Restaura o Estado do Site (Garante display original para evitar empilhamento)
     if (telaChat && telaChat._backupBody) {
         document.documentElement.style.overflow = "";
         document.documentElement.style.height = "";
@@ -788,11 +809,12 @@ function fecharSalaChat() {
         document.body.style.height = telaChat._backupBody.height;
         document.body.style.width = "";
 
+        // Restaura elementos escondidos forçando o display correto
         const siteHeader = document.querySelector('.feed-x-reels-header') || document.querySelector('header');
-        if (siteHeader) siteHeader.style.display = "flex"; // Força flex para os itens ficarem lado a lado
+        if (siteHeader) siteHeader.style.display = "flex"; 
 
         const bottomNav = document.getElementById("barra-navegacao-inferior");
-        if (bottomNav) bottomNav.style.display = "flex"; // Força flex para as abas não empilharem
+        if (bottomNav) bottomNav.style.display = "flex";
 
         const siteFooter = document.querySelector('.rodape-app');
         if (siteFooter) siteFooter.style.display = "block";
@@ -804,10 +826,10 @@ function fecharSalaChat() {
     
     if (telaLista) telaLista.style.display = "flex";
 
-    // 3. Restaura o scroll original com precisão
+    // 3. Restaura o scroll original
     setTimeout(() => {
         window.scrollTo(0, telaChat._scrollPos || 0);
-    }, 60);
+    }, 100);
 
     usuarioChatDestino = null;
     if (unsubscribeChatAtivo) {
@@ -815,6 +837,7 @@ function fecharSalaChat() {
         unsubscribeChatAtivo = null;
     }
 }
+
 
 
 

@@ -1749,37 +1749,43 @@
                                 <!-- Estilos de Moldura e Brilho Dinâmico -->
                 <style>
                     #cabecalho-sala-chat {
-                        transition: box-shadow 0.4s ease, border-color 0.4s ease, background-color 0.4s ease;
+                        transition: box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
                         position: relative;
                         background: #000 !important;
                         z-index: 100000;
+                        border-bottom: 1px solid #262626;
                     }
                     /* Estado Base: Teclado Aberto (Verde Pulsante) */
                     #cabecalho-sala-chat.keyboard-open {
                         border-color: #00ff66 !important;
-                        animation: pulseGreenGlow 2.5s infinite ease-in-out;
+                        animation: pulseGreenGlow 2s infinite ease-in-out;
                     }
-                    /* Flash Azul Intenso (Ao Digitar qualquer tecla) */
+                    /* Flash Azul Intenso (Ao Digitar) */
                     #cabecalho-sala-chat.typing-flash {
                         box-shadow: 0 0 45px 18px rgba(0, 149, 246, 0.95), inset 0 0 25px 10px rgba(0, 149, 246, 0.8) !important;
                         border-color: #0095f6 !important;
-                        animation: none !important; /* Interrompe a pulsação durante o flash */
+                        animation: none !important;
                         transition: box-shadow 0.05s ease, border-color 0.05s ease !important;
                     }
-                    /* Flash Vermelho Intenso (Backspace / Delete) */
+                    /* Flash Vermelho Intenso (Backspace) */
                     #cabecalho-sala-chat.backspace-flash {
                         box-shadow: 0 0 55px 22px rgba(255, 51, 51, 0.95), inset 0 0 30px 12px rgba(255, 51, 51, 0.8) !important;
                         border-color: #ff3333 !important;
                         animation: none !important;
                         transition: box-shadow 0.05s ease, border-color 0.05s ease !important;
                     }
-                    /* Animação de Pulsação Verde */
                     @keyframes pulseGreenGlow {
                         0% { box-shadow: 0 0 15px 5px rgba(0, 255, 102, 0.4), inset 0 0 10px 2px rgba(0, 255, 102, 0.3); }
-                        50% { box-shadow: 0 0 40px 15px rgba(0, 255, 102, 0.8), inset 0 0 20px 8px rgba(0, 255, 102, 0.6); }
+                        50% { box-shadow: 0 0 35px 12px rgba(0, 255, 102, 0.75), inset 0 0 18px 6px rgba(0, 255, 102, 0.55); }
                         100% { box-shadow: 0 0 15px 5px rgba(0, 255, 102, 0.4), inset 0 0 10px 2px rgba(0, 255, 102, 0.3); }
                     }
+                    /* Fix para garantir que o chat não tenha rolagem fantasma no Android */
+                    #tela-sala-chat {
+                        background: #000 !important;
+                        overscroll-behavior: none;
+                    }
                 </style>
+
 
 
 
