@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.147.0 - versão alpha";
+const VERSAO_ATUAL = "v0.148.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -635,7 +635,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
     }
 
-    // 2. Isolamento de Interface (Oculta o site e trava o fundo)
+    // 2. Isolamento de Interface
     const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
     telaChat._backupBody = {
         overflow: document.body.style.overflow,
@@ -712,7 +712,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Tratamento de Foco e Eventos de Teclado (Flashes Dinâmicos)
+    // 5. Tratamento de Foco e Eventos de Teclado
     let typingTimer = null;
     inputMsg.onfocus = () => {
         if (cabecalhoChat) cabecalhoChat.classList.add("keyboard-open");
@@ -734,13 +734,14 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         if (cabecalhoChat) {
             if (e.key === 'Backspace' || e.key === 'Delete') {
                 cabecalhoChat.classList.add("backspace-flash");
+                cabecalhoChat.classList.remove("typing-flash");
                 clearTimeout(typingTimer);
                 typingTimer = setTimeout(() => cabecalhoChat.classList.remove("backspace-flash"), 150);
             } else if (e.key.length === 1 || e.key === 'Enter') {
-                // Flash azul em toda a borda ao digitar
                 cabecalhoChat.classList.add("typing-flash");
+                cabecalhoChat.classList.remove("backspace-flash");
                 clearTimeout(typingTimer);
-                typingTimer = setTimeout(() => cabecalhoChat.classList.remove("typing-flash"), 150);
+                typingTimer = setTimeout(() => cabecalhoChat.classList.remove("typing-flash"), 120);
             }
         }
         if (e.key === 'Enter') enviarMensagemChat();
@@ -788,6 +789,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             container.scrollTop = container.scrollHeight;
         });
 }
+
 
 
 

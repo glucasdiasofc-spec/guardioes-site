@@ -1751,37 +1751,44 @@
                     #cabecalho-sala-chat {
                         transition: box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
                         position: relative;
+                        isolation: isolate; /* Garante que o efeito fique atrás do conteúdo mas dentro do contexto do header */
+                        background: #000 !important;
                     }
                     /* Estado Base: Teclado Aberto (Verde) */
                     #cabecalho-sala-chat.keyboard-open {
                         box-shadow: 0 0 30px 10px rgba(0, 255, 102, 0.7), inset 0 0 15px 4px rgba(0, 255, 102, 0.5);
                         border-color: #00ff66 !important;
                     }
-                    /* Luz Azul Dinâmica (Sempre girando quando aberto) */
+                    /* Luz Azul Dinâmica (Orbitando a Moldura) */
                     #cabecalho-sala-chat::before {
                         content: "";
                         position: absolute;
-                        inset: -50px;
-                        background: conic-gradient(from 0deg, transparent 0%, #0095f6 5%, #0095f6 10%, transparent 20%);
-                        filter: blur(30px);
+                        inset: -80px; /* Aumentado para o brilho escapar mais */
+                        background: conic-gradient(from 0deg, transparent 0%, #0095f6 5%, #0095f6 10%, transparent 25%);
+                        filter: blur(35px);
                         opacity: 0;
                         z-index: -1;
                         pointer-events: none;
                         transition: opacity 0.5s ease;
+                        /* MÁSCARA DE EXCLUSÃO: Remove a luz do centro e mantém apenas na borda/fora */
+                        -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+                        -webkit-mask-composite: xor;
+                        mask-composite: exclude;
+                        padding: 80px; /* Deve ser igual ao valor negativo do inset */
                     }
                     #cabecalho-sala-chat.keyboard-open::before {
                         opacity: 1;
-                        animation: rotateBlueLight 1.5s linear infinite;
+                        animation: rotateBlueLight 2s linear infinite;
                     }
                     /* Flash Azul em Toda a Borda (Ao Digitar) */
                     #cabecalho-sala-chat.typing-flash {
-                        box-shadow: 0 0 40px 15px rgba(0, 149, 246, 0.9), inset 0 0 20px 8px rgba(0, 149, 246, 0.7) !important;
+                        box-shadow: 0 0 50px 20px rgba(0, 149, 246, 0.95), inset 0 0 25px 10px rgba(0, 149, 246, 0.8) !important;
                         border-color: #0095f6 !important;
                         transition: box-shadow 0.05s ease, border-color 0.05s ease !important;
                     }
                     /* Flash Vermelho (Backspace) */
                     #cabecalho-sala-chat.backspace-flash {
-                        box-shadow: 0 0 45px 18px rgba(255, 51, 51, 0.95), inset 0 0 25px 10px rgba(255, 51, 51, 0.75) !important;
+                        box-shadow: 0 0 55px 22px rgba(255, 51, 51, 0.95), inset 0 0 30px 12px rgba(255, 51, 51, 0.8) !important;
                         border-color: #ff3333 !important;
                         transition: box-shadow 0.05s ease, border-color 0.05s ease !important;
                     }
@@ -1790,6 +1797,7 @@
                         to { transform: rotate(360deg); }
                     }
                 </style>
+
 
 
                 <!-- Header do Chat -->
