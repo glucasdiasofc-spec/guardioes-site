@@ -369,6 +369,22 @@
                 overflow-x: hidden;
             }
 
+            /* === BORDA BRILHANTE FORTE EXIBIDA SOMENTE QUANDO O TECLADO ESTIVER ABERTO (CAMPO EM FOCO) === */
+            input:focus,
+            textarea:focus,
+            select:focus {
+                border-color: #0095f6 !important;
+                box-shadow: 0 0 16px #0095f6, 0 0 32px rgba(0, 149, 246, 0.85) !important;
+                outline: none !important;
+            }
+
+            /* QUANDO O TECLADO FECHA (CAMPO PERDE O FOCO), A BORDA BRILHANTE SOME COMPLETAMENTE */
+            input:not(:focus),
+            textarea:not(:focus),
+            select:not(:focus) {
+                box-shadow: none !important;
+            }
+
             /* =====================================================
                FEED DE PUBLICAÇÕES — LAYOUT INSPIRADO NO X
                ===================================================== */
@@ -1293,6 +1309,16 @@
 
                         <!-- LÓGICA SÊNIOR: Renderização e Interações do Feed -->
                         <script>
+                            // Detecção Responsiva do Teclado Virtual: remove o foco ao fechar o teclado para sumir com a borda brilhante
+                            if (window.visualViewport) {
+                                window.visualViewport.addEventListener('resize', () => {
+                                    const tecladoAberto = window.visualViewport.height < window.innerHeight * 0.85;
+                                    if (!tecladoAberto && document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+                                        document.activeElement.blur();
+                                    }
+                                });
+                            }
+
                             // 1. Delegação de Eventos para Curtidas (Garante funcionamento em elementos dinâmicos)
                             window.lockCurtidas = window.lockCurtidas || {};
                             document.addEventListener("click", async function(event) {
@@ -1765,7 +1791,7 @@
                     
                     <!-- Input Fixo no Rodapé do Chat -->
                     <div style="padding: 8px 12px; border-top: 1px solid #262626; background: #000; display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
-                        <input type="text" id="input-nova-mensagem" onkeypress="if(event.key === 'Enter') enviarMensagemChat()" placeholder="Mensagem..." onfocus="this.style.borderColor='#0095f6'; this.style.boxShadow='0 0 14px rgba(0, 149, 246, 0.9)';" onblur="this.style.borderColor='#363636'; this.style.boxShadow='none';" style="flex: 1; background: #262626; border: 1px solid #363636; border-radius: 20px; padding: 8px 12px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease;">
+                        <input type="text" id="input-nova-mensagem" onkeypress="if(event.key === 'Enter') enviarMensagemChat()" placeholder="Mensagem..." style="flex: 1; background: #262626; border: 1px solid #363636; border-radius: 20px; padding: 8px 12px; color: #fff; font-size: 14px; outline: none;">
                         <button onclick="enviarMensagemChat()" style="background: none; border: none; color: #0095f6; font-weight: bold; font-size: 14px; cursor: pointer; padding: 0;">Enviar</button>
                     </div>
                 </div>
