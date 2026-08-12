@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.153.0 - versão alpha";
+const VERSAO_ATUAL = "v0.128.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -623,11 +623,20 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     if (!telaChat || !inputMsg) return;
 
-    // 1. Reset absoluto de scroll para evitar que o header/input sumam no Android
-    const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
-    telaChat._scrollPos = scrollPos;
-    window.scrollTo(0, 0);
+    // 1. Atualiza dados do contato
+    const nomeEl = document.getElementById("chat-nome-atual");
+    const cargoEl = document.getElementById("chat-cargo-atual");
+    const avatarEl = document.getElementById("chat-avatar-atual");
 
+    if (nomeEl) nomeEl.textContent = nomeAlvo || "Usuário";
+    if (cargoEl) cargoEl.textContent = cargoAlvo || "";
+    if (avatarEl) {
+        avatarEl.src = (typeof normalizarUrlPublicacao === 'function' ? normalizarUrlPublicacao(fotoAlvo) : fotoAlvo) || window.AVATAR_USUARIO_PADRAO;
+        avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
+    }
+
+    // 2. Isolamento de Interface (Oculta o site e trava o fundo)
+    const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
     telaChat._backupBody = {
         overflow: document.body.style.overflow,
         position: document.body.style.position,
@@ -635,53 +644,57 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         height: document.body.style.height
     };
 
-    // 2. Isolamento Total: Esconde o site principal para o chat ser a única coisa no DOM visível
+    // Esconde fisicamente a lista e o header do site para não haver "vazamento" visual
     if (telaLista) telaLista.style.display = "none";
-    
-    const siteHeader = document.querySelector('.feed-x-reels-header') || document.querySelector('header');
-    if (siteHeader) siteHeader.style.display = "none";
-    
-    const bottomNav = document.getElementById("barra-navegacao-inferior");
-    if (bottomNav) bottomNav.style.display = "none";
-    
-    const siteFooter = document.querySelector('.rodape-app');
-    if (siteFooter) siteFooter.style.display = "none";
+    const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
+    if (siteHeader) siteHeader.style.visibility = "hidden";
 
-    // Trava o body no topo absoluto
-    document.documentElement.style.overflow = "hidden";
+    document.body.style.backgroundColor = "#000";
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
-    document.body.style.top = "0";
+    document.body.style.top = `-${scrollPos}px`;
     document.body.style.width = "100%";
     document.body.style.height = "100%";
+    telaChat._scrollPos = scrollPos;
 
-    // 3. Configuração do Container de Chat
+    // 3. Configuração do Container de Chat (Fixo e Imóvel no topo)
     telaChat.style.display = "flex";
     telaChat.style.flexDirection = "column";
     telaChat.style.position = "fixed";
-    telaChat.style.inset = "0";
+    telaChat.style.top = "0";
+    telaChat.style.left = "0";
+    telaChat.style.width = "100%";
+    telaChat.style.height = "100%";
     telaChat.style.zIndex = "2147483647";
     telaChat.style.backgroundColor = "#000";
-    telaChat.style.height = "100%";
+    telaChat.style.overflow = "hidden";
+    telaChat.style.transform = "none"; // Remove qualquer transformação anterior
 
-    // 4. Sincronização milimétrica com o Teclado (Visual Viewport)
+    if (cabecalhoChat) {
+        cabecalhoChat.style.position = "relative";
+        cabecalhoChat.style.top = "0";
+        cabecalhoChat.style.flexShrink = "0";
+        cabecalhoChat.style.zIndex = "10";
+    }
+
+    if (container) {
+        container.style.flex = "1";
+        container.style.overflowY = "auto";
+        container.style.webkitOverflowScrolling = "touch";
+    }
+
+    // 4. Sincronização Estrita do Viewport (Evita que o header suba)
     const syncViewport = () => {
         const vv = window.visualViewport;
         if (vv && telaChat.style.display !== "none") {
-            // Ajusta o chat exatamente para a área visível do navegador (ignora barras de endereço que somem)
-            telaChat.style.top = `${vv.offsetTop}px`;
+            // Forçamos o navegador a não rolar a página (o que faria o header sumir)
+            window.scrollTo(0, 0);
+            
+            // Mantemos o container sempre no topo visível
+            telaChat.style.top = "0px";
+            // Ajustamos a altura para o espaço que sobra acima do teclado
             telaChat.style.height = `${vv.height}px`;
             
-            // Detecta teclado para o efeito de brilho verde
-            const tecladoAberto = vv.height < (window.innerHeight - 100) || document.activeElement === inputMsg;
-            if (cabecalhoChat) {
-                if (tecladoAberto) cabecalhoChat.classList.add("keyboard-open");
-                else {
-                    cabecalhoChat.classList.remove("keyboard-open");
-                    cabecalhoChat.classList.remove("typing-flash");
-                    cabecalhoChat.classList.remove("backspace-flash");
-                }
-            }
             if (container) container.scrollTop = container.scrollHeight;
         }
     };
@@ -693,52 +706,23 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Dados e Eventos de Brilho
-    const nomeEl = document.getElementById("chat-nome-atual");
-    const cargoEl = document.getElementById("chat-cargo-atual");
-    const avatarEl = document.getElementById("chat-avatar-atual");
-    if (nomeEl) nomeEl.textContent = nomeAlvo || "Usuário";
-    if (cargoEl) cargoEl.textContent = cargoAlvo || "";
-    if (avatarEl) {
-        avatarEl.src = (typeof normalizarUrlPublicacao === 'function' ? normalizarUrlPublicacao(fotoAlvo) : fotoAlvo) || window.AVATAR_USUARIO_PADRAO;
-        avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
-    }
-
-    let typingTimer = null;
+    // 5. Tratamento de Foco (Sincronização imediata)
     inputMsg.onfocus = () => {
-        if (cabecalhoChat) cabecalhoChat.classList.add("keyboard-open");
+        syncViewport();
         setTimeout(syncViewport, 100);
-    };
-
-    inputMsg.onblur = () => {
-        setTimeout(syncViewport, 150);
-    };
-
-    inputMsg.onkeydown = (e) => {
-        if (cabecalhoChat) {
-            if (e.key === 'Backspace' || e.key === 'Delete') {
-                cabecalhoChat.classList.add("backspace-flash");
-                cabecalhoChat.classList.remove("typing-flash");
-                clearTimeout(typingTimer);
-                typingTimer = setTimeout(() => cabecalhoChat.classList.remove("backspace-flash"), 150);
-            } else if (e.key.length === 1 || e.key === 'Enter') {
-                cabecalhoChat.classList.add("typing-flash");
-                cabecalhoChat.classList.remove("backspace-flash");
-                clearTimeout(typingTimer);
-                typingTimer = setTimeout(() => cabecalhoChat.classList.remove("typing-flash"), 120);
-            }
-        }
-        if (e.key === 'Enter') enviarMensagemChat();
     };
 
     // 6. Firebase Listener
     if (unsubscribeChatAtivo) unsubscribeChatAtivo();
-    if (container) container.innerHTML = "";
+    if (container) container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando...</p>";
 
     const meuUsername = localStorage.getItem("usernameLogado");
     const chatId = [meuUsername, usernameAlvo].sort().join("_");
+
     unsubscribeChatAtivo = window.ClubeDB.textoDB
-        .collection("chats").doc(chatId).collection("mensagens")
+        .collection("chats")
+        .doc(chatId)
+        .collection("mensagens")
         .orderBy("timestamp", "asc")
         .onSnapshot(snapshot => {
             if (!container) return;
@@ -751,6 +735,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 div.style.width = "100%";
                 div.style.marginBottom = "8px";
                 div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
+
                 const balao = document.createElement("div");
                 balao.textContent = msg.texto;
                 balao.style.maxWidth = "75%";
@@ -762,6 +747,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 balao.style.color = "#fff";
                 if (isMinha) balao.style.borderBottomRightRadius = "4px";
                 else balao.style.borderBottomLeftRadius = "4px";
+
                 div.appendChild(balao);
                 container.appendChild(div);
             });
@@ -774,23 +760,12 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
 
 
-
-
-
-
-
-
-
 function fecharSalaChat() {
     const telaChat = document.getElementById("tela-sala-chat");
     const telaLista = document.getElementById("tela-lista-mensagens");
     const inputMsg = document.getElementById("input-nova-mensagem");
-    const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
 
     if (inputMsg) inputMsg.blur();
-    if (cabecalhoChat) {
-        cabecalhoChat.classList.remove("keyboard-open", "typing-flash", "backspace-flash");
-    }
 
     // 1. Remove listeners do viewport
     if (telaChat && telaChat._vvSync && window.visualViewport) {
@@ -799,37 +774,24 @@ function fecharSalaChat() {
         telaChat._vvSync = null;
     }
 
-    // 2. Restaura o Estado do Site (Garante display original para evitar empilhamento)
+    // 2. Restaura o Estado do Site
     if (telaChat && telaChat._backupBody) {
-        document.documentElement.style.overflow = "";
-        document.documentElement.style.height = "";
         document.body.style.overflow = telaChat._backupBody.overflow;
         document.body.style.position = telaChat._backupBody.position;
         document.body.style.top = telaChat._backupBody.top;
         document.body.style.height = telaChat._backupBody.height;
-        document.body.style.width = "";
-
-        // Restaura elementos escondidos forçando o display correto
-        const siteHeader = document.querySelector('.feed-x-reels-header') || document.querySelector('header');
-        if (siteHeader) siteHeader.style.display = "flex"; 
-
-        const bottomNav = document.getElementById("barra-navegacao-inferior");
-        if (bottomNav) bottomNav.style.display = "flex";
-
-        const siteFooter = document.querySelector('.rodape-app');
-        if (siteFooter) siteFooter.style.display = "block";
+        
+        const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
+        if (siteHeader) siteHeader.style.visibility = "visible";
     }
 
     if (telaChat) {
         telaChat.style.display = "none";
+        telaChat.style.transform = "none";
+        window.scrollTo(0, telaChat._scrollPos || 0);
     }
     
     if (telaLista) telaLista.style.display = "flex";
-
-    // 3. Restaura o scroll original
-    setTimeout(() => {
-        window.scrollTo(0, telaChat._scrollPos || 0);
-    }, 100);
 
     usuarioChatDestino = null;
     if (unsubscribeChatAtivo) {
@@ -837,10 +799,6 @@ function fecharSalaChat() {
         unsubscribeChatAtivo = null;
     }
 }
-
-
-
-
 
 
 

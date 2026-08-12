@@ -1744,52 +1744,8 @@
                     </div>
                 </div>
 
-                                <!-- Sala de Chat -->
+                <!-- Sala de Chat -->
                 <div id="tela-sala-chat" style="display: none; flex-direction: column; height: 100%; background: #000; position: fixed; inset: 0; width: 100%; z-index: 99999; overflow: hidden;">
-                                <!-- Estilos de Moldura e Brilho Dinâmico -->
-                <style>
-                    #cabecalho-sala-chat {
-                        transition: box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
-                        position: relative;
-                        background: #000 !important;
-                        z-index: 100000;
-                        border-bottom: 1px solid #262626;
-                    }
-                    /* Estado Base: Teclado Aberto (Verde Pulsante) */
-                    #cabecalho-sala-chat.keyboard-open {
-                        border-color: #00ff66 !important;
-                        animation: pulseGreenGlow 2s infinite ease-in-out;
-                    }
-                    /* Flash Azul Intenso (Ao Digitar) */
-                    #cabecalho-sala-chat.typing-flash {
-                        box-shadow: 0 0 45px 18px rgba(0, 149, 246, 0.95), inset 0 0 25px 10px rgba(0, 149, 246, 0.8) !important;
-                        border-color: #0095f6 !important;
-                        animation: none !important;
-                        transition: box-shadow 0.05s ease, border-color 0.05s ease !important;
-                    }
-                    /* Flash Vermelho Intenso (Backspace) */
-                    #cabecalho-sala-chat.backspace-flash {
-                        box-shadow: 0 0 55px 22px rgba(255, 51, 51, 0.95), inset 0 0 30px 12px rgba(255, 51, 51, 0.8) !important;
-                        border-color: #ff3333 !important;
-                        animation: none !important;
-                        transition: box-shadow 0.05s ease, border-color 0.05s ease !important;
-                    }
-                    @keyframes pulseGreenGlow {
-                        0% { box-shadow: 0 0 15px 5px rgba(0, 255, 102, 0.4), inset 0 0 10px 2px rgba(0, 255, 102, 0.3); }
-                        50% { box-shadow: 0 0 35px 12px rgba(0, 255, 102, 0.75), inset 0 0 18px 6px rgba(0, 255, 102, 0.55); }
-                        100% { box-shadow: 0 0 15px 5px rgba(0, 255, 102, 0.4), inset 0 0 10px 2px rgba(0, 255, 102, 0.3); }
-                    }
-                    /* Fix para garantir que o chat não tenha rolagem fantasma no Android */
-                    #tela-sala-chat {
-                        background: #000 !important;
-                        overscroll-behavior: none;
-                    }
-                </style>
-
-
-
-
-
                 <!-- Header do Chat -->
                    <div id="cabecalho-sala-chat" style="position: fixed; top: 0; left: 0; right: 0; z-index: 100000; display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #262626; background: #000; height: 60px; box-sizing: border-box; flex-shrink: 0;">
                         <button onclick="fecharSalaChat()" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; padding: 0;">⬅</button>
@@ -1801,7 +1757,6 @@
                             <img id="chat-avatar-atual" src="" style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
                         </div>
                     </div>
-
                     
                     <!-- Area de Mensagens -->
                     <div id="chat-mensagens-container" style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #000; min-height: 200px;">
@@ -1942,8 +1897,8 @@
             </div>
 
 
-                        <!-- Barra de Navegação Inferior Fixa (Novo Ícone Mensagens) -->
-            <nav id="barra-navegacao-inferior" style="position: -webkit-sticky; position: sticky; bottom: 0; display: flex; justify-content: space-around; align-items: center; height: 52px; border-top: 1px solid #262626; background: #000; width: 100%; box-sizing: border-box; padding-bottom: env(safe-area-inset-bottom); z-index: 1000;">
+            <!-- Barra de Navegação Inferior Fixa (Novo Ícone Mensagens) -->
+            <nav style="position: -webkit-sticky; position: sticky; bottom: 0; display: flex; justify-content: space-around; align-items: center; height: 52px; border-top: 1px solid #262626; background: #000; width: 100%; box-sizing: border-box; padding-bottom: env(safe-area-inset-bottom); z-index: 1000;">
                 <button onclick="mudarSubAbaSite('feed')" id="btn-sub-feed" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; flex: 1; height: 100%; opacity: 1; transition: opacity 0.2s;">
                     🏠
                 </button>
