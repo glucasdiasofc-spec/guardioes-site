@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.128.0 - versão alpha";
+const VERSAO_ATUAL = "v0.155.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -623,6 +623,38 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     if (!telaChat || !inputMsg) return;
 
+    // INJEÇÃO DINÂMICA DO ESTILO NEON 
+    if (!document.getElementById("style-neon-chat")) {
+        const style = document.createElement("style");
+        style.id = "style-neon-chat";
+        style.innerHTML = `
+            @keyframes respiracaoNeonVerde {
+                0% { box-shadow: 0 0 5px #0f0, inset 0 0 5px #0f0; border: 2px solid #0f0; }
+                50% { box-shadow: 0 0 20px #0f0, inset 0 0 10px #0f0; border: 2px solid #33ff33; }
+                100% { box-shadow: 0 0 5px #0f0, inset 0 0 5px #0f0; border: 2px solid #0f0; }
+            }
+            .neon-verde-pulsante {
+                animation: respiracaoNeonVerde 2s infinite ease-in-out !important;
+                box-sizing: border-box !important;
+            }
+            .neon-azul-tecla {
+                border: 2px solid #00d2ff !important;
+                box-shadow: 0 0 15px #00d2ff, inset 0 0 10px #00d2ff !important;
+                animation: none !important;
+                transition: all 0.1s ease-out;
+                box-sizing: border-box !important;
+            }
+            .neon-vermelho-apagar {
+                border: 2px solid #ff003c !important;
+                box-shadow: 0 0 15px #ff003c, inset 0 0 10px #ff003c !important;
+                animation: none !important;
+                transition: all 0.1s ease-out;
+                box-sizing: border-box !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     // 1. Atualiza dados do contato
     const nomeEl = document.getElementById("chat-nome-atual");
     const cargoEl = document.getElementById("chat-cargo-atual");
@@ -675,6 +707,10 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         cabecalhoChat.style.top = "0";
         cabecalhoChat.style.flexShrink = "0";
         cabecalhoChat.style.zIndex = "10";
+        
+        // Ativa o neon verde brilhante padrão no header envolvendo toda a borda
+        cabecalhoChat.classList.remove("neon-azul-tecla", "neon-vermelho-apagar");
+        cabecalhoChat.classList.add("neon-verde-pulsante");
     }
 
     if (container) {
@@ -706,11 +742,31 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-    // 5. Tratamento de Foco (Sincronização imediata)
+    // 5. Tratamento de Foco (Sincronização imediata) e Lógica Visual Neon
     inputMsg.onfocus = () => {
         syncViewport();
         setTimeout(syncViewport, 100);
     };
+
+    // Escuta os eventos de teclado para trocar a cor da borda do header
+    if (cabecalhoChat) {
+        let neonTimeout;
+        inputMsg.onkeydown = (e) => {
+            clearTimeout(neonTimeout);
+            cabecalhoChat.classList.remove("neon-verde-pulsante", "neon-azul-tecla", "neon-vermelho-apagar");
+
+            if (e.key === "Backspace" || e.key === "Delete") {
+                cabecalhoChat.classList.add("neon-vermelho-apagar");
+            } else {
+                cabecalhoChat.classList.add("neon-azul-tecla");
+            }
+
+            neonTimeout = setTimeout(() => {
+                cabecalhoChat.classList.remove("neon-azul-tecla", "neon-vermelho-apagar");
+                cabecalhoChat.classList.add("neon-verde-pulsante");
+            }, 300); // Retorna ao verde respirante após 300ms de inatividade
+        };
+    }
 
     // 6. Firebase Listener
     if (unsubscribeChatAtivo) unsubscribeChatAtivo();
