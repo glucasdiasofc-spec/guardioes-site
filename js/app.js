@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.163.0 - versão alpha";
+const VERSAO_ATUAL = "v0.164.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -612,13 +612,13 @@ function gerarIdChat(user1, user2) {
     return [user1, user2].sort().join("_");
 }
 
+
 function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     usuarioChatDestino = usernameAlvo;
 
     const telaLista = document.getElementById("tela-lista-mensagens");
     const telaChat = document.getElementById("tela-sala-chat");
     const container = document.getElementById("chat-mensagens-container");
-    
     const inputMsg = document.getElementById("input-nova-mensagem");
     const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
 
@@ -642,7 +642,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         overflow: document.body.style.overflow,
         position: document.body.style.position,
         top: document.body.style.top,
-        height: document.body.style.height
+        height: document.body.style.height,
+        width: document.body.style.width,
+        backgroundColor: document.body.style.backgroundColor
     };
 
     // Esconde fisicamente a lista e o header do site para não haver "vazamento" visual
@@ -667,10 +669,17 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     telaChat.style.width = "100%";
     telaChat.style.height = "100%";
 
-    // No PC, recua somente as bordas laterais sem alterar o comportamento móvel.
+    // Mantém o overlay cobrindo a tela inteira para impedir que o fundo apareça.
+    telaChat.style.left = "0";
+    telaChat.style.width = "100%";
+    telaChat.style.boxSizing = "border-box";
+    telaChat.style.paddingLeft = "0";
+    telaChat.style.paddingRight = "0";
+
+    // No PC, recua somente o conteúdo interno sem reduzir o overlay.
     if (window.matchMedia("(min-width: 769px)").matches) {
-        telaChat.style.left = "12vw";
-        telaChat.style.width = "76vw";
+        telaChat.style.paddingLeft = "12vw";
+        telaChat.style.paddingRight = "12vw";
     }
     telaChat.style.zIndex = "2147483647";
     telaChat.style.backgroundColor = "#000";
@@ -681,7 +690,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         cabecalhoChat.style.position = "relative";
         cabecalhoChat.style.top = "0";
         cabecalhoChat.style.flexShrink = "0";
-        cabecalhoChat.style.zIndex = "10";
+        cabecalhoChat.style.zIndex = "100000";
+        cabecalhoChat.style.pointerEvents = "auto";
     }
 
     if (container) {
@@ -819,6 +829,56 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
             });
             container.scrollTop = container.scrollHeight;
         });
+}
+
+
+function fecharSalaChat() {
+    const telaChat = document.getElementById("tela-sala-chat");
+    const telaLista = document.getElementById("tela-lista-mensagens");
+    const inputMsg = document.getElementById("input-nova-mensagem");
+    const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
+
+    if (cabecalhoChat) {
+        cabecalhoChat.style.border = "none";
+        cabecalhoChat.style.boxShadow = "none";
+        cabecalhoChat.style.animation = "none";
+    }
+
+    if (inputMsg) inputMsg.blur();
+
+    // 1. Remove listeners do viewport
+    if (telaChat && telaChat._vvSync && window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", telaChat._vvSync);
+        window.visualViewport.removeEventListener("scroll", telaChat._vvSync);
+        telaChat._vvSync = null;
+    }
+
+    // 2. Restaura o Estado do Site
+    if (telaChat && telaChat._backupBody) {
+        document.body.style.overflow = telaChat._backupBody.overflow;
+        document.body.style.position = telaChat._backupBody.position;
+        document.body.style.top = telaChat._backupBody.top;
+        document.body.style.height = telaChat._backupBody.height;
+        document.body.style.width = telaChat._backupBody.width;
+        document.body.style.backgroundColor = telaChat._backupBody.backgroundColor;
+        
+        const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
+        if (siteHeader) siteHeader.style.visibility = "visible";
+    }
+
+    if (telaChat) {
+        telaChat.style.display = "none";
+        telaChat.style.transform = "none";
+        window.scrollTo(0, telaChat._scrollPos || 0);
+    }
+    
+    if (telaLista) telaLista.style.display = "flex";
+
+    usuarioChatDestino = null;
+    if (unsubscribeChatAtivo) {
+        unsubscribeChatAtivo();
+        unsubscribeChatAtivo = null;
+    }
 }
 
 // Carrega as informações dinâmicas do membro logado diretamente no perfil
