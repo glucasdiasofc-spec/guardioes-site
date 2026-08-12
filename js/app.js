@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.154.0 - versão alpha";
+const VERSAO_ATUAL = "v0.128.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -706,86 +706,13 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     }
     syncViewport();
 
-// 5. Feedback visual do header e sincronização do teclado virtual
-const atualizarFeedbackHeader = (estado) => {
-    if (!cabecalhoChat) return;
-
-    cabecalhoChat.classList.remove(
-        "chat-header-keyboard-open",
-        "chat-header-keyboard-typing",
-        "chat-header-keyboard-delete",
-        "chat-header-feedback-closing"
-    );
-
-    if (estado) cabecalhoChat.classList.add(estado);
-};
-
-const tecladoEstaAberto = () => {
-    const vv = window.visualViewport;
-    if (!vv) return document.activeElement === inputMsg;
-
-    return document.activeElement === inputMsg &&
-        (window.innerHeight - vv.height > 120 || vv.height < window.innerHeight * 0.85);
-};
-
-const restaurarFeedbackVerde = () => {
-    clearTimeout(inputMsg._chatFeedbackTimer);
-    inputMsg._chatFeedbackTimer = setTimeout(() => {
-        if (tecladoEstaAberto()) {
-            atualizarFeedbackHeader("chat-header-keyboard-open");
-        } else {
-            atualizarFeedbackHeader(null);
-        }
-    }, 20);
-};
-
-const atualizarEstadoTeclado = () => {
-    if (tecladoEstaAberto()) {
-        atualizarFeedbackHeader("chat-header-keyboard-open");
-    } else if (document.activeElement !== inputMsg) {
-        atualizarFeedbackHeader(null);
-    }
-};
-
-inputMsg.onfocus = () => {
-    atualizarEstadoTeclado();
-    syncViewport();
-    setTimeout(() => {
+    // 5. Tratamento de Foco (Sincronização imediata)
+    inputMsg.onfocus = () => {
         syncViewport();
-        atualizarEstadoTeclado();
-    }, 100);
-};
+        setTimeout(syncViewport, 100);
+    };
 
-inputMsg.onblur = () => {
-    clearTimeout(inputMsg._chatFeedbackTimer);
-    setTimeout(() => {
-        if (document.activeElement !== inputMsg) atualizarFeedbackHeader(null);
-    }, 180);
-};
-
-inputMsg.onkeydown = (evento) => {
-    if (evento.key === "Backspace" || evento.key === "Delete") {
-        atualizarFeedbackHeader("chat-header-keyboard-delete");
-        clearTimeout(inputMsg._chatFeedbackTimer);
-        inputMsg._chatFeedbackTimer = setTimeout(restaurarFeedbackVerde, 150);
-        return;
-    }
-
-    if (evento.key === "Enter" || evento.key.length === 1) {
-        atualizarFeedbackHeader("chat-header-keyboard-typing");
-        clearTimeout(inputMsg._chatFeedbackTimer);
-        inputMsg._chatFeedbackTimer = setTimeout(restaurarFeedbackVerde, 120);
-    }
-};
-
-if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", atualizarEstadoTeclado);
-    window.visualViewport.addEventListener("scroll", atualizarEstadoTeclado);
-    telaChat._vvFeedback = atualizarEstadoTeclado;
-}
-
-// 6. Firebase Listener
-
+    // 6. Firebase Listener
     if (unsubscribeChatAtivo) unsubscribeChatAtivo();
     if (container) container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando...</p>";
 
@@ -837,71 +764,41 @@ function fecharSalaChat() {
     const telaChat = document.getElementById("tela-sala-chat");
     const telaLista = document.getElementById("tela-lista-mensagens");
     const inputMsg = document.getElementById("input-nova-mensagem");
-    const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
 
-    if (inputMsg) {
-        clearTimeout(inputMsg._chatFeedbackTimer);
-        inputMsg.blur();
+    if (inputMsg) inputMsg.blur();
+
+    // 1. Remove listeners do viewport
+    if (telaChat && telaChat._vvSync && window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", telaChat._vvSync);
+        window.visualViewport.removeEventListener("scroll", telaChat._vvSync);
+        telaChat._vvSync = null;
     }
 
-    // 1. Remove listeners do viewport e do feedback visual
-    if (telaChat && window.visualViewport) {
-        if (telaChat._vvSync) {
-            window.visualViewport.removeEventListener("resize", telaChat._vvSync);
-            window.visualViewport.removeEventListener("scroll", telaChat._vvSync);
-            telaChat._vvSync = null;
-        }
-        if (telaChat._vvFeedback) {
-            window.visualViewport.removeEventListener("resize", telaChat._vvFeedback);
-            window.visualViewport.removeEventListener("scroll", telaChat._vvFeedback);
-            telaChat._vvFeedback = null;
-        }
+    // 2. Restaura o Estado do Site
+    if (telaChat && telaChat._backupBody) {
+        document.body.style.overflow = telaChat._backupBody.overflow;
+        document.body.style.position = telaChat._backupBody.position;
+        document.body.style.top = telaChat._backupBody.top;
+        document.body.style.height = telaChat._backupBody.height;
+        
+        const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
+        if (siteHeader) siteHeader.style.visibility = "visible";
     }
 
-    // 2. Inicia o fade-out sem deslocar o header
-    if (cabecalhoChat) {
-        cabecalhoChat.classList.remove(
-            "chat-header-keyboard-open",
-            "chat-header-keyboard-typing",
-            "chat-header-keyboard-delete"
-        );
-        cabecalhoChat.classList.add("chat-header-feedback-closing");
+    if (telaChat) {
+        telaChat.style.display = "none";
+        telaChat.style.transform = "none";
+        window.scrollTo(0, telaChat._scrollPos || 0);
     }
+    
+    if (telaLista) telaLista.style.display = "flex";
 
-    const finalizarFechamento = () => {
-        // 3. Restaura o Estado do Site
-        if (telaChat && telaChat._backupBody) {
-            document.body.style.overflow = telaChat._backupBody.overflow;
-            document.body.style.position = telaChat._backupBody.position;
-            document.body.style.top = telaChat._backupBody.top;
-            document.body.style.height = telaChat._backupBody.height;
-
-            const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
-            if (siteHeader) siteHeader.style.visibility = "visible";
-        }
-
-        if (telaChat) {
-            telaChat.style.display = "none";
-            telaChat.style.transform = "none";
-            window.scrollTo(0, telaChat._scrollPos || 0);
-        }
-
-        if (cabecalhoChat) {
-            cabecalhoChat.classList.remove("chat-header-feedback-closing");
-        }
-
-        if (telaLista) telaLista.style.display = "flex";
-
-        usuarioChatDestino = null;
-        if (unsubscribeChatAtivo) {
-            unsubscribeChatAtivo();
-            unsubscribeChatAtivo = null;
-        }
-    };
-
-    setTimeout(finalizarFechamento, 220);
+    usuarioChatDestino = null;
+    if (unsubscribeChatAtivo) {
+        unsubscribeChatAtivo();
+        unsubscribeChatAtivo = null;
+    }
 }
-
 
 
 
