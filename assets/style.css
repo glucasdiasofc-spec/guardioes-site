@@ -41,21 +41,21 @@ body {
 
 /* Layout mais elegante para telas grandes */
 @media (min-width: 1024px) {
-    .secao-app, .secao-chat {
+    .secao-app {
         padding-left: 7%;
         padding-right: 7%;
     }
 }
 
 @media (min-width: 1440px) {
-    .secao-app, .secao-chat {
+    .secao-app {
         padding-left: 10%;
         padding-right: 10%;
     }
 }
 
 @media (min-width: 1920px) {
-    .secao-app, .secao-chat {
+    .secao-app {
         padding-left: 14%;
         padding-right: 14%;
     }
