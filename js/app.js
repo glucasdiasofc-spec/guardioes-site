@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.168.0 - versão alpha";
+const VERSAO_ATUAL = "v0.169.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -974,32 +974,105 @@ async function atualizarIndicadorAbaMensagens() {
     }
 }
 
-async function atualizarMarcadoresContatosChat() {
+function atualizarMarcadoresContatosChat() {
     const usernameLogado = localStorage.getItem("usernameLogado");
-    if (!usernameLogado || !window.ClubeDB || !window.ClubeDB.textoDB) return;
-    try {
-        const snap = await window.ClubeDB.textoDB.collection("chats").where("usuarios", "array-contains", usernameLogado).get();
+
+    if (
+        !usernameLogado ||
+        !window.ClubeDB ||
+        !window.ClubeDB.textoDB
+    ) {
+        return;
+    }
+
+    if (window._unsubscribeMarcadoresMensagens) {
+        window._unsubscribeMarcadoresMensagens();
+        window._unsubscribeMarcadoresMensagens = null;
+    }
+
+    const aplicarMarcadores = (snapshot) => {
         const contagens = {};
-        snap.forEach(doc => {
+        let totalNaoLidas = 0;
+
+        snapshot.forEach(doc => {
             const dados = doc.data() || {};
-            const usuarios = dados.usuarios || [];
-            const outro = usuarios.find(usuario => usuario !== usernameLogado);
-            if (outro) contagens[outro.toLowerCase()] = Number((dados.naoLidasPor || {})[usernameLogado] || 0);
-        });
-        document.querySelectorAll("[data-chat-username]").forEach(card => {
-            const username = (card.getAttribute("data-chat-username") || "").toLowerCase();
-            const badge = card.querySelector("[data-unread-badge]");
-            const total = contagens[username] || 0;
-            if (badge) {
-                badge.textContent = total > 99 ? "99+" : String(total);
-                badge.style.display = total > 0 ? "inline-flex" : "none";
+
+            const quantidadeNaoLidas = Number(
+                (dados.naoLidasPor || {})[usernameLogado] || 0
+            );
+
+            totalNaoLidas += quantidadeNaoLidas;
+
+            const usuarios = Array.isArray(dados.usuarios)
+                ? dados.usuarios
+                : [];
+
+            const outroUsuario = usuarios.find(
+                usuario => usuario !== usernameLogado
+            );
+
+            if (outroUsuario) {
+                contagens[outroUsuario.toLowerCase()] = quantidadeNaoLidas;
             }
         });
-        await atualizarIndicadorAbaMensagens();
-    } catch (erro) {
-        console.error("Erro ao atualizar marcadores dos contatos:", erro);
-    }
+
+        document.querySelectorAll("[data-chat-username]").forEach(card => {
+            const usernameContato = (
+                card.getAttribute("data-chat-username") || ""
+            ).toLowerCase();
+
+            const badgeContato = card.querySelector(
+                "[data-unread-badge]"
+            );
+
+            if (!badgeContato) {
+                return;
+            }
+
+            const quantidade = contagens[usernameContato] || 0;
+
+            badgeContato.textContent = quantidade > 99
+                ? "99+"
+                : String(quantidade);
+
+            badgeContato.style.display = quantidade > 0
+                ? "inline-flex"
+                : "none";
+        });
+
+        const badgeAba = criarOuAtualizarBadgeMensagens();
+
+        if (badgeAba) {
+            badgeAba.textContent = totalNaoLidas > 99
+                ? "99+"
+                : String(totalNaoLidas);
+
+            badgeAba.style.display = totalNaoLidas > 0
+                ? "block"
+                : "none";
+        }
+    };
+
+    window._unsubscribeMarcadoresMensagens = window.ClubeDB.textoDB
+        .collection("chats")
+        .where(
+            "usuarios",
+            "array-contains",
+            usernameLogado
+        )
+        .onSnapshot(
+            snapshot => {
+                aplicarMarcadores(snapshot);
+            },
+            erro => {
+                console.error(
+                    "Erro no listener dos marcadores de mensagens:",
+                    erro
+                );
+            }
+        );
 }
+
 
 async function ajustarNaoLidasChat(chatId, username, delta) {
     if (!chatId || !username || !window.ClubeDB || !window.ClubeDB.textoDB) return;
