@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.179.0 - versão alpha";
+const VERSAO_ATUAL = "v0.180.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1266,15 +1266,101 @@ function criarOuAtualizarBadgeMensagens() {
     return badge;
 }
 
-function solicitarPermissaoNotificacoes() {
-    if (
-        typeof Notification === "undefined" ||
-        Notification.permission !== "default"
-    ) {
+const FCM_VAPID_PUBLIC_KEY = "BG6gvludyaQi2aktxnSkJC8VYzFTG9MJXhFINKjZshT1Tyz93ABrHXg9wjzen4nYmJlXT3nav8nK9oJjeGwohGE";
+let _registroServiceWorkerFCM = null;
+let _listenerForegroundFCMAtivo = false;
+
+async function registrarTokenFCM() {
+    try {
+        if (
+            typeof firebase === "undefined" ||
+            typeof firebase.messaging !== "function" ||
+            !navigator.serviceWorker ||
+            !window.ClubeDB ||
+            !window.ClubeDB.textoDB
+        ) {
+            return null;
+        }
+
+        const usuarioFirebase = window.ClubeDB.loginDB &&
+            window.ClubeDB.loginDB.currentUser;
+        const usernameLogado = String(
+            localStorage.getItem("usernameLogado") || ""
+        ).trim().toLowerCase();
+
+        if (!usuarioFirebase || !usernameLogado) {
+            return null;
+        }
+
+        if (!_registroServiceWorkerFCM) {
+            _registroServiceWorkerFCM = await navigator.serviceWorker.register(
+                "/firebase-messaging-sw.js",
+                { scope: "/" }
+            );
+        }
+
+        const messaging = firebase.messaging();
+        const token = await messaging.getToken({
+            vapidKey: FCM_VAPID_PUBLIC_KEY,
+            serviceWorkerRegistration: _registroServiceWorkerFCM
+        });
+
+        if (!token) {
+            console.warn("FCM não retornou um token para este dispositivo.");
+            return null;
+        }
+
+        const usuariosSnap = await window.ClubeDB.textoDB
+            .collection("usuarios")
+            .where("username", "==", usernameLogado)
+            .limit(1)
+            .get();
+
+        if (!usuariosSnap.empty) {
+            await usuariosSnap.docs[0].ref.set({
+                fcmTokens: firebase.firestore.FieldValue.arrayUnion(token),
+                fcmTokenAtualizadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+
+        if (!_listenerForegroundFCMAtivo) {
+            firebase.messaging().onMessage(payload => {
+                const dados = payload && payload.data ? payload.data : {};
+                const notificacao = payload && payload.notification
+                    ? payload.notification
+                    : {};
+                const nome = notificacao.title || dados.title || "Nova mensagem";
+                mostrarNotificacaoNovaMensagem(
+                    1,
+                    nome === "Nova mensagem" ? "" : nome
+                );
+            });
+            _listenerForegroundFCMAtivo = true;
+        }
+
+        console.log("✅ Token FCM registrado neste dispositivo.");
+        return token;
+    } catch (erro) {
+        console.error("Erro ao registrar notificações push FCM:", erro);
+        return null;
+    }
+}
+
+async function solicitarPermissaoNotificacoes() {
+    if (typeof Notification === "undefined") {
         return;
     }
 
-    Notification.requestPermission().catch(() => {});
+    let permissao = Notification.permission;
+
+    if (permissao === "default") {
+        permissao = await Notification.requestPermission();
+    }
+
+    if (permissao === "granted") {
+        await registrarTokenFCM();
+    }
 }
 
 function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
