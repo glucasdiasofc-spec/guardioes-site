@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.166.0 - versão alpha";
+const VERSAO_ATUAL = "v0.167.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1456,56 +1456,93 @@ async function carregarLogoClubeConfig() {
     try {
         const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
         const doc = await docRef.get();
-        
         if (doc.exists) {
             const dados = doc.data();
-            
+
             // 1. Aplica Logo do Site
             const logoImg = document.getElementById("site-logo-img");
             const logoTexto = document.getElementById("site-logo-texto");
+
             if (dados.logoUrl && logoImg) {
                 logoImg.src = dados.logoUrl;
                 logoImg.style.display = "inline-block";
-                if (logoTexto) logoTexto.style.display = "none";
+
+                if (logoTexto) {
+                    logoTexto.style.display = "none";
+                }
+
                 const previa = document.getElementById("previa-logo-site");
-                if (previa) previa.src = dados.logoUrl;
+                if (previa) {
+                    previa.src = dados.logoUrl;
+                }
             }
 
             // 2. Aplica Logo do App
             const logoAppImg = document.getElementById("app-logo-img");
+
             if (dados.logoAppUrl && logoAppImg) {
                 logoAppImg.src = dados.logoAppUrl;
+
                 const previaApp = document.getElementById("previa-logo-app");
-                if (previaApp) previaApp.src = dados.logoAppUrl;
+                if (previaApp) {
+                    previaApp.src = dados.logoAppUrl;
+                }
             }
 
             // 3. Aplica Favicon
             if (dados.faviconUrl) {
                 let fav = document.getElementById("favicon-site");
-                if (!fav) { fav = document.createElement("link"); fav.rel = "icon"; fav.id = "favicon-site"; document.head.appendChild(fav); }
+
+                if (!fav) {
+                    fav = document.createElement("link");
+                    fav.rel = "icon";
+                    fav.id = "favicon-site";
+                    document.head.appendChild(fav);
+                }
+
                 fav.href = dados.faviconUrl;
+
                 const previaFav = document.getElementById("previa-favicon");
-                if (previaFav) previaFav.src = dados.faviconUrl;
+                if (previaFav) {
+                    previaFav.src = dados.faviconUrl;
+                }
             }
 
-            // 4. APLICA O AVATAR PADRÃO DOS USUÁRIOS
+            // 4. Aplica o avatar padrão dos usuários
             if (dados.avatarPadraoUrl) {
                 window.AVATAR_USUARIO_PADRAO = dados.avatarPadraoUrl;
+
                 const previaAvatar = document.getElementById("previa-avatar-padrao");
-                if (previaAvatar) previaAvatar.src = dados.avatarPadraoUrl;
+                if (previaAvatar) {
+                    previaAvatar.src = dados.avatarPadraoUrl;
+                }
             }
 
-            // 5. Tamanho da Logo
-            if (dados.logoTamanho && logoImg) {
-                logoImg.style.height = dados.logoTamanho + "px";
+            // 5. Reaplica o tamanho salvo da logo após o F5
+            const tamanhoLogo = Number(dados.logoTamanho);
+
+            if (
+                Number.isFinite(tamanhoLogo) &&
+                tamanhoLogo > 0 &&
+                logoImg
+            ) {
+                logoImg.style.height = `${tamanhoLogo}px`;
+                logoImg.style.maxHeight = `${tamanhoLogo}px`;
+                logoImg.style.width = "auto";
+                logoImg.style.maxWidth = "250px";
+
                 const slider = document.getElementById("logo-tamanho-slider");
-                if (slider) slider.value = dados.logoTamanho;
+
+                if (slider) {
+                    slider.value = String(tamanhoLogo);
+                }
             }
         }
     } catch (error) {
         console.error("Erro ao carregar configurações:", error);
     }
 }
+
 
 
 
