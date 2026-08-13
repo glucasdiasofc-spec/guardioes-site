@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.177.0 - versão alpha";
+const VERSAO_ATUAL = "v0.178.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -358,7 +358,9 @@ function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
 }
 
 function iniciarListenerGlobalMensagens() {
-    const usernameLogado = localStorage.getItem("usernameLogado");
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
 
     if (
         !usernameLogado ||
@@ -413,9 +415,9 @@ function iniciarListenerGlobalMensagens() {
 
         document.querySelectorAll("[data-chat-username]")
             .forEach(card => {
-                const usernameContato = (
+                const usernameContato = String(
                     card.getAttribute("data-chat-username") || ""
-                ).toLowerCase();
+                ).trim().toLowerCase();
                 const badgeContato = card.querySelector(
                     "[data-unread-badge]"
                 );
@@ -443,9 +445,10 @@ function iniciarListenerGlobalMensagens() {
                 const usuarios = Array.isArray(dados.usuarios)
                     ? dados.usuarios
                     : [];
-                const outro = usuarios.find(
-                    usuario => usuario !== usernameLogado
-                );
+                const outro = usuarios.find(usuario => {
+                    return String(usuario).trim().toLowerCase() !==
+                        usernameLogado;
+                });
 
                 if (outro) {
                     estado.contatosPorChat[doc.id] = outro;
@@ -455,8 +458,9 @@ function iniciarListenerGlobalMensagens() {
             Object.keys(estado.porChat).forEach(chatId => {
                 const contato = estado.contatosPorChat[chatId];
                 if (contato) {
-                    estado.porContato[contato.toLowerCase()] =
-                        estado.porChat[chatId];
+                    estado.porContato[
+                        String(contato).trim().toLowerCase()
+                    ] = estado.porChat[chatId];
                 }
             });
 
@@ -467,13 +471,21 @@ function iniciarListenerGlobalMensagens() {
 
     const unsubscribeMensagens = window.ClubeDB.textoDB
         .collectionGroup("mensagens")
-        .where("destinatario", "==", usernameLogado)
         .onSnapshot(snapshot => {
             const novasContagens = {};
 
             snapshot.forEach(doc => {
                 const mensagem = doc.data() || {};
-                if (mensagem.lido === true) return;
+                const destinatario = String(
+                    mensagem.destinatario || ""
+                ).trim().toLowerCase();
+
+                if (
+                    destinatario !== usernameLogado ||
+                    mensagem.lido === true
+                ) {
+                    return;
+                }
 
                 const chatRef = doc.ref.parent.parent;
                 if (!chatRef) return;
@@ -508,8 +520,9 @@ function iniciarListenerGlobalMensagens() {
             Object.keys(novasContagens).forEach(chatId => {
                 const contato = estado.contatosPorChat[chatId];
                 if (contato) {
-                    estado.porContato[contato.toLowerCase()] =
-                        novasContagens[chatId];
+                    estado.porContato[
+                        String(contato).trim().toLowerCase()
+                    ] = novasContagens[chatId];
                 }
             });
 
@@ -526,6 +539,7 @@ function iniciarListenerGlobalMensagens() {
         unsubscribeMensagens();
     };
 }
+
 
 
 function irParaSite() {
