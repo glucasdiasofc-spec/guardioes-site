@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.176.0 - versão alpha";
+const VERSAO_ATUAL = "v0.177.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -363,10 +363,11 @@ function iniciarListenerGlobalMensagens() {
     if (
         !usernameLogado ||
         !window.ClubeDB ||
-        !window.ClubeDB.textoDB
+        !window.ClubeDB.textoDB ||
+        typeof window.ClubeDB.textoDB.collectionGroup !== "function"
     ) {
-        clearTimeout(window._timerInicializacaoMensagens);
-        window._timerInicializacaoMensagens = setTimeout(
+        clearTimeout(window._timerListenerMensagens);
+        window._timerListenerMensagens = setTimeout(
             iniciarListenerGlobalMensagens,
             500
         );
@@ -387,79 +388,145 @@ function iniciarListenerGlobalMensagens() {
 
     const estado = {
         total: 0,
+        porChat: {},
         porContato: {},
-        snapshot: null,
-        inicializado: false,
-        contagensAnteriores: {}
+        contatosPorChat: {},
+        anteriores: {},
+        inicializado: false
     };
 
     window._estadoContadoresMensagens = estado;
     window._listenerGlobalMensagensAtivo = true;
     window._listenerGlobalMensagensUsuario = usernameLogado;
 
-    window._unsubscribeGlobalMensagens = window.ClubeDB.textoDB
+    const renderizar = () => {
+        const badgeAba = criarOuAtualizarBadgeMensagens();
+
+        if (badgeAba) {
+            badgeAba.textContent = estado.total > 99
+                ? "99+"
+                : String(estado.total);
+            badgeAba.style.display = estado.total > 0
+                ? "block"
+                : "none";
+        }
+
+        document.querySelectorAll("[data-chat-username]")
+            .forEach(card => {
+                const usernameContato = (
+                    card.getAttribute("data-chat-username") || ""
+                ).toLowerCase();
+                const badgeContato = card.querySelector(
+                    "[data-unread-badge]"
+                );
+
+                if (!badgeContato) return;
+
+                const quantidade = Number(
+                    estado.porContato[usernameContato] || 0
+                );
+                badgeContato.textContent = quantidade > 99
+                    ? "99+"
+                    : String(quantidade);
+                badgeContato.style.display = quantidade > 0
+                    ? "inline-flex"
+                    : "none";
+            });
+    };
+
+    const unsubscribeChats = window.ClubeDB.textoDB
         .collection("chats")
         .where("usuarios", "array-contains", usernameLogado)
-        .onSnapshot(
-            snapshot => {
-                const porContato = {};
-                let total = 0;
+        .onSnapshot(snapshot => {
+            snapshot.forEach(doc => {
+                const dados = doc.data() || {};
+                const usuarios = Array.isArray(dados.usuarios)
+                    ? dados.usuarios
+                    : [];
+                const outro = usuarios.find(
+                    usuario => usuario !== usernameLogado
+                );
 
-                snapshot.forEach(doc => {
-                    const dados = doc.data() || {};
-                    const usuarios = Array.isArray(dados.usuarios)
-                        ? dados.usuarios
-                        : [];
-                    const outro = usuarios.find(
-                        usuario => usuario !== usernameLogado
+                if (outro) {
+                    estado.contatosPorChat[doc.id] = outro;
+                }
+            });
+
+            Object.keys(estado.porChat).forEach(chatId => {
+                const contato = estado.contatosPorChat[chatId];
+                if (contato) {
+                    estado.porContato[contato.toLowerCase()] =
+                        estado.porChat[chatId];
+                }
+            });
+
+            renderizar();
+        }, erro => {
+            console.error("Erro ao observar contatos do chat:", erro);
+        });
+
+    const unsubscribeMensagens = window.ClubeDB.textoDB
+        .collectionGroup("mensagens")
+        .where("destinatario", "==", usernameLogado)
+        .onSnapshot(snapshot => {
+            const novasContagens = {};
+
+            snapshot.forEach(doc => {
+                const mensagem = doc.data() || {};
+                if (mensagem.lido === true) return;
+
+                const chatRef = doc.ref.parent.parent;
+                if (!chatRef) return;
+
+                novasContagens[chatRef.id] =
+                    (novasContagens[chatRef.id] || 0) + 1;
+            });
+
+            if (estado.inicializado) {
+                Object.keys(novasContagens).forEach(chatId => {
+                    const anterior = Number(
+                        estado.anteriores[chatId] || 0
                     );
-                    const quantidade = Math.max(
-                        0,
-                        Number(
-                            (dados.naoLidasPor || {})[usernameLogado] || 0
-                        )
-                    );
+                    const atual = Number(novasContagens[chatId] || 0);
 
-                    total += quantidade;
-
-                    if (outro) {
-                        porContato[outro.toLowerCase()] = quantidade;
+                    if (atual > anterior) {
+                        mostrarNotificacaoNovaMensagem(
+                            atual - anterior,
+                            estado.contatosPorChat[chatId] || ""
+                        );
                     }
                 });
-
-                if (estado.inicializado) {
-                    Object.keys(porContato).forEach(username => {
-                        const anterior = Number(
-                            estado.contagensAnteriores[username] || 0
-                        );
-                        const atual = Number(porContato[username] || 0);
-
-                        if (atual > anterior) {
-                            mostrarNotificacaoNovaMensagem(
-                                atual - anterior,
-                                username
-                            );
-                        }
-                    });
-                }
-
-                estado.total = total;
-                estado.porContato = porContato;
-                estado.snapshot = snapshot;
-                estado.contagensAnteriores = { ...porContato };
-                estado.inicializado = true;
-
-                atualizarIndicadorAbaMensagens();
-                atualizarMarcadoresContatosChat();
-            },
-            erro => {
-                console.error(
-                    "Erro no listener global das mensagens:",
-                    erro
-                );
             }
-        );
+
+            estado.porChat = novasContagens;
+            estado.porContato = {};
+            estado.total = Object.values(novasContagens)
+                .reduce((soma, valor) => soma + valor, 0);
+            estado.anteriores = { ...novasContagens };
+            estado.inicializado = true;
+
+            Object.keys(novasContagens).forEach(chatId => {
+                const contato = estado.contatosPorChat[chatId];
+                if (contato) {
+                    estado.porContato[contato.toLowerCase()] =
+                        novasContagens[chatId];
+                }
+            });
+
+            renderizar();
+        }, erro => {
+            console.error(
+                "Erro ao observar mensagens em tempo real:",
+                erro
+            );
+        });
+
+    window._unsubscribeGlobalMensagens = () => {
+        unsubscribeChats();
+        unsubscribeMensagens();
+    };
 }
+
 
 function irParaSite() {
     document.getElementById("tela-admin").style.display = "none";
