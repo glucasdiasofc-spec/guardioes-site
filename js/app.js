@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.174.0 - versão alpha";
+const VERSAO_ATUAL = "v0.175.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -274,6 +274,152 @@ function iniciarListenerMarcadoresMensagens() {
     tentarIniciar();
 }
 
+function solicitarPermissaoNotificacoes() {
+    if (
+        typeof Notification === "undefined" ||
+        Notification.permission !== "default"
+    ) {
+        return;
+    }
+
+    if (window._ouvintePermissaoNotificacoes) {
+        return;
+    }
+
+    window._ouvintePermissaoNotificacoes = true;
+
+    const pedirPermissao = () => {
+        document.removeEventListener("click", pedirPermissao);
+        document.removeEventListener("touchend", pedirPermissao);
+
+        if (Notification.permission === "default") {
+            Notification.requestPermission().catch(() => {});
+        }
+    };
+
+    document.addEventListener("click", pedirPermissao, {
+        once: true,
+        passive: true
+    });
+
+    document.addEventListener("touchend", pedirPermissao, {
+        once: true,
+        passive: true
+    });
+}
+
+function iniciarListenerGlobalMensagens() {
+    const usernameLogado = localStorage.getItem("usernameLogado");
+
+    if (
+        !usernameLogado ||
+        !window.ClubeDB ||
+        !window.ClubeDB.textoDB
+    ) {
+        if (!window._tentativasListenerMensagens) {
+            window._tentativasListenerMensagens = 0;
+        }
+
+        if (window._tentativasListenerMensagens < 20) {
+            window._tentativasListenerMensagens += 1;
+            setTimeout(iniciarListenerGlobalMensagens, 500);
+        }
+
+        return;
+    }
+
+    if (
+        window._listenerGlobalMensagensAtivo &&
+        window._listenerGlobalMensagensUsuario === usernameLogado
+    ) {
+        return;
+    }
+
+    if (window._unsubscribeGlobalMensagens) {
+        window._unsubscribeGlobalMensagens();
+        window._unsubscribeGlobalMensagens = null;
+    }
+
+    window._listenerGlobalMensagensAtivo = true;
+    window._listenerGlobalMensagensUsuario = usernameLogado;
+    window._estadoContadoresMensagens = {};
+
+    window._unsubscribeGlobalMensagens = window.ClubeDB.textoDB
+        .collection("chats")
+        .where("usuarios", "array-contains", usernameLogado)
+        .onSnapshot(
+            snapshot => {
+                let total = 0;
+                const porContato = {};
+
+                snapshot.forEach(doc => {
+                    const dados = doc.data() || {};
+                    const usuarios = Array.isArray(dados.usuarios)
+                        ? dados.usuarios
+                        : [];
+                    const outro = usuarios.find(
+                        usuario => usuario !== usernameLogado
+                    );
+                    const quantidade = Math.max(
+                        0,
+                        Number(
+                            (dados.naoLidasPor || {})[usernameLogado] || 0
+                        )
+                    );
+
+                    total += quantidade;
+
+                    if (outro) {
+                        porContato[outro.toLowerCase()] = quantidade;
+                    }
+                });
+
+                window._estadoContadoresMensagens = {
+                    total,
+                    porContato,
+                    snapshot
+                };
+
+                const badgeAba = criarOuAtualizarBadgeMensagens();
+
+                if (badgeAba) {
+                    badgeAba.textContent = total > 99
+                        ? "99+"
+                        : String(total);
+                    badgeAba.style.display = total > 0
+                        ? "block"
+                        : "none";
+                }
+
+                document.querySelectorAll("[data-chat-username]")
+                    .forEach(card => {
+                        const usernameContato = (
+                            card.getAttribute("data-chat-username") || ""
+                        ).toLowerCase();
+                        const badgeContato = card.querySelector(
+                            "[data-unread-badge]"
+                        );
+
+                        if (!badgeContato) return;
+
+                        const quantidade = porContato[usernameContato] || 0;
+                        badgeContato.textContent = quantidade > 99
+                            ? "99+"
+                            : String(quantidade);
+                        badgeContato.style.display = quantidade > 0
+                            ? "inline-flex"
+                            : "none";
+                    });
+            },
+            erro => {
+                console.error(
+                    "Erro no listener global das mensagens:",
+                    erro
+                );
+            }
+        );
+}
+
 function irParaSite() {
     document.getElementById("tela-admin").style.display = "none";
     document.getElementById("tela-site").style.display = "flex";
@@ -292,8 +438,9 @@ function irParaSite() {
 
     mudarSubAbaSite("feed");
     solicitarPermissaoNotificacoes();
-    atualizarMarcadoresContatosChat();
+    iniciarListenerGlobalMensagens();
 }
+
 
 
 
@@ -1114,98 +1261,46 @@ function renderizarMarcadoresMensagens(snapshot) {
 }
 
 function atualizarIndicadorAbaMensagens() {
-    const estado = window._estadoMarcadoresMensagens;
+    const estado = window._estadoContadoresMensagens;
+    const badge = criarOuAtualizarBadgeMensagens();
 
-    if (estado && estado.snapshot) {
-        renderizarMarcadoresMensagens(estado.snapshot);
-    }
+    if (!badge) return;
+
+    const total = estado ? Number(estado.total || 0) : 0;
+    badge.textContent = total > 99 ? "99+" : String(total);
+    badge.style.display = total > 0 ? "block" : "none";
 }
 
 function atualizarMarcadoresContatosChat() {
-    const usernameLogado = localStorage.getItem("usernameLogado");
+    const estado = window._estadoContadoresMensagens;
 
-    if (
-        !usernameLogado ||
-        !window.ClubeDB ||
-        !window.ClubeDB.textoDB
-    ) {
+    if (!estado) {
+        iniciarListenerGlobalMensagens();
         return;
     }
 
-    if (
-        window._estadoMarcadoresMensagens &&
-        window._estadoMarcadoresMensagens.username === usernameLogado &&
-        window._estadoMarcadoresMensagens.unsubscribe
-    ) {
-        if (window._estadoMarcadoresMensagens.snapshot) {
-            renderizarMarcadoresMensagens(
-                window._estadoMarcadoresMensagens.snapshot
-            );
-        }
-        return;
-    }
+    const porContato = estado.porContato || {};
 
-    if (
-        window._estadoMarcadoresMensagens &&
-        window._estadoMarcadoresMensagens.unsubscribe
-    ) {
-        window._estadoMarcadoresMensagens.unsubscribe();
-    }
+    document.querySelectorAll("[data-chat-username]").forEach(card => {
+        const usernameContato = (
+            card.getAttribute("data-chat-username") || ""
+        ).toLowerCase();
+        const badgeContato = card.querySelector("[data-unread-badge]");
 
-    const estado = {
-        username: usernameLogado,
-        snapshot: null,
-        contagensAnteriores: {},
-        unsubscribe: null
-    };
+        if (!badgeContato) return;
 
-    window._estadoMarcadoresMensagens = estado;
+        const quantidade = Number(porContato[usernameContato] || 0);
+        badgeContato.textContent = quantidade > 99
+            ? "99+"
+            : String(quantidade);
+        badgeContato.style.display = quantidade > 0
+            ? "inline-flex"
+            : "none";
+    });
 
-    estado.unsubscribe = window.ClubeDB.textoDB
-        .collection("chats")
-        .where("usuarios", "array-contains", usernameLogado)
-        .onSnapshot(
-            snapshot => {
-                const resultado = renderizarMarcadoresMensagens(snapshot) || {
-                    contagens: {},
-                    totalNaoLidas: 0
-                };
-
-                const contatoComNovaMensagem = Object.keys(
-                    resultado.contagens
-                ).find(username => {
-                    const anterior = Number(
-                        estado.contagensAnteriores[username] || 0
-                    );
-
-                    return resultado.contagens[username] > anterior;
-                });
-
-                if (contatoComNovaMensagem) {
-                    mostrarNotificacaoNovaMensagem(
-                        resultado.contagens[contatoComNovaMensagem] -
-                        Number(
-                            estado.contagensAnteriores[
-                                contatoComNovaMensagem
-                            ] || 0
-                        ),
-                        contatoComNovaMensagem
-                    );
-                }
-
-                estado.contagensAnteriores = {
-                    ...resultado.contagens
-                };
-                estado.snapshot = snapshot;
-            },
-            erro => {
-                console.error(
-                    "Erro no listener global de mensagens:",
-                    erro
-                );
-            }
-        );
+    atualizarIndicadorAbaMensagens();
 }
+
 
 
 async function sincronizarContadorNaoLidasChat(chatId, usernameLogado) {
