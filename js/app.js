@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.181.0 - versão alpha";
+const VERSAO_ATUAL = "v0.182.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1347,26 +1347,80 @@ async function registrarTokenFCM() {
     }
 }
 
-async function solicitarPermissaoNotificacoes() {
+function solicitarPermissaoNotificacoes() {
     if (typeof Notification === "undefined") {
         return;
     }
 
-    let permissao = Notification.permission;
-
-    if (permissao === "default") {
-        permissao = await Notification.requestPermission();
+    if (Notification.permission === "granted") {
+        registrarTokenFCM();
+        return;
     }
 
-    if (permissao === "granted") {
-        await registrarTokenFCM();
+    if (Notification.permission === "denied") {
+        return;
     }
+
+    if (document.getElementById("btn-ativar-notificacoes")) {
+        return;
+    }
+
+    const aviso = document.createElement("button");
+    aviso.id = "btn-ativar-notificacoes";
+    aviso.type = "button";
+    aviso.textContent = "Ativar notificações";
+    aviso.style.position = "fixed";
+    aviso.style.right = "16px";
+    aviso.style.bottom = "78px";
+    aviso.style.zIndex = "2147483647";
+    aviso.style.padding = "11px 14px";
+    aviso.style.border = "0";
+    aviso.style.borderRadius = "10px";
+    aviso.style.background = "#1683e8";
+    aviso.style.color = "#fff";
+    aviso.style.fontWeight = "700";
+    aviso.style.cursor = "pointer";
+
+    aviso.addEventListener("click", async () => {
+        aviso.disabled = true;
+        aviso.textContent = "Ativando...";
+
+        try {
+            const permissao = await Notification.requestPermission();
+
+            if (permissao === "granted") {
+                const token = await registrarTokenFCM();
+                aviso.textContent = token
+                    ? "Notificações ativadas"
+                    : "Não foi possível registrar o dispositivo";
+            } else {
+                aviso.textContent = "Permissão não concedida";
+            }
+        } catch (erro) {
+            console.error("Erro ao ativar notificações:", erro);
+            aviso.textContent = "Erro ao ativar";
+        }
+
+        setTimeout(() => aviso.remove(), 2500);
+    });
+
+    document.body.appendChild(aviso);
 }
 
 function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
+    if (
+        typeof Notification === "undefined" ||
+        Notification.permission !== "granted"
+    ) {
+        return;
+    }
+
     const texto = quantidade === 1
         ? "Você recebeu uma nova mensagem."
         : `Você recebeu ${quantidade} novas mensagens.`;
+    const mensagem = nomeContato
+        ? `${nomeContato}: ${texto}`
+        : texto;
 
     let toast = document.getElementById("notificacao-mensagem-chat");
 
@@ -1389,9 +1443,7 @@ function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
         document.body.appendChild(toast);
     }
 
-    toast.textContent = nomeContato
-        ? `${nomeContato}: ${texto}`
-        : texto;
+    toast.textContent = mensagem;
     toast.style.display = "block";
 
     clearTimeout(window._timerNotificacaoMensagem);
@@ -1399,15 +1451,15 @@ function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
         toast.style.display = "none";
     }, 5000);
 
-    if (
-        typeof Notification !== "undefined" &&
-        Notification.permission === "granted" &&
-        document.visibilityState !== "visible"
-    ) {
-        new Notification("Nova mensagem", {
-            body: nomeContato ? `${nomeContato}: ${texto}` : texto,
-            tag: "mensagem-chat"
-        });
+    if (document.visibilityState !== "visible") {
+        try {
+            new Notification("Nova mensagem", {
+                body: mensagem,
+                tag: "mensagem-chat"
+            });
+        } catch (erro) {
+            console.warn("Notificação nativa indisponível:", erro);
+        }
     }
 }
 
