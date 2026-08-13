@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.172.0 - versão alpha";
+const VERSAO_ATUAL = "v0.173.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -255,13 +255,33 @@ async function executarLoginMembro() {
 }
 
 // Direciona o fluxo para a tela de visualização do site
+function iniciarListenerMarcadoresMensagens() {
+    const tentarIniciar = () => {
+        const usernameLogado = localStorage.getItem("usernameLogado");
+
+        if (
+            !usernameLogado ||
+            !window.ClubeDB ||
+            !window.ClubeDB.textoDB
+        ) {
+            setTimeout(tentarIniciar, 500);
+            return;
+        }
+
+        atualizarMarcadoresContatosChat();
+    };
+
+    tentarIniciar();
+}
+
 function irParaSite() {
     document.getElementById("tela-admin").style.display = "none";
     document.getElementById("tela-site").style.display = "flex";
-    
+
     const tipoUsuario = localStorage.getItem("usuarioLogado");
     const btnVoltar = document.getElementById("btn-voltar-painel");
     const btnAdd = document.getElementById("btn-admin-adicionar-item");
+
     if (tipoUsuario === "admin") {
         if (btnVoltar) btnVoltar.style.display = "inline-block";
         if (btnAdd) btnAdd.style.display = "flex";
@@ -270,11 +290,10 @@ function irParaSite() {
         if (btnAdd) btnAdd.style.display = "none";
     }
 
-    
-    // Sempre abre na aba do Feed ao entrar
-    mudarSubAbaSite('feed');
-    atualizarIndicadorAbaMensagens();
+    mudarSubAbaSite("feed");
+    iniciarListenerMarcadoresMensagens();
 }
+
 
 // Retorna para o Painel do Administrador
 function irParaPainel() {
@@ -1047,6 +1066,59 @@ async function sincronizarContadorNaoLidasChat(chatId, usernameLogado) {
     return quantidadeNaoLidas;
 }
 
+async function sincronizarContadorNaoLidasChat(chatId, usernameLogado) {
+    if (
+        !chatId ||
+        !usernameLogado ||
+        !window.ClubeDB ||
+        !window.ClubeDB.textoDB
+    ) {
+        return 0;
+    }
+
+    const chatRef = window.ClubeDB.textoDB
+        .collection("chats")
+        .doc(chatId);
+
+    const mensagensSnap = await chatRef
+        .collection("mensagens")
+        .get();
+
+    let quantidadeNaoLidas = 0;
+
+    mensagensSnap.forEach(doc => {
+        const mensagem = doc.data() || {};
+
+        if (
+            mensagem.destinatario === usernameLogado &&
+            mensagem.lido !== true
+        ) {
+            quantidadeNaoLidas += 1;
+        }
+    });
+
+    const chatSnap = await chatRef.get();
+    const dadosChat = chatSnap.exists
+        ? chatSnap.data() || {}
+        : {};
+
+    const quantidadeAtual = Number(
+        (dadosChat.naoLidasPor || {})[usernameLogado] || 0
+    );
+
+    if (quantidadeAtual !== quantidadeNaoLidas) {
+        await chatRef.set({
+            naoLidasPor: {
+                [usernameLogado]: quantidadeNaoLidas
+            }
+        }, {
+            merge: true
+        });
+    }
+
+    return quantidadeNaoLidas;
+}
+
 async function atualizarMarcadoresContatosChat() {
     const usernameLogado = localStorage.getItem("usernameLogado");
 
@@ -1065,7 +1137,7 @@ async function atualizarMarcadoresContatosChat() {
 
     let cicloAtual = 0;
 
-    const aplicarMarcadores = async (snapshot) => {
+    const aplicarMarcadores = async snapshot => {
         const ciclo = ++cicloAtual;
         const contagens = {};
         let totalNaoLidas = 0;
@@ -1145,19 +1217,20 @@ async function atualizarMarcadoresContatosChat() {
             snapshot => {
                 aplicarMarcadores(snapshot).catch(erro => {
                     console.error(
-                        "Erro ao recalcular contadores de mensagens:",
+                        "Erro ao recalcular contadores:",
                         erro
                     );
                 });
             },
             erro => {
                 console.error(
-                    "Erro no listener dos contadores de mensagens:",
+                    "Erro no listener dos contadores:",
                     erro
                 );
             }
         );
 }
+
 
 
 
