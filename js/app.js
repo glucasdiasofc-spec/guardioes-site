@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.175.0 - versão alpha";
+const VERSAO_ATUAL = "v0.176.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -255,57 +255,106 @@ async function executarLoginMembro() {
 }
 
 // Direciona o fluxo para a tela de visualização do site
-function iniciarListenerMarcadoresMensagens() {
-    const tentarIniciar = () => {
-        const usernameLogado = localStorage.getItem("usernameLogado");
+function solicitarPermissaoNotificacoes() {
+    if (typeof Notification === "undefined") {
+        return;
+    }
 
-        if (
-            !usernameLogado ||
-            !window.ClubeDB ||
-            !window.ClubeDB.textoDB
-        ) {
-            setTimeout(tentarIniciar, 500);
-            return;
+    if (Notification.permission !== "default") {
+        return;
+    }
+
+    if (document.getElementById("btn-ativar-notificacoes")) {
+        return;
+    }
+
+    const aviso = document.createElement("button");
+    aviso.id = "btn-ativar-notificacoes";
+    aviso.type = "button";
+    aviso.textContent = "Ativar notificações";
+    aviso.style.position = "fixed";
+    aviso.style.right = "16px";
+    aviso.style.bottom = "78px";
+    aviso.style.zIndex = "2147483647";
+    aviso.style.padding = "11px 14px";
+    aviso.style.border = "0";
+    aviso.style.borderRadius = "10px";
+    aviso.style.background = "#1683e8";
+    aviso.style.color = "#fff";
+    aviso.style.fontWeight = "700";
+    aviso.style.cursor = "pointer";
+
+    aviso.addEventListener("click", async () => {
+        try {
+            const permissao = await Notification.requestPermission();
+
+            if (permissao === "granted") {
+                aviso.textContent = "Notificações ativadas";
+                setTimeout(() => aviso.remove(), 1800);
+            } else {
+                aviso.textContent = "Permissão não concedida";
+                setTimeout(() => aviso.remove(), 2500);
+            }
+        } catch (erro) {
+            console.error("Erro ao solicitar notificações:", erro);
+            aviso.remove();
         }
+    });
 
-        atualizarMarcadoresContatosChat();
-    };
-
-    tentarIniciar();
+    document.body.appendChild(aviso);
 }
 
-function solicitarPermissaoNotificacoes() {
+function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
+    const texto = quantidade === 1
+        ? "Você recebeu uma nova mensagem."
+        : `Você recebeu ${quantidade} novas mensagens.`;
+    const mensagem = nomeContato
+        ? `${nomeContato}: ${texto}`
+        : texto;
+
+    let toast = document.getElementById("notificacao-mensagem-chat");
+
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "notificacao-mensagem-chat";
+        toast.style.position = "fixed";
+        toast.style.right = "16px";
+        toast.style.bottom = "78px";
+        toast.style.zIndex = "2147483646";
+        toast.style.maxWidth = "320px";
+        toast.style.padding = "12px 16px";
+        toast.style.borderRadius = "12px";
+        toast.style.background = "#1683e8";
+        toast.style.color = "#fff";
+        toast.style.fontSize = "14px";
+        toast.style.fontWeight = "600";
+        toast.style.boxShadow = "0 4px 18px rgba(0,0,0,.45)";
+        toast.style.cursor = "pointer";
+        document.body.appendChild(toast);
+    }
+
+    toast.textContent = mensagem;
+    toast.style.display = "block";
+
+    clearTimeout(window._timerNotificacaoMensagem);
+    window._timerNotificacaoMensagem = setTimeout(() => {
+        toast.style.display = "none";
+    }, 5000);
+
     if (
-        typeof Notification === "undefined" ||
-        Notification.permission !== "default"
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted" &&
+        document.visibilityState !== "visible"
     ) {
-        return;
-    }
-
-    if (window._ouvintePermissaoNotificacoes) {
-        return;
-    }
-
-    window._ouvintePermissaoNotificacoes = true;
-
-    const pedirPermissao = () => {
-        document.removeEventListener("click", pedirPermissao);
-        document.removeEventListener("touchend", pedirPermissao);
-
-        if (Notification.permission === "default") {
-            Notification.requestPermission().catch(() => {});
+        try {
+            new Notification("Nova mensagem", {
+                body: mensagem,
+                tag: "mensagem-chat"
+            });
+        } catch (erro) {
+            console.warn("Notificação nativa indisponível:", erro);
         }
-    };
-
-    document.addEventListener("click", pedirPermissao, {
-        once: true,
-        passive: true
-    });
-
-    document.addEventListener("touchend", pedirPermissao, {
-        once: true,
-        passive: true
-    });
+    }
 }
 
 function iniciarListenerGlobalMensagens() {
@@ -316,41 +365,45 @@ function iniciarListenerGlobalMensagens() {
         !window.ClubeDB ||
         !window.ClubeDB.textoDB
     ) {
-        if (!window._tentativasListenerMensagens) {
-            window._tentativasListenerMensagens = 0;
-        }
-
-        if (window._tentativasListenerMensagens < 20) {
-            window._tentativasListenerMensagens += 1;
-            setTimeout(iniciarListenerGlobalMensagens, 500);
-        }
-
+        clearTimeout(window._timerInicializacaoMensagens);
+        window._timerInicializacaoMensagens = setTimeout(
+            iniciarListenerGlobalMensagens,
+            500
+        );
         return;
     }
 
     if (
         window._listenerGlobalMensagensAtivo &&
-        window._listenerGlobalMensagensUsuario === usernameLogado
+        window._listenerGlobalMensagensUsuario === usernameLogado &&
+        window._unsubscribeGlobalMensagens
     ) {
         return;
     }
 
     if (window._unsubscribeGlobalMensagens) {
         window._unsubscribeGlobalMensagens();
-        window._unsubscribeGlobalMensagens = null;
     }
 
+    const estado = {
+        total: 0,
+        porContato: {},
+        snapshot: null,
+        inicializado: false,
+        contagensAnteriores: {}
+    };
+
+    window._estadoContadoresMensagens = estado;
     window._listenerGlobalMensagensAtivo = true;
     window._listenerGlobalMensagensUsuario = usernameLogado;
-    window._estadoContadoresMensagens = {};
 
     window._unsubscribeGlobalMensagens = window.ClubeDB.textoDB
         .collection("chats")
         .where("usuarios", "array-contains", usernameLogado)
         .onSnapshot(
             snapshot => {
-                let total = 0;
                 const porContato = {};
+                let total = 0;
 
                 snapshot.forEach(doc => {
                     const dados = doc.data() || {};
@@ -374,42 +427,30 @@ function iniciarListenerGlobalMensagens() {
                     }
                 });
 
-                window._estadoContadoresMensagens = {
-                    total,
-                    porContato,
-                    snapshot
-                };
+                if (estado.inicializado) {
+                    Object.keys(porContato).forEach(username => {
+                        const anterior = Number(
+                            estado.contagensAnteriores[username] || 0
+                        );
+                        const atual = Number(porContato[username] || 0);
 
-                const badgeAba = criarOuAtualizarBadgeMensagens();
-
-                if (badgeAba) {
-                    badgeAba.textContent = total > 99
-                        ? "99+"
-                        : String(total);
-                    badgeAba.style.display = total > 0
-                        ? "block"
-                        : "none";
+                        if (atual > anterior) {
+                            mostrarNotificacaoNovaMensagem(
+                                atual - anterior,
+                                username
+                            );
+                        }
+                    });
                 }
 
-                document.querySelectorAll("[data-chat-username]")
-                    .forEach(card => {
-                        const usernameContato = (
-                            card.getAttribute("data-chat-username") || ""
-                        ).toLowerCase();
-                        const badgeContato = card.querySelector(
-                            "[data-unread-badge]"
-                        );
+                estado.total = total;
+                estado.porContato = porContato;
+                estado.snapshot = snapshot;
+                estado.contagensAnteriores = { ...porContato };
+                estado.inicializado = true;
 
-                        if (!badgeContato) return;
-
-                        const quantidade = porContato[usernameContato] || 0;
-                        badgeContato.textContent = quantidade > 99
-                            ? "99+"
-                            : String(quantidade);
-                        badgeContato.style.display = quantidade > 0
-                            ? "inline-flex"
-                            : "none";
-                    });
+                atualizarIndicadorAbaMensagens();
+                atualizarMarcadoresContatosChat();
             },
             erro => {
                 console.error(
@@ -1273,11 +1314,7 @@ function atualizarIndicadorAbaMensagens() {
 
 function atualizarMarcadoresContatosChat() {
     const estado = window._estadoContadoresMensagens;
-
-    if (!estado) {
-        iniciarListenerGlobalMensagens();
-        return;
-    }
+    if (!estado) return;
 
     const porContato = estado.porContato || {};
 
@@ -1297,64 +1334,11 @@ function atualizarMarcadoresContatosChat() {
             ? "inline-flex"
             : "none";
     });
-
-    atualizarIndicadorAbaMensagens();
 }
 
 
 
-async function sincronizarContadorNaoLidasChat(chatId, usernameLogado) {
-    if (
-        !chatId ||
-        !usernameLogado ||
-        !window.ClubeDB ||
-        !window.ClubeDB.textoDB
-    ) {
-        return 0;
-    }
 
-    const chatRef = window.ClubeDB.textoDB
-        .collection("chats")
-        .doc(chatId);
-
-    const mensagensSnap = await chatRef
-        .collection("mensagens")
-        .get();
-
-    let quantidadeNaoLidas = 0;
-
-    mensagensSnap.forEach(doc => {
-        const mensagem = doc.data() || {};
-
-        if (
-            mensagem.destinatario === usernameLogado &&
-            mensagem.lido !== true
-        ) {
-            quantidadeNaoLidas += 1;
-        }
-    });
-
-    const chatSnap = await chatRef.get();
-    const dadosChat = chatSnap.exists
-        ? chatSnap.data() || {}
-        : {};
-
-    const quantidadeAtual = Number(
-        (dadosChat.naoLidasPor || {})[usernameLogado] || 0
-    );
-
-    if (quantidadeAtual !== quantidadeNaoLidas) {
-        await chatRef.set({
-            naoLidasPor: {
-                [usernameLogado]: quantidadeNaoLidas
-            }
-        }, {
-            merge: true
-        });
-    }
-
-    return quantidadeNaoLidas;
-}
 
 async function sincronizarContadorNaoLidasChat(chatId, usernameLogado) {
     if (
