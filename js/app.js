@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.170.0 - versão alpha";
+const VERSAO_ATUAL = "v0.171.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -946,6 +946,7 @@ function formatarHoraMensagem(valor) {
 }
 
 
+
 function criarOuAtualizarBadgeMensagens() {
     const botao = document.getElementById("btn-sub-mensagens");
     if (!botao) return null;
@@ -1113,10 +1114,6 @@ async function marcarMensagensComoLidas(chatId, usernameLogado) {
         return;
     }
 
-    if (window._leituraBloqueadaPorPermissao) {
-        return;
-    }
-
     try {
         const mensagensRef = window.ClubeDB.textoDB
             .collection("chats")
@@ -1133,7 +1130,7 @@ async function marcarMensagensComoLidas(chatId, usernameLogado) {
         }
 
         const batch = window.ClubeDB.textoDB.batch();
-        const dataLeitura = firebase.firestore.Timestamp.now();
+        const dataLeitura = firebase.firestore.FieldValue.serverTimestamp();
 
         snap.forEach(doc => {
             batch.update(doc.ref, {
@@ -1144,29 +1141,13 @@ async function marcarMensagensComoLidas(chatId, usernameLogado) {
 
         await batch.commit();
     } catch (erro) {
-        const mensagem = String(
-            erro && erro.message || erro
-        );
-
-        if (
-            mensagem.includes("permission") ||
-            mensagem.includes("insufficient")
-        ) {
-            window._leituraBloqueadaPorPermissao = true;
-
-            console.warn(
-                "Leitura não gravada: as regras do Firestore não permitem atualizar mensagens."
-            );
-
-            return;
-        }
-
         console.error(
             "Erro ao marcar mensagens como lidas:",
             erro
         );
     }
 }
+
 
 
 async function enviarMensagemChat() {
