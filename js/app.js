@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.167.0 - versão alpha";
+const VERSAO_ATUAL = "v0.168.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -273,6 +273,7 @@ function irParaSite() {
     
     // Sempre abre na aba do Feed ao entrar
     mudarSubAbaSite('feed');
+    atualizarIndicadorAbaMensagens();
 }
 
 // Retorna para o Painel do Administrador
@@ -529,7 +530,7 @@ async function carregarListaDeContatosChat() {
 
     // Fixa o Admin (Suporte) no topo para todos os membros comuns
     if (usernameLogado !== "admin" && divSuporte) {
-        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" );
+        divSuporte.innerHTML += criarCardContatoChat("admin", "Central de Suporte", "Administração", "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"  );
         contatosRenderizados++;
     }
 
@@ -579,6 +580,7 @@ async function carregarListaDeContatosChat() {
             if (msgEmptyState) msgEmptyState.style.display = "block";
         } else {
             if (msgContatosContainer) msgContatosContainer.style.display = "block";
+            atualizarMarcadoresContatosChat();
         }
 
     } catch (erro) {
@@ -591,21 +593,24 @@ async function carregarListaDeContatosChat() {
 
 function criarCardContatoChat(username, nome, cargo, fotoUrl) {
     let img = fotoUrl || window.AVATAR_USUARIO_PADRAO;
-if (fotoUrl && fotoUrl !== window.AVATAR_USUARIO_PADRAO) {
-    img += (img.includes("?") ? "&" : "?") + "v=" + Date.now();
-}
+    if (fotoUrl && fotoUrl !== window.AVATAR_USUARIO_PADRAO) {
+        img += (img.includes("?") ? "&" : "?") + "v=" + Date.now();
+    }
     return `
-        <div onclick="abrirSalaChat('${username}', '${nome}', '${cargo}', '${img}' )" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; transition: background-color 0.2s ease;">
+        <div data-chat-username="${username}" onclick="abrirSalaChat('${username}', '${nome}', '${cargo}', '${img}' )" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; transition: background-color 0.2s ease;">
             <img src="${img}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
-            <div style="flex: 1;">
-                <div style="color: #fff; font-size: 15px; font-weight: 600;">${nome}</div>
+            <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 8px; color: #fff; font-size: 15px; font-weight: 600;">
+                    <span>${nome}</span>
+                    <span data-unread-badge style="display: none; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 10px; background: #ff3040; color: #fff; font-size: 10px; font-weight: 700; line-height: 18px;"></span>
+                </div>
                 <div style="color: #8e8e8e; font-size: 13px;">${cargo}</div>
             </div>
             <div style="color: #8e8e8e; font-size: 20px; padding-right: 5px;">&gt;</div>
         </div>
     `;
 }
-
+// Cria um Hash único para as mensagens independentemente de quem enviou primeiro (Garante o P2P da mesma sala)
 
 // Cria um Hash único para as mensagens independentemente de quem enviou primeiro (Garante o P2P da mesma sala)
 function gerarIdChat(user1, user2) {
@@ -794,6 +799,7 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     const meuUsername = localStorage.getItem("usernameLogado");
     const chatId = [meuUsername, usernameAlvo].sort().join("_");
+    marcarMensagensComoLidas(chatId, meuUsername);
 
     unsubscribeChatAtivo = window.ClubeDB.textoDB
         .collection("chats")
@@ -813,7 +819,32 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
 
                 const balao = document.createElement("div");
-                balao.textContent = msg.texto;
+                balao.style.display = "flex";
+                balao.style.flexDirection = "column";
+                balao.style.gap = "4px";
+                balao.style.textAlign = "left";
+
+                const textoMensagem = document.createElement("div");
+                textoMensagem.textContent = msg.texto || "";
+                balao.appendChild(textoMensagem);
+
+                const horarioEnvio = document.createElement("span");
+                horarioEnvio.textContent = formatarHoraMensagem(msg.enviadoEm || msg.timestamp);
+                horarioEnvio.style.fontSize = "10px";
+                horarioEnvio.style.opacity = "0.75";
+                horarioEnvio.style.alignSelf = "flex-end";
+                balao.appendChild(horarioEnvio);
+
+                if (isMinha) {
+                    const statusLeitura = document.createElement("span");
+                    statusLeitura.textContent = msg.lido === true
+                        ? `Lida ${formatarHoraMensagem(msg.lidoEm)}`
+                        : "Enviada";
+                    statusLeitura.style.fontSize = "10px";
+                    statusLeitura.style.opacity = "0.8";
+                    statusLeitura.style.alignSelf = "flex-end";
+                    balao.appendChild(statusLeitura);
+                }
                 balao.style.maxWidth = "75%";
                 balao.style.padding = "10px 14px";
                 balao.style.borderRadius = "18px";
@@ -828,6 +859,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 container.appendChild(div);
             });
             container.scrollTop = container.scrollHeight;
+            marcarMensagensComoLidas(chatId, meuUsername);
+            atualizarIndicadorAbaMensagens();
         });
 }
 
@@ -880,6 +913,265 @@ function fecharSalaChat() {
         unsubscribeChatAtivo = null;
     }
 }
+
+function formatarHoraMensagem(valor) {
+    try {
+        let data = null;
+        if (valor && typeof valor.toDate === "function") data = valor.toDate();
+        else if (valor instanceof Date) data = valor;
+        else if (typeof valor === "string" || typeof valor === "number") data = new Date(valor);
+        if (!data || Number.isNaN(data.getTime())) return "--:--";
+        return data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    } catch (erro) {
+        return "--:--";
+    }
+}
+
+function criarOuAtualizarBadgeMensagens() {
+    const botao = document.getElementById("btn-sub-mensagens");
+    if (!botao) return null;
+    let badge = botao.querySelector("[data-badge-mensagens]");
+    if (!badge) {
+        botao.style.position = "relative";
+        badge = document.createElement("span");
+        badge.setAttribute("data-badge-mensagens", "true");
+        badge.style.position = "absolute";
+        badge.style.top = "6px";
+        badge.style.right = "28%";
+        badge.style.minWidth = "17px";
+        badge.style.height = "17px";
+        badge.style.padding = "0 4px";
+        badge.style.borderRadius = "10px";
+        badge.style.background = "#ff3040";
+        badge.style.color = "#fff";
+        badge.style.fontSize = "10px";
+        badge.style.fontWeight = "700";
+        badge.style.lineHeight = "17px";
+        badge.style.textAlign = "center";
+        badge.style.boxSizing = "border-box";
+        badge.style.display = "none";
+        badge.style.pointerEvents = "none";
+        botao.appendChild(badge);
+    }
+    return badge;
+}
+
+async function atualizarIndicadorAbaMensagens() {
+    const badge = criarOuAtualizarBadgeMensagens();
+    const usernameLogado = localStorage.getItem("usernameLogado");
+    if (!badge || !usernameLogado || !window.ClubeDB || !window.ClubeDB.textoDB) return;
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("chats").where("usuarios", "array-contains", usernameLogado).get();
+        let total = 0;
+        snap.forEach(doc => {
+            const dados = doc.data() || {};
+            total += Number((dados.naoLidasPor || {})[usernameLogado] || 0);
+        });
+        badge.textContent = total > 99 ? "99+" : String(total);
+        badge.style.display = total > 0 ? "block" : "none";
+    } catch (erro) {
+        console.error("Erro ao atualizar marcador da aba de mensagens:", erro);
+    }
+}
+
+async function atualizarMarcadoresContatosChat() {
+    const usernameLogado = localStorage.getItem("usernameLogado");
+    if (!usernameLogado || !window.ClubeDB || !window.ClubeDB.textoDB) return;
+    try {
+        const snap = await window.ClubeDB.textoDB.collection("chats").where("usuarios", "array-contains", usernameLogado).get();
+        const contagens = {};
+        snap.forEach(doc => {
+            const dados = doc.data() || {};
+            const usuarios = dados.usuarios || [];
+            const outro = usuarios.find(usuario => usuario !== usernameLogado);
+            if (outro) contagens[outro.toLowerCase()] = Number((dados.naoLidasPor || {})[usernameLogado] || 0);
+        });
+        document.querySelectorAll("[data-chat-username]").forEach(card => {
+            const username = (card.getAttribute("data-chat-username") || "").toLowerCase();
+            const badge = card.querySelector("[data-unread-badge]");
+            const total = contagens[username] || 0;
+            if (badge) {
+                badge.textContent = total > 99 ? "99+" : String(total);
+                badge.style.display = total > 0 ? "inline-flex" : "none";
+            }
+        });
+        await atualizarIndicadorAbaMensagens();
+    } catch (erro) {
+        console.error("Erro ao atualizar marcadores dos contatos:", erro);
+    }
+}
+
+async function ajustarNaoLidasChat(chatId, username, delta) {
+    if (!chatId || !username || !window.ClubeDB || !window.ClubeDB.textoDB) return;
+    const ref = window.ClubeDB.textoDB.collection("chats").doc(chatId);
+    const snap = await ref.get();
+    const dados = snap.exists ? (snap.data() || {}) : {};
+    const naoLidasPor = { ...(dados.naoLidasPor || {}) };
+    naoLidasPor[username] = Math.max(0, Number(naoLidasPor[username] || 0) + Number(delta || 0));
+    await ref.set({ naoLidasPor }, { merge: true });
+}
+
+async function marcarMensagensComoLidas(chatId, usernameLogado) {
+    if (!chatId || !usernameLogado || !window.ClubeDB || !window.ClubeDB.textoDB) return;
+    try {
+        const mensagensRef = window.ClubeDB.textoDB.collection("chats").doc(chatId).collection("mensagens");
+        const snap = await mensagensRef.get();
+        const batch = window.ClubeDB.textoDB.batch();
+        let alterou = false;
+        snap.forEach(doc => {
+            const dados = doc.data() || {};
+            if (dados.destinatario === usernameLogado && dados.lido !== true) {
+                batch.update(doc.ref, {
+                    lido: true,
+                    lidoEm: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alterou = true;
+            }
+        });
+        if (alterou) await batch.commit();
+        await window.ClubeDB.textoDB.collection("chats").doc(chatId).set({
+            naoLidasPor: { [usernameLogado]: 0 }
+        }, { merge: true });
+        await atualizarIndicadorAbaMensagens();
+    } catch (erro) {
+        console.error("Erro ao marcar mensagens como lidas:", erro);
+    }
+}
+
+async function enviarMensagemChat() {
+    const input =
+        document.getElementById(
+            "input-nova-mensagem"
+        );
+
+    const container =
+        document.getElementById(
+            "chat-mensagens-container"
+        );
+
+    if (!input) {
+        return;
+    }
+
+    const texto =
+        input.value.trim();
+
+    const meuUsername =
+        localStorage.getItem(
+            "usernameLogado"
+        );
+
+    if (
+        !texto ||
+        !usuarioChatDestino ||
+        !meuUsername
+    ) {
+        return;
+    }
+
+    const chatDestinoAtual =
+        usuarioChatDestino;
+
+    const chatId =
+        gerarIdChat(
+            meuUsername,
+            chatDestinoAtual
+        );
+
+    /*
+     * Limpa o campo imediatamente,
+     * mas NÃO remove o foco dele.
+     */
+    input.value = "";
+
+    /*
+     * Mantém o cursor e o teclado no campo.
+     */
+    input.focus({
+        preventScroll: true
+    });
+
+    try {
+        await window.ClubeDB.textoDB
+            .collection("chats")
+            .doc(chatId)
+            .collection("mensagens")
+            .add({
+                remetente:
+                    meuUsername,
+
+                texto:
+                    texto,
+                destinatario:
+                    chatDestinoAtual,
+                enviadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp(),
+                lido:
+                    false,
+                lidoEm:
+                    null,
+                timestamp:
+                    firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+        /*
+         * Atualiza o documento base da conversa.
+         */
+        await window.ClubeDB.textoDB
+            .collection("chats")
+            .doc(chatId)
+            .set(
+                {
+                    ultimoEnvio:
+                        firebase.firestore.FieldValue.serverTimestamp(),
+
+                    usuarios: [
+                        meuUsername,
+                        chatDestinoAtual
+                    ]
+                },
+                {
+                    merge: true
+                }
+            );
+            await ajustarNaoLidasChat(chatId, chatDestinoAtual, 1);
+            await atualizarIndicadorAbaMensagens();
+
+        /*
+         * Após o envio, mantém:
+         *
+         * - teclado aberto;
+         * - input focado;
+         * - conversa no final.
+         */
+        requestAnimationFrame(
+            () => {
+                input.focus({
+                    preventScroll: true
+                });
+
+                if (container) {
+                    container.scrollTop =
+                        container.scrollHeight;
+                }
+            }
+        );
+    } catch (e) {
+        console.error(
+            "Erro ao enviar mensagem",
+            e
+        );
+
+        /*
+         * Em caso de erro, devolve o foco
+         * ao campo de mensagem.
+         */
+        input.focus({
+            preventScroll: true
+        });
+    }
+}
+
 
 // Carrega as informações dinâmicas do membro logado diretamente no perfil
 async function carregarPerfilDoUsuario() {
