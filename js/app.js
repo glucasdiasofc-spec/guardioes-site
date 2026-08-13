@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.171.0 - versão alpha";
+const VERSAO_ATUAL = "v0.172.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -994,7 +994,60 @@ async function atualizarIndicadorAbaMensagens() {
     }
 }
 
-function atualizarMarcadoresContatosChat() {
+async function sincronizarContadorNaoLidasChat(chatId, usernameLogado) {
+    if (
+        !chatId ||
+        !usernameLogado ||
+        !window.ClubeDB ||
+        !window.ClubeDB.textoDB
+    ) {
+        return 0;
+    }
+
+    const chatRef = window.ClubeDB.textoDB
+        .collection("chats")
+        .doc(chatId);
+
+    const mensagensSnap = await chatRef
+        .collection("mensagens")
+        .get();
+
+    let quantidadeNaoLidas = 0;
+
+    mensagensSnap.forEach(doc => {
+        const mensagem = doc.data() || {};
+
+        if (
+            mensagem.destinatario === usernameLogado &&
+            mensagem.lido !== true
+        ) {
+            quantidadeNaoLidas += 1;
+        }
+    });
+
+    const chatSnap = await chatRef.get();
+    const dadosChat = chatSnap.exists
+        ? chatSnap.data() || {}
+        : {};
+
+    const quantidadeAtual = Number(
+        (dadosChat.naoLidasPor || {})[usernameLogado] || 0
+    );
+
+    if (quantidadeAtual !== quantidadeNaoLidas) {
+        await chatRef.set({
+            naoLidasPor: {
+                [usernameLogado]: quantidadeNaoLidas
+            }
+        }, {
+            merge: true
+        });
+    }
+
+    return quantidadeNaoLidas;
+}
+
+async function atualizarMarcadoresContatosChat() {
     const usernameLogado = localStorage.getItem("usernameLogado");
 
     if (
@@ -1010,18 +1063,15 @@ function atualizarMarcadoresContatosChat() {
         window._unsubscribeMarcadoresMensagens = null;
     }
 
-    const aplicarMarcadores = (snapshot) => {
+    let cicloAtual = 0;
+
+    const aplicarMarcadores = async (snapshot) => {
+        const ciclo = ++cicloAtual;
         const contagens = {};
         let totalNaoLidas = 0;
 
-        snapshot.forEach(doc => {
+        for (const doc of snapshot.docs) {
             const dados = doc.data() || {};
-            const quantidadeNaoLidas = Number(
-                (dados.naoLidasPor || {})[usernameLogado] || 0
-            );
-
-            totalNaoLidas += quantidadeNaoLidas;
-
             const usuarios = Array.isArray(dados.usuarios)
                 ? dados.usuarios
                 : [];
@@ -1030,10 +1080,22 @@ function atualizarMarcadoresContatosChat() {
                 usuario => usuario !== usernameLogado
             );
 
-            if (outroUsuario) {
-                contagens[outroUsuario.toLowerCase()] = quantidadeNaoLidas;
+            if (!outroUsuario) {
+                continue;
             }
-        });
+
+            const quantidade = await sincronizarContadorNaoLidasChat(
+                doc.id,
+                usernameLogado
+            );
+
+            contagens[outroUsuario.toLowerCase()] = quantidade;
+            totalNaoLidas += quantidade;
+        }
+
+        if (ciclo !== cicloAtual) {
+            return;
+        }
 
         document.querySelectorAll("[data-chat-username]").forEach(card => {
             const usernameContato = (
@@ -1081,11 +1143,16 @@ function atualizarMarcadoresContatosChat() {
         )
         .onSnapshot(
             snapshot => {
-                aplicarMarcadores(snapshot);
+                aplicarMarcadores(snapshot).catch(erro => {
+                    console.error(
+                        "Erro ao recalcular contadores de mensagens:",
+                        erro
+                    );
+                });
             },
             erro => {
                 console.error(
-                    "Erro no listener dos marcadores de mensagens:",
+                    "Erro no listener dos contadores de mensagens:",
                     erro
                 );
             }
@@ -1120,26 +1187,35 @@ async function marcarMensagensComoLidas(chatId, usernameLogado) {
             .doc(chatId)
             .collection("mensagens");
 
-        const snap = await mensagensRef
-            .where("destinatario", "==", usernameLogado)
-            .where("lido", "==", false)
-            .get();
-
-        if (snap.empty) {
-            return;
-        }
-
+        const snap = await mensagensRef.get();
         const batch = window.ClubeDB.textoDB.batch();
         const dataLeitura = firebase.firestore.FieldValue.serverTimestamp();
+        let encontrouNaoLida = false;
 
         snap.forEach(doc => {
-            batch.update(doc.ref, {
-                lido: true,
-                lidoEm: dataLeitura
-            });
+            const mensagem = doc.data() || {};
+
+            if (
+                mensagem.destinatario === usernameLogado &&
+                mensagem.lido !== true
+            ) {
+                batch.update(doc.ref, {
+                    lido: true,
+                    lidoEm: dataLeitura
+                });
+
+                encontrouNaoLida = true;
+            }
         });
 
-        await batch.commit();
+        if (encontrouNaoLida) {
+            await batch.commit();
+        }
+
+        await sincronizarContadorNaoLidasChat(
+            chatId,
+            usernameLogado
+        );
     } catch (erro) {
         console.error(
             "Erro ao marcar mensagens como lidas:",
