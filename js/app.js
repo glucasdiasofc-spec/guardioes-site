@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.169.0 - versão alpha";
+const VERSAO_ATUAL = "v0.170.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -917,15 +917,34 @@ function fecharSalaChat() {
 function formatarHoraMensagem(valor) {
     try {
         let data = null;
-        if (valor && typeof valor.toDate === "function") data = valor.toDate();
-        else if (valor instanceof Date) data = valor;
-        else if (typeof valor === "string" || typeof valor === "number") data = new Date(valor);
-        if (!data || Number.isNaN(data.getTime())) return "--:--";
-        return data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+        if (valor && typeof valor.toDate === "function") {
+            data = valor.toDate();
+        } else if (valor instanceof Date) {
+            data = valor;
+        } else if (
+            typeof valor === "string" ||
+            typeof valor === "number"
+        ) {
+            data = new Date(valor);
+        }
+
+        if (!data || Number.isNaN(data.getTime())) {
+            return "Data indisponível";
+        }
+
+        return data.toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
     } catch (erro) {
-        return "--:--";
+        return "Data indisponível";
     }
 }
+
 
 function criarOuAtualizarBadgeMensagens() {
     const botao = document.getElementById("btn-sub-mensagens");
@@ -996,7 +1015,6 @@ function atualizarMarcadoresContatosChat() {
 
         snapshot.forEach(doc => {
             const dados = doc.data() || {};
-
             const quantidadeNaoLidas = Number(
                 (dados.naoLidasPor || {})[usernameLogado] || 0
             );
@@ -1074,6 +1092,7 @@ function atualizarMarcadoresContatosChat() {
 }
 
 
+
 async function ajustarNaoLidasChat(chatId, username, delta) {
     if (!chatId || !username || !window.ClubeDB || !window.ClubeDB.textoDB) return;
     const ref = window.ClubeDB.textoDB.collection("chats").doc(chatId);
@@ -1085,31 +1104,70 @@ async function ajustarNaoLidasChat(chatId, username, delta) {
 }
 
 async function marcarMensagensComoLidas(chatId, usernameLogado) {
-    if (!chatId || !usernameLogado || !window.ClubeDB || !window.ClubeDB.textoDB) return;
+    if (
+        !chatId ||
+        !usernameLogado ||
+        !window.ClubeDB ||
+        !window.ClubeDB.textoDB
+    ) {
+        return;
+    }
+
+    if (window._leituraBloqueadaPorPermissao) {
+        return;
+    }
+
     try {
-        const mensagensRef = window.ClubeDB.textoDB.collection("chats").doc(chatId).collection("mensagens");
-        const snap = await mensagensRef.get();
+        const mensagensRef = window.ClubeDB.textoDB
+            .collection("chats")
+            .doc(chatId)
+            .collection("mensagens");
+
+        const snap = await mensagensRef
+            .where("destinatario", "==", usernameLogado)
+            .where("lido", "==", false)
+            .get();
+
+        if (snap.empty) {
+            return;
+        }
+
         const batch = window.ClubeDB.textoDB.batch();
-        let alterou = false;
+        const dataLeitura = firebase.firestore.Timestamp.now();
+
         snap.forEach(doc => {
-            const dados = doc.data() || {};
-            if (dados.destinatario === usernameLogado && dados.lido !== true) {
-                batch.update(doc.ref, {
-                    lido: true,
-                    lidoEm: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                alterou = true;
-            }
+            batch.update(doc.ref, {
+                lido: true,
+                lidoEm: dataLeitura
+            });
         });
-        if (alterou) await batch.commit();
-        await window.ClubeDB.textoDB.collection("chats").doc(chatId).set({
-            naoLidasPor: { [usernameLogado]: 0 }
-        }, { merge: true });
-        await atualizarIndicadorAbaMensagens();
+
+        await batch.commit();
     } catch (erro) {
-        console.error("Erro ao marcar mensagens como lidas:", erro);
+        const mensagem = String(
+            erro && erro.message || erro
+        );
+
+        if (
+            mensagem.includes("permission") ||
+            mensagem.includes("insufficient")
+        ) {
+            window._leituraBloqueadaPorPermissao = true;
+
+            console.warn(
+                "Leitura não gravada: as regras do Firestore não permitem atualizar mensagens."
+            );
+
+            return;
+        }
+
+        console.error(
+            "Erro ao marcar mensagens como lidas:",
+            erro
+        );
     }
 }
+
 
 async function enviarMensagemChat() {
     const input =
