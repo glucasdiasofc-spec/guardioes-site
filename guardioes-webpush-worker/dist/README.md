@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "telegram" generated at 2026-08-14T01:26:59.266Z.
