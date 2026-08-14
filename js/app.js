@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.189.0 - versão alpha";
+const VERSAO_ATUAL = "v0.190.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -414,10 +414,6 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    if (window._pedidoNativoNotificacaoEmAndamento) {
-        return;
-    }
-
     if (Notification.permission === "granted") {
         registrarPushNesteDispositivo();
         return;
@@ -430,9 +426,23 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    window._pedidoNativoNotificacaoEmAndamento = true;
+    if (window._pedidoNativoNotificacaoConfigurado) {
+        return;
+    }
 
-    setTimeout(async () => {
+    window._pedidoNativoNotificacaoConfigurado = true;
+
+    const solicitarDuranteInteracao = async () => {
+        document.removeEventListener(
+            "pointerdown",
+            solicitarDuranteInteracao,
+            true
+        );
+
+        if (Notification.permission !== "default") {
+            return;
+        }
+
         try {
             const permissao =
                 await Notification.requestPermission();
@@ -445,10 +455,18 @@ function solicitarPermissaoNotificacoes() {
                 "O navegador não exibiu o pedido nativo de notificações:",
                 erro
             );
-        } finally {
-            window._pedidoNativoNotificacaoEmAndamento = false;
         }
-    }, 800);
+    };
+
+    document.addEventListener(
+        "pointerdown",
+        solicitarDuranteInteracao,
+        {
+            once: true,
+            capture: true,
+            passive: true
+        }
+    );
 }
 
 
