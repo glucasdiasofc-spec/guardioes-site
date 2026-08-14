@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.193.0 - versão alpha";
+const VERSAO_ATUAL = "v0.194.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -276,9 +276,12 @@ async function registrarPushNesteDispositivo() {
         if (
             typeof Notification === "undefined" ||
             Notification.permission !== "granted" ||
-            !navigator.serviceWorker
+            !navigator.serviceWorker ||
+            !window.isSecureContext
         ) {
-            return null;
+            throw new Error(
+                "Web Push exige HTTPS e um Service Worker ativo."
+            );
         }
 
         const usuarioFirebase = window.ClubeDB &&
@@ -290,33 +293,56 @@ async function registrarPushNesteDispositivo() {
         ).trim().toLowerCase();
 
         if (!usuarioFirebase || !username) {
-            return null;
+            throw new Error(
+                "Usuário Firebase ou usernameLogado não encontrado."
+            );
         }
 
-        if (!_registroServiceWorkerPush) {
-            _registroServiceWorkerPush =
-                await navigator.serviceWorker.register(
-                    "/firebase-messaging-sw.js",
-                    { scope: "/" }
-                );
+        await navigator.serviceWorker.register(
+            "/firebase-messaging-sw.js",
+            { scope: "/" }
+        );
+
+        const registro =
+            await navigator.serviceWorker.ready;
+
+        if (!registro.pushManager) {
+            throw new Error(
+                "Este navegador não disponibiliza PushManager."
+            );
         }
 
-        await navigator.serviceWorker.ready;
-
-        let subscription = await _registroServiceWorkerPush.pushManager
-            .getSubscription();
+        let subscription =
+            await registro.pushManager.getSubscription();
 
         if (!subscription) {
-            subscription = await _registroServiceWorkerPush.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey:
-                    converterChavePublicaVapid(
-                        VAPID_PUBLIC_KEY_PROPRIA
-                    )
-            });
+            subscription =
+                await registro.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey:
+                        converterChavePublicaVapid(
+                            VAPID_PUBLIC_KEY_PROPRIA
+                        )
+                });
         }
 
-        const idToken = await usuarioFirebase.getIdToken(true);
+        const dadosSubscription = subscription.toJSON();
+
+        if (
+            !dadosSubscription.endpoint ||
+            !dadosSubscription.keys ||
+            !dadosSubscription.keys.p256dh ||
+            !dadosSubscription.keys.auth
+        ) {
+            throw new Error(
+                "O iOS criou uma assinatura incompleta. " +
+                "Verifique se o site está instalado como PWA na Tela de Início."
+            );
+        }
+
+        const idToken =
+            await usuarioFirebase.getIdToken(true);
+
         const resposta = await fetch(
             `${WORKER_NOTIFICACOES_URL}/push/subscribe`,
             {
@@ -327,17 +353,38 @@ async function registrarPushNesteDispositivo() {
                 },
                 body: JSON.stringify({
                     username: username,
-                    subscription: subscription.toJSON()
+                    subscription: dadosSubscription
                 })
             }
         );
 
-        const corpoResposta = await resposta.text();
+        const corpoResposta =
+            await resposta.text();
 
         if (!resposta.ok) {
             throw new Error(
-                `Falha ao registrar dispositivo: HTTP ` +
+                `Worker recusou o cadastro: HTTP ` +
                 `${resposta.status} — ${corpoResposta}`
+            );
+        }
+
+        let respostaJSON = {};
+
+        try {
+            respostaJSON = corpoResposta
+                ? JSON.parse(corpoResposta)
+                : {};
+        } catch (erroJSON) {
+            throw new Error(
+                "O Worker respondeu em formato inválido: " +
+                corpoResposta
+            );
+        }
+
+        if (respostaJSON.ok !== true) {
+            throw new Error(
+                "O Worker não confirmou o cadastro: " +
+                corpoResposta
             );
         }
 
@@ -347,14 +394,14 @@ async function registrarPushNesteDispositivo() {
         );
 
         console.log(
-            "Dispositivo registrado para Web Push:",
-            corpoResposta
+            "Web Push registrado com sucesso:",
+            respostaJSON
         );
 
         return subscription;
     } catch (erro) {
         console.error(
-            "Erro ao registrar Web Push:",
+            "Falha completa ao registrar Web Push:",
             erro
         );
 
@@ -365,6 +412,7 @@ async function registrarPushNesteDispositivo() {
         return null;
     }
 }
+
 
 
 async function enviarPushParaDestinatario(
