@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.190.0 - versão alpha";
+const VERSAO_ATUAL = "v0.191.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -426,16 +426,26 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    if (window._pedidoNativoNotificacaoConfigurado) {
+    if (window._pedidoNativoNotificacaoConfigurado === true) {
         return;
     }
 
     window._pedidoNativoNotificacaoConfigurado = true;
 
-    const solicitarDuranteInteracao = async () => {
-        document.removeEventListener(
-            "pointerdown",
-            solicitarDuranteInteracao,
+    const pedirPermissaoNoClique = async evento => {
+        if (evento) {
+            evento.stopPropagation();
+        }
+
+        window.removeEventListener(
+            "click",
+            pedirPermissaoNoClique,
+            true
+        );
+
+        window.removeEventListener(
+            "touchend",
+            pedirPermissaoNoClique,
             true
         );
 
@@ -458,9 +468,18 @@ function solicitarPermissaoNotificacoes() {
         }
     };
 
-    document.addEventListener(
-        "pointerdown",
-        solicitarDuranteInteracao,
+    window.addEventListener(
+        "click",
+        pedirPermissaoNoClique,
+        {
+            once: true,
+            capture: true
+        }
+    );
+
+    window.addEventListener(
+        "touchend",
+        pedirPermissaoNoClique,
         {
             once: true,
             capture: true,
@@ -468,6 +487,7 @@ function solicitarPermissaoNotificacoes() {
         }
     );
 }
+
 
 
 
