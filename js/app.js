@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.185.0 - versão alpha";
+const VERSAO_ATUAL = "v0.186.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -301,6 +301,8 @@ async function registrarPushNesteDispositivo() {
                 );
         }
 
+        await navigator.serviceWorker.ready;
+
         let subscription = await _registroServiceWorkerPush.pushManager
             .getSubscription();
 
@@ -308,11 +310,13 @@ async function registrarPushNesteDispositivo() {
             subscription = await _registroServiceWorkerPush.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey:
-                    converterChavePublicaVapid(VAPID_PUBLIC_KEY_PROPRIA)
+                    converterChavePublicaVapid(
+                        VAPID_PUBLIC_KEY_PROPRIA
+                    )
             });
         }
 
-        const idToken = await usuarioFirebase.getIdToken();
+        const idToken = await usuarioFirebase.getIdToken(true);
         const resposta = await fetch(
             `${WORKER_NOTIFICACOES_URL}/push/subscribe`,
             {
@@ -322,23 +326,46 @@ async function registrarPushNesteDispositivo() {
                     "Authorization": `Bearer ${idToken}`
                 },
                 body: JSON.stringify({
-                    username,
+                    username: username,
                     subscription: subscription.toJSON()
                 })
             }
         );
 
+        const corpoResposta = await resposta.text();
+
         if (!resposta.ok) {
-            throw new Error(`Falha ao registrar dispositivo: HTTP ${resposta.status}`);
+            throw new Error(
+                `Falha ao registrar dispositivo: HTTP ` +
+                `${resposta.status} — ${corpoResposta}`
+            );
         }
 
-        console.log("Dispositivo registrado para Web Push.");
+        localStorage.setItem(
+            "webPushAssinaturaAtiva",
+            "true"
+        );
+
+        console.log(
+            "Dispositivo registrado para Web Push:",
+            corpoResposta
+        );
+
         return subscription;
     } catch (erro) {
-        console.error("Erro ao registrar Web Push:", erro);
+        console.error(
+            "Erro ao registrar Web Push:",
+            erro
+        );
+
+        localStorage.removeItem(
+            "webPushAssinaturaAtiva"
+        );
+
         return null;
     }
 }
+
 
 async function enviarPushParaDestinatario(
     destinatario,
@@ -387,15 +414,63 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    if (Notification.permission === "granted") {
-        registrarPushNesteDispositivo();
+    if (!window._verificadorNotificacoesConfigurado) {
+        window._verificadorNotificacoesConfigurado = true;
+
+        window.addEventListener("focus", () => {
+            solicitarPermissaoNotificacoes();
+        });
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") {
+                solicitarPermissaoNotificacoes();
+            }
+        });
+    }
+
+    if (document.getElementById("btn-ativar-notificacoes")) {
         return;
     }
 
-    if (Notification.permission === "denied") {
+    const permissaoAtual = Notification.permission;
+
+    if (permissaoAtual === "granted") {
+        registrarPushNesteDispositivo()
+            .then(subscription => {
+                if (subscription) {
+                    return;
+                }
+
+                criarBotaoAtivacaoPush(
+                    "A assinatura deste dispositivo precisa ser ativada novamente."
+                );
+            })
+            .catch(erro => {
+                console.warn(
+                    "Não foi possível renovar o Web Push:",
+                    erro
+                );
+                criarBotaoAtivacaoPush(
+                    "A assinatura precisa ser ativada novamente."
+                );
+            });
+
         return;
     }
 
+    if (permissaoAtual === "denied") {
+        criarBotaoAtivacaoPush(
+            "As notificações estão bloqueadas nas configurações do navegador."
+        );
+        return;
+    }
+
+    criarBotaoAtivacaoPush(
+        "Clique para permitir notificações neste dispositivo."
+    );
+}
+
+function criarBotaoAtivacaoPush(motivo) {
     if (document.getElementById("btn-ativar-notificacoes")) {
         return;
     }
@@ -404,6 +479,7 @@ function solicitarPermissaoNotificacoes() {
     aviso.id = "btn-ativar-notificacoes";
     aviso.type = "button";
     aviso.textContent = "Ativar notificações";
+    aviso.title = motivo || "Ative as notificações";
     aviso.style.position = "fixed";
     aviso.style.right = "16px";
     aviso.style.bottom = "78px";
@@ -417,6 +493,15 @@ function solicitarPermissaoNotificacoes() {
     aviso.style.cursor = "pointer";
 
     aviso.addEventListener("click", async () => {
+        if (Notification.permission === "denied") {
+            alert(
+                "As notificações estão bloqueadas. " +
+                "Abra as configurações do site no navegador, " +
+                "permita as notificações e recarregue a página."
+            );
+            return;
+        }
+
         aviso.disabled = true;
         aviso.textContent = "Ativando...";
 
@@ -424,25 +509,35 @@ function solicitarPermissaoNotificacoes() {
             const permissao = await Notification.requestPermission();
 
             if (permissao !== "granted") {
-                aviso.textContent = "Permissão não concedida";
-                setTimeout(() => aviso.remove(), 2500);
+                aviso.disabled = false;
+                aviso.textContent = "Ativar notificações";
                 return;
             }
 
-            const subscription = await registrarPushNesteDispositivo();
-            aviso.textContent = subscription
-                ? "Notificações ativadas"
-                : "Não foi possível registrar o dispositivo";
-        } catch (erro) {
-            console.error("Erro ao ativar notificações:", erro);
-            aviso.textContent = "Erro ao ativar";
-        }
+            const subscription =
+                await registrarPushNesteDispositivo();
 
-        setTimeout(() => aviso.remove(), 2500);
+            if (!subscription) {
+                throw new Error(
+                    "O dispositivo não foi registrado no Worker."
+                );
+            }
+
+            aviso.textContent = "Notificações ativadas";
+            setTimeout(() => aviso.remove(), 2200);
+        } catch (erro) {
+            console.error(
+                "Erro ao ativar notificações:",
+                erro
+            );
+            aviso.disabled = false;
+            aviso.textContent = "Tentar novamente";
+        }
     });
 
     document.body.appendChild(aviso);
 }
+
 
 function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
     if (
