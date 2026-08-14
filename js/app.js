@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.187.0 - versão alpha";
+const VERSAO_ATUAL = "v0.188.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -428,93 +428,51 @@ function solicitarPermissaoNotificacoes() {
         });
     }
 
+    if (!document.body) {
+        setTimeout(
+            solicitarPermissaoNotificacoes,
+            500
+        );
+        return;
+    }
+
     if (document.getElementById("btn-ativar-notificacoes")) {
         return;
     }
 
-    const permissao = Notification.permission;
-    const aviso = document.createElement("button");
-
-    aviso.id = "btn-ativar-notificacoes";
-    aviso.type = "button";
-    aviso.textContent = permissao === "denied"
-        ? "Permitir notificações nas configurações"
-        : "Ativar notificações";
-    aviso.style.position = "fixed";
-    aviso.style.right = "16px";
-    aviso.style.bottom = "78px";
-    aviso.style.zIndex = "2147483647";
-    aviso.style.padding = "11px 14px";
-    aviso.style.border = "0";
-    aviso.style.borderRadius = "10px";
-    aviso.style.background = "#1683e8";
-    aviso.style.color = "#fff";
-    aviso.style.fontWeight = "700";
-    aviso.style.cursor = "pointer";
-
-    aviso.addEventListener("click", async () => {
-        if (Notification.permission === "denied") {
-            alert(
-                "As notificações estão bloqueadas neste dispositivo. " +
-                "Abra as configurações do site no navegador, permita " +
-                "as notificações e depois recarregue a página."
-            );
-            return;
-        }
-
-        aviso.disabled = true;
-        aviso.textContent = "Ativando...";
-
-        try {
-            const permissaoAtual =
-                await Notification.requestPermission();
-
-            if (permissaoAtual !== "granted") {
-                aviso.disabled = false;
-                aviso.textContent = "Ativar notificações";
-                return;
-            }
-
-            const assinatura =
-                await registrarPushNesteDispositivo();
-
-            if (!assinatura) {
-                throw new Error(
-                    "O dispositivo não foi registrado no Worker."
-                );
-            }
-
-            aviso.textContent = "Notificações ativadas";
-            setTimeout(() => aviso.remove(), 2200);
-        } catch (erro) {
-            console.error(
-                "Erro ao ativar notificações:",
-                erro
-            );
-            aviso.disabled = false;
-            aviso.textContent = "Tentar novamente";
-        }
-    });
-
-    document.body.appendChild(aviso);
-
-    if (permissao === "granted") {
+    if (Notification.permission === "granted") {
         registrarPushNesteDispositivo()
             .then(assinatura => {
-                if (!assinatura &&
-                    document.getElementById("btn-ativar-notificacoes")) {
-                    aviso.textContent = "Reativar notificações";
+                if (!assinatura) {
+                    criarBotaoAtivacaoPush(
+                        "A assinatura deste dispositivo precisa ser reativada."
+                    );
                 }
             })
             .catch(erro => {
                 console.warn(
-                    "Falha ao renovar a assinatura Web Push:",
+                    "Falha ao registrar Web Push:",
                     erro
                 );
-                aviso.textContent = "Reativar notificações";
+                criarBotaoAtivacaoPush(
+                    "Reativar notificações"
+                );
             });
+        return;
     }
+
+    if (Notification.permission === "denied") {
+        criarBotaoAtivacaoPush(
+            "As notificações estão bloqueadas nas configurações."
+        );
+        return;
+    }
+
+    criarBotaoAtivacaoPush(
+        "Clique para ativar as notificações."
+    );
 }
+
 
 
 function criarBotaoAtivacaoPush(motivo) {
@@ -1632,65 +1590,6 @@ async function registrarTokenFCM() {
     }
 }
 
-function solicitarPermissaoNotificacoes() {
-    if (typeof Notification === "undefined") {
-        return;
-    }
-
-    if (Notification.permission === "granted") {
-        registrarTokenFCM();
-        return;
-    }
-
-    if (Notification.permission === "denied") {
-        return;
-    }
-
-    if (document.getElementById("btn-ativar-notificacoes")) {
-        return;
-    }
-
-    const aviso = document.createElement("button");
-    aviso.id = "btn-ativar-notificacoes";
-    aviso.type = "button";
-    aviso.textContent = "Ativar notificações";
-    aviso.style.position = "fixed";
-    aviso.style.right = "16px";
-    aviso.style.bottom = "78px";
-    aviso.style.zIndex = "2147483647";
-    aviso.style.padding = "11px 14px";
-    aviso.style.border = "0";
-    aviso.style.borderRadius = "10px";
-    aviso.style.background = "#1683e8";
-    aviso.style.color = "#fff";
-    aviso.style.fontWeight = "700";
-    aviso.style.cursor = "pointer";
-
-    aviso.addEventListener("click", async () => {
-        aviso.disabled = true;
-        aviso.textContent = "Ativando...";
-
-        try {
-            const permissao = await Notification.requestPermission();
-
-            if (permissao === "granted") {
-                const token = await registrarTokenFCM();
-                aviso.textContent = token
-                    ? "Notificações ativadas"
-                    : "Não foi possível registrar o dispositivo";
-            } else {
-                aviso.textContent = "Permissão não concedida";
-            }
-        } catch (erro) {
-            console.error("Erro ao ativar notificações:", erro);
-            aviso.textContent = "Erro ao ativar";
-        }
-
-        setTimeout(() => aviso.remove(), 2500);
-    });
-
-    document.body.appendChild(aviso);
-}
 
 function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
     if (
