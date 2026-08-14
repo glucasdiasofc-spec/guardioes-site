@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.192.0 - versão alpha";
+const VERSAO_ATUAL = "v0.193.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -414,126 +414,161 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    if (Notification.permission === "granted") {
-        registrarPushNesteDispositivo();
+    const telaSite = document.getElementById("tela-site");
+
+    if (!telaSite || telaSite.style.display === "none") {
         return;
     }
 
-    const mostrarAlertaBloqueio = () => {
-        alert(
-            "As notificações estão bloqueadas neste dispositivo.\n\n" +
-            "Para desbloquear:\n" +
-            "1. Abra as configurações do site no navegador.\n" +
-            "2. Entre em Notificações.\n" +
-            "3. Selecione Permitir.\n" +
-            "4. Recarregue o site."
+    if (document.getElementById("aviso-notificacoes-site")) {
+        return;
+    }
+
+    const removerAviso = () => {
+        const avisoExistente = document.getElementById(
+            "aviso-notificacoes-site"
         );
+
+        if (avisoExistente) {
+            avisoExistente.remove();
+        }
     };
+
+    const criarAvisoDentroDoSite = (texto, textoBotao, acao) => {
+        if (document.getElementById("aviso-notificacoes-site")) {
+            return;
+        }
+
+        const aviso = document.createElement("div");
+        aviso.id = "aviso-notificacoes-site";
+        aviso.style.position = "fixed";
+        aviso.style.left = "50%";
+        aviso.style.bottom = "24px";
+        aviso.style.transform = "translateX(-50%)";
+        aviso.style.zIndex = "2147483647";
+        aviso.style.width = "min(92vw, 430px)";
+        aviso.style.padding = "14px 16px";
+        aviso.style.borderRadius = "12px";
+        aviso.style.background = "#20252b";
+        aviso.style.color = "#fff";
+        aviso.style.boxShadow = "0 6px 24px rgba(0,0,0,.35)";
+        aviso.style.fontFamily = "Arial, sans-serif";
+        aviso.style.fontSize = "14px";
+        aviso.style.lineHeight = "1.4";
+        aviso.innerHTML = `
+            <div style="margin-bottom:10px;">${texto}</div>
+            <button
+                type="button"
+                id="btn-aviso-notificacoes-site"
+                style="border:0; border-radius:8px; padding:8px 12px; background:#1683e8; color:#fff; font-weight:700; cursor:pointer;"
+            >${textoBotao}</button>
+        `;
+
+        telaSite.appendChild(aviso);
+
+        const botao = document.getElementById(
+            "btn-aviso-notificacoes-site"
+        );
+
+        if (botao) {
+            botao.addEventListener("click", acao);
+        }
+    };
+
+    if (Notification.permission === "granted") {
+        registrarPushNesteDispositivo()
+            .then(assinatura => {
+                if (!assinatura) {
+                    criarAvisoDentroDoSite(
+                        "As notificações estão autorizadas, mas este dispositivo ainda não está registrado.",
+                        "Registrar dispositivo",
+                        async () => {
+                            const botao = document.getElementById(
+                                "btn-aviso-notificacoes-site"
+                            );
+                            if (botao) botao.textContent = "Registrando...";
+
+                            const resultado =
+                                await registrarPushNesteDispositivo();
+
+                            if (resultado) {
+                                removerAviso();
+                            } else if (botao) {
+                                botao.textContent = "Tentar novamente";
+                            }
+                        }
+                    );
+                }
+            })
+            .catch(() => {
+                criarAvisoDentroDoSite(
+                    "Não foi possível registrar este dispositivo para receber notificações.",
+                    "Tentar novamente",
+                    async () => {
+                        const resultado =
+                            await registrarPushNesteDispositivo();
+                        if (resultado) removerAviso();
+                    }
+                );
+            });
+        return;
+    }
 
     if (Notification.permission === "denied") {
-        mostrarAlertaBloqueio();
-        return;
-    }
-
-    if (window._pedidoNativoNotificacaoEmAndamento === true) {
-        return;
-    }
-
-    window._pedidoNativoNotificacaoEmAndamento = true;
-
-    let gestoFallbackRegistrado = false;
-
-    const removerFallback = () => {
-        window.removeEventListener(
-            "click",
-            solicitarNoGesto,
-            true
-        );
-        window.removeEventListener(
-            "touchend",
-            solicitarNoGesto,
-            true
-        );
-    };
-
-    const finalizarPedido = permissao => {
-        window._pedidoNativoNotificacaoEmAndamento = false;
-
-        if (permissao === "granted") {
-            removerFallback();
-            registrarPushNesteDispositivo();
-            return;
-        }
-
-        if (permissao === "denied") {
-            removerFallback();
-            mostrarAlertaBloqueio();
-        }
-    };
-
-    const solicitarNoGesto = async evento => {
-        if (evento) {
-            evento.stopPropagation();
-        }
-
-        removerFallback();
-
-        if (Notification.permission !== "default") {
-            finalizarPedido(Notification.permission);
-            return;
-        }
-
-        try {
-            const permissao =
-                await Notification.requestPermission();
-            finalizarPedido(permissao);
-        } catch (erro) {
-            window._pedidoNativoNotificacaoEmAndamento = false;
-            console.warn(
-                "Não foi possível solicitar notificações:",
-                erro
-            );
-        }
-    };
-
-    gestoFallbackRegistrado = true;
-
-    window.addEventListener(
-        "click",
-        solicitarNoGesto,
-        {
-            once: true,
-            capture: true
-        }
-    );
-
-    window.addEventListener(
-        "touchend",
-        solicitarNoGesto,
-        {
-            once: true,
-            capture: true,
-            passive: true
-        }
-    );
-
-    Notification.requestPermission()
-        .then(permissao => {
-            if (permissao === "default" &&
-                gestoFallbackRegistrado) {
-                return;
+        criarAvisoDentroDoSite(
+            "As notificações estão bloqueadas para este site neste dispositivo. Abra as configurações do navegador e selecione Permitir.",
+            "Como desbloquear",
+            () => {
+                alert(
+                    "Abra as configurações do site no navegador, entre em Notificações, selecione Permitir e recarregue o site."
+                );
             }
+        );
+        return;
+    }
 
-            finalizarPedido(permissao);
-        })
-        .catch(erro => {
-            window._pedidoNativoNotificacaoEmAndamento = false;
-            console.warn(
-                "O navegador adiou o pedido nativo:",
-                erro
+    criarAvisoDentroDoSite(
+        "Ative as notificações para receber mensagens mesmo quando o site estiver fechado.",
+        "Permitir notificações",
+        async () => {
+            const botao = document.getElementById(
+                "btn-aviso-notificacoes-site"
             );
-        });
+
+            if (botao) botao.textContent = "Aguardando...";
+
+            try {
+                const permissao =
+                    await Notification.requestPermission();
+
+                if (permissao === "granted") {
+                    const assinatura =
+                        await registrarPushNesteDispositivo();
+
+                    if (assinatura) {
+                        removerAviso();
+                    } else if (botao) {
+                        botao.textContent = "Registrar novamente";
+                    }
+                } else if (permissao === "denied") {
+                    if (botao) botao.textContent = "Como desbloquear";
+                    alert(
+                        "O navegador bloqueou as notificações. Abra as configurações do site, selecione Permitir e recarregue a página."
+                    );
+                } else if (botao) {
+                    botao.textContent = "Permitir notificações";
+                }
+            } catch (erro) {
+                console.error(
+                    "Erro ao solicitar notificações:",
+                    erro
+                );
+                if (botao) botao.textContent = "Tentar novamente";
+            }
+        }
+    );
 }
+
 
 
 
