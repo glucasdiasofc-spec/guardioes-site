@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.191.0 - versão alpha";
+const VERSAO_ATUAL = "v0.192.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -419,58 +419,88 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    if (Notification.permission === "denied") {
-        console.warn(
-            "As notificações estão bloqueadas nas configurações do navegador."
+    const mostrarAlertaBloqueio = () => {
+        alert(
+            "As notificações estão bloqueadas neste dispositivo.\n\n" +
+            "Para desbloquear:\n" +
+            "1. Abra as configurações do site no navegador.\n" +
+            "2. Entre em Notificações.\n" +
+            "3. Selecione Permitir.\n" +
+            "4. Recarregue o site."
         );
+    };
+
+    if (Notification.permission === "denied") {
+        mostrarAlertaBloqueio();
         return;
     }
 
-    if (window._pedidoNativoNotificacaoConfigurado === true) {
+    if (window._pedidoNativoNotificacaoEmAndamento === true) {
         return;
     }
 
-    window._pedidoNativoNotificacaoConfigurado = true;
+    window._pedidoNativoNotificacaoEmAndamento = true;
 
-    const pedirPermissaoNoClique = async evento => {
+    let gestoFallbackRegistrado = false;
+
+    const removerFallback = () => {
+        window.removeEventListener(
+            "click",
+            solicitarNoGesto,
+            true
+        );
+        window.removeEventListener(
+            "touchend",
+            solicitarNoGesto,
+            true
+        );
+    };
+
+    const finalizarPedido = permissao => {
+        window._pedidoNativoNotificacaoEmAndamento = false;
+
+        if (permissao === "granted") {
+            removerFallback();
+            registrarPushNesteDispositivo();
+            return;
+        }
+
+        if (permissao === "denied") {
+            removerFallback();
+            mostrarAlertaBloqueio();
+        }
+    };
+
+    const solicitarNoGesto = async evento => {
         if (evento) {
             evento.stopPropagation();
         }
 
-        window.removeEventListener(
-            "click",
-            pedirPermissaoNoClique,
-            true
-        );
-
-        window.removeEventListener(
-            "touchend",
-            pedirPermissaoNoClique,
-            true
-        );
+        removerFallback();
 
         if (Notification.permission !== "default") {
+            finalizarPedido(Notification.permission);
             return;
         }
 
         try {
             const permissao =
                 await Notification.requestPermission();
-
-            if (permissao === "granted") {
-                await registrarPushNesteDispositivo();
-            }
+            finalizarPedido(permissao);
         } catch (erro) {
+            window._pedidoNativoNotificacaoEmAndamento = false;
             console.warn(
-                "O navegador não exibiu o pedido nativo de notificações:",
+                "Não foi possível solicitar notificações:",
                 erro
             );
         }
     };
 
+    gestoFallbackRegistrado = true;
+
     window.addEventListener(
         "click",
-        pedirPermissaoNoClique,
+        solicitarNoGesto,
         {
             once: true,
             capture: true
@@ -479,14 +509,32 @@ function solicitarPermissaoNotificacoes() {
 
     window.addEventListener(
         "touchend",
-        pedirPermissaoNoClique,
+        solicitarNoGesto,
         {
             once: true,
             capture: true,
             passive: true
         }
     );
+
+    Notification.requestPermission()
+        .then(permissao => {
+            if (permissao === "default" &&
+                gestoFallbackRegistrado) {
+                return;
+            }
+
+            finalizarPedido(permissao);
+        })
+        .catch(erro => {
+            window._pedidoNativoNotificacaoEmAndamento = false;
+            console.warn(
+                "O navegador adiou o pedido nativo:",
+                erro
+            );
+        });
 }
+
 
 
 
