@@ -35,6 +35,14 @@ export default {
 
             if (
                 request.method === "POST" &&
+                url.pathname === "/push/presence"
+            ) {
+                const usuario = await autorizarUpload(request, env);
+                return await atualizarPresencaPush(request, env, usuario);
+            }
+
+            if (
+                request.method === "POST" &&
                 url.pathname === "/push/send"
             ) {
                 const usuario = await autorizarUpload(request, env);
@@ -169,6 +177,7 @@ async function autorizarUpload(
     ) {
         return {
             uid: "admin",
+            username: "admin",
             modo: "admin"
         };
     }
@@ -245,8 +254,16 @@ async function autorizarUpload(
         );
     }
 
+    const email = String(
+        usuario.email || ""
+    ).trim().toLowerCase();
+    const username = email.endsWith("@guardioesdbv.com")
+        ? email.slice(0, -"@guardioesdbv.com".length)
+        : "";
+
     return {
         uid: usuario.localId,
+        username: normalizarUsername(username),
         modo: "firebase"
     };
 }
@@ -617,8 +634,26 @@ async function registrarAssinaturaPush(request, env, usuario) {
     const username = normalizarUsername(dados.username || "");
     const subscription = dados.subscription;
 
-    if (!username || !subscription || !subscription.endpoint) {
-        throw criarErro(400, "Assinatura Web Push inválida.");
+    if (
+        !username ||
+        !subscription ||
+        !subscription.endpoint ||
+        !subscription.keys ||
+        !subscription.keys.p256dh ||
+        !subscription.keys.auth
+    ) {
+        throw criarErro(400, "Assinatura Web Push inválida ou incompleta.");
+    }
+
+    if (
+        usuario.modo === "firebase" &&
+        usuario.username &&
+        username !== usuario.username
+    ) {
+        throw criarErro(
+            403,
+            "A assinatura deve ser registrada para o usuário autenticado."
+        );
     }
 
     const assinaturas = await lerAssinaturasPush(env, username);
@@ -652,6 +687,59 @@ async function registrarAssinaturaPush(request, env, usuario) {
     });
 }
 
+async function atualizarPresencaPush(request, env, usuario) {
+    if (!env.PUSH_KV) {
+        throw criarErro(500, "Binding PUSH_KV não configurado.");
+    }
+
+    const dados = await request.json();
+    const username = normalizarUsername(dados.username || usuario.username || "");
+    const visivel = dados.visivel === true;
+    const chatId = String(dados.chatId || "").trim();
+
+    if (!username) {
+        throw criarErro(400, "Usuário da presença não informado.");
+    }
+
+    if (
+        usuario.modo === "firebase" &&
+        usuario.username &&
+        username !== usuario.username
+    ) {
+        throw criarErro(
+            403,
+            "A presença deve ser atualizada para o usuário autenticado."
+        );
+    }
+
+    const chave = `push:presence:${username}`;
+
+    if (!visivel) {
+        await env.PUSH_KV.delete(chave);
+        return responderJSON({
+            ok: true,
+            visivel: false
+        });
+    }
+
+    await env.PUSH_KV.put(
+        chave,
+        JSON.stringify({
+            uid: usuario.uid,
+            username,
+            chatId,
+            atualizadoEm: new Date().toISOString()
+        }),
+        { expirationTtl: 120 }
+    );
+
+    return responderJSON({
+        ok: true,
+        visivel: true,
+        chatId
+    });
+}
+
 async function enviarPushProprio(request, env, usuario) {
     if (!env.PUSH_KV) {
         throw criarErro(500, "Binding PUSH_KV não configurado.");
@@ -665,9 +753,49 @@ async function enviarPushProprio(request, env, usuario) {
     const destinatario = normalizarUsername(dados.destinatario || "");
     const remetente = normalizarUsername(dados.remetente || "");
     const texto = String(dados.texto || "Nova mensagem").trim();
+    const chatId = String(dados.chatId || "").trim();
+    const messageId = String(dados.messageId || "").trim();
 
-    if (!destinatario || !texto) {
-        throw criarErro(400, "Destinatário e texto são obrigatórios.");
+    if (!destinatario || !remetente || !texto || !chatId) {
+        throw criarErro(
+            400,
+            "Destinatário, remetente, texto e chatId são obrigatórios."
+        );
+    }
+
+    if (
+        usuario.modo === "firebase" &&
+        usuario.username &&
+        remetente !== usuario.username
+    ) {
+        throw criarErro(
+            403,
+            "O remetente deve corresponder ao usuário autenticado."
+        );
+    }
+
+    const presenca = await env.PUSH_KV.get(
+        `push:presence:${destinatario}`,
+        "json"
+    );
+
+    const deveSuprimirPorPresenca = Boolean(
+        presenca &&
+        (
+            presenca.visivel === true ||
+            presenca.chatId === chatId
+        )
+    );
+
+    if (deveSuprimirPorPresenca) {
+        return responderJSON({
+            ok: true,
+            enviados: 0,
+            suprimido: true,
+            motivo: presenca.chatId === chatId
+                ? "Destinatário está na conversa ativa."
+                : "Aplicativo do destinatário está visível."
+        });
     }
 
     const assinaturas = await lerAssinaturasPush(env, destinatario);
@@ -702,7 +830,9 @@ async function enviarPushProprio(request, env, usuario) {
                 JSON.stringify({
                     title: titulo,
                     body: corpo,
-                    chatId: String(dados.chatId || ""),
+                    chatId,
+                    messageId,
+                    remetente,
                     url: "/index.html"
                 }),
                 {
