@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.186.0 - versão alpha";
+const VERSAO_ATUAL = "v0.185.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1409,215 +1409,109 @@ function criarOuAtualizarBadgeMensagens() {
     return badge;
 }
 
-const VAPID_PUBLIC_KEY_PROPRIA = "BEqg1YF_tRSajW2-drRQQv1d6BUpOUkUtYpJjLQG6y5WnjWGcQ4WP5y7ranaDKTCS3ovefcwCXToY-_tnsUE6q8";
-let _registroServiceWorkerPush = null;
-let _checagemPushEmAndamento = false;
+const FCM_VAPID_PUBLIC_KEY = "BEqg1YF_tRSajW2-drRQQv1d6BUpOUkUtYpJjLQG6y5WnjWGcQ4WP5y7ranaDKTCS3ovefcwCXToY-_tnsUE6q8";
+let _registroServiceWorkerFCM = null;
+let _listenerForegroundFCMAtivo = false;
 
-function converterChavePublicaBase64Url(chave) {
-    const valor = String(chave || "").trim();
-
-    if (!valor || valor.includes("COLE_AQUI")) {
-        throw new Error("A chave pública VAPID ainda não foi configurada.");
-    }
-
-    const preenchimento = "=".repeat((4 - valor.length % 4) % 4);
-    const base64 = (valor + preenchimento)
-        .replace(/-/g, "+")
-        .replace(/_/g, "/");
-    const binario = atob(base64);
-
-    return Uint8Array.from(
-        binario,
-        caractere => caractere.charCodeAt(0)
-    );
-}
-
-function obterUsuarioFirebasePush() {
-    return window.ClubeDB &&
-        window.ClubeDB.loginDB &&
-        window.ClubeDB.loginDB.currentUser
-        ? window.ClubeDB.loginDB.currentUser
-        : null;
-}
-
-function obterUsernamePush() {
-    return String(
-        localStorage.getItem("usernameLogado") || ""
-    ).trim().toLowerCase();
-}
-
-async function obterRegistroServiceWorkerPush() {
-    if (!("serviceWorker" in navigator)) {
-        throw new Error("Este navegador não suporta Service Worker.");
-    }
-
-    if (!_registroServiceWorkerPush) {
-        _registroServiceWorkerPush = await navigator.serviceWorker.register(
-            "/firebase-messaging-sw.js",
-            { scope: "/" }
-        );
-    }
-
-    await navigator.serviceWorker.ready;
-    return _registroServiceWorkerPush;
-}
-
-async function registrarAssinaturaPushProprio() {
-    const usuarioFirebase = obterUsuarioFirebasePush();
-    const usernameLogado = obterUsernamePush();
-
-    if (!usuarioFirebase || !usernameLogado) {
-        throw new Error("Usuário Firebase ainda não está autenticado.");
-    }
-
-    const registro = await obterRegistroServiceWorkerPush();
-    let assinatura = await registro.pushManager.getSubscription();
-
-    if (!assinatura) {
-        assinatura = await registro.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey:
-                converterChavePublicaBase64Url(
-                    VAPID_PUBLIC_KEY_PROPRIA
-                )
-        });
-    }
-
-    const idToken = await usuarioFirebase.getIdToken(true);
-    const resposta = await fetch(
-        `${PUBLICACOES_WORKER_URL}/push/subscribe`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${idToken}`
-            },
-            body: JSON.stringify({
-                username: usernameLogado,
-                subscription: assinatura.toJSON()
-            })
-        }
-    );
-
-    const textoResposta = await resposta.text();
-    let dadosResposta = {};
-
+async function registrarTokenFCM() {
     try {
-        dadosResposta = textoResposta
-            ? JSON.parse(textoResposta)
-            : {};
-    } catch (erroJSON) {
-        dadosResposta = { resposta: textoResposta };
-    }
-
-    if (!resposta.ok || dadosResposta.ok === false) {
-        throw new Error(
-            `Worker recusou a assinatura (${resposta.status}): ` +
-            `${dadosResposta.erro || textoResposta || "sem detalhes"}`
-        );
-    }
-
-    localStorage.setItem(
-        "webPushAssinaturaAtiva",
-        "true"
-    );
-
-    console.log(
-        "Assinatura Web Push registrada:",
-        dadosResposta
-    );
-
-    return assinatura;
-}
-
-async function notificarServidorPushProprio(
-    destinatario,
-    remetente,
-    texto,
-    chatId
-) {
-    try {
-        const usuarioFirebase = obterUsuarioFirebasePush();
-
-        if (!usuarioFirebase || !destinatario || !texto) {
-            return false;
+        if (
+            typeof firebase === "undefined" ||
+            typeof firebase.messaging !== "function" ||
+            !navigator.serviceWorker ||
+            !window.ClubeDB ||
+            !window.ClubeDB.textoDB
+        ) {
+            return null;
         }
 
-        const idToken = await usuarioFirebase.getIdToken();
-        const resposta = await fetch(
-            `${PUBLICACOES_WORKER_URL}/push/send`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${idToken}`
-                },
-                body: JSON.stringify({
-                    destinatario: String(destinatario)
-                        .trim()
-                        .toLowerCase(),
-                    remetente: String(remetente || "")
-                        .trim()
-                        .toLowerCase(),
-                    texto: String(texto),
-                    chatId: String(chatId || "")
-                })
-            }
-        );
+        const usuarioFirebase = window.ClubeDB.loginDB &&
+            window.ClubeDB.loginDB.currentUser;
+        const usernameLogado = String(
+            localStorage.getItem("usernameLogado") || ""
+        ).trim().toLowerCase();
 
-        const textoResposta = await resposta.text();
-        let dadosResposta = {};
-
-        try {
-            dadosResposta = textoResposta
-                ? JSON.parse(textoResposta)
-                : {};
-        } catch (erroJSON) {
-            dadosResposta = { resposta: textoResposta };
+        if (!usuarioFirebase || !usernameLogado) {
+            return null;
         }
 
-        if (!resposta.ok) {
-            console.warn(
-                "Worker não enviou o Web Push:",
-                resposta.status,
-                dadosResposta
+        if (!_registroServiceWorkerFCM) {
+            _registroServiceWorkerFCM = await navigator.serviceWorker.register(
+                "/firebase-messaging-sw.js",
+                { scope: "/" }
             );
-            return false;
         }
 
-        console.log(
-            "Resultado do envio Web Push:",
-            dadosResposta
-        );
+        const messaging = firebase.messaging();
+        const token = await messaging.getToken({
+            vapidKey: FCM_VAPID_PUBLIC_KEY,
+            serviceWorkerRegistration: _registroServiceWorkerFCM
+        });
 
-        return Number(dadosResposta.enviados || 0) > 0;
+        if (!token) {
+            console.warn("FCM não retornou um token para este dispositivo.");
+            return null;
+        }
+
+        const usuariosSnap = await window.ClubeDB.textoDB
+            .collection("usuarios")
+            .where("username", "==", usernameLogado)
+            .limit(1)
+            .get();
+
+        if (!usuariosSnap.empty) {
+            await usuariosSnap.docs[0].ref.set({
+                fcmTokens: firebase.firestore.FieldValue.arrayUnion(token),
+                fcmTokenAtualizadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+
+        if (!_listenerForegroundFCMAtivo) {
+            firebase.messaging().onMessage(payload => {
+                const dados = payload && payload.data ? payload.data : {};
+                const notificacao = payload && payload.notification
+                    ? payload.notification
+                    : {};
+                const nome = notificacao.title || dados.title || "Nova mensagem";
+                mostrarNotificacaoNovaMensagem(
+                    1,
+                    nome === "Nova mensagem" ? "" : nome
+                );
+            });
+            _listenerForegroundFCMAtivo = true;
+        }
+
+        console.log("✅ Token FCM registrado neste dispositivo.");
+        return token;
     } catch (erro) {
-        console.warn(
-            "Falha não bloqueante ao enviar Web Push:",
-            erro
-        );
-        return false;
-    }
-}
-
-function criarBotaoAtivarNotificacoesPush(motivo) {
-    if (typeof Notification === "undefined") {
+        console.error("Erro ao registrar notificações push FCM:", erro);
         return null;
     }
+}
 
-    let aviso = document.getElementById(
-        "btn-ativar-notificacoes"
-    );
-
-    if (aviso) {
-        return aviso;
+function solicitarPermissaoNotificacoes() {
+    if (typeof Notification === "undefined") {
+        return;
     }
 
-    aviso = document.createElement("button");
+    if (Notification.permission === "granted") {
+        registrarTokenFCM();
+        return;
+    }
+
+    if (Notification.permission === "denied") {
+        return;
+    }
+
+    if (document.getElementById("btn-ativar-notificacoes")) {
+        return;
+    }
+
+    const aviso = document.createElement("button");
     aviso.id = "btn-ativar-notificacoes";
     aviso.type = "button";
     aviso.textContent = "Ativar notificações";
-    aviso.title = motivo || "Ative as notificações neste dispositivo.";
     aviso.style.position = "fixed";
     aviso.style.right = "16px";
     aviso.style.bottom = "78px";
@@ -1635,107 +1529,35 @@ function criarBotaoAtivarNotificacoesPush(motivo) {
         aviso.textContent = "Ativando...";
 
         try {
-            if (Notification.permission === "denied") {
-                aviso.disabled = false;
-                aviso.textContent = "Permissão bloqueada — abrir configurações";
-                alert(
-                    "As notificações estão bloqueadas neste dispositivo. " +
-                    "Abra as configurações do site/navegador, permita " +
-                    "Notificações e depois recarregue a página."
-                );
-                return;
-            }
+            const permissao = await Notification.requestPermission();
 
-            const permissao = Notification.permission === "granted"
-                ? "granted"
-                : await Notification.requestPermission();
-
-            if (permissao !== "granted") {
-                aviso.disabled = false;
+            if (permissao === "granted") {
+                const token = await registrarTokenFCM();
+                aviso.textContent = token
+                    ? "Notificações ativadas"
+                    : "Não foi possível registrar o dispositivo";
+            } else {
                 aviso.textContent = "Permissão não concedida";
-                return;
             }
-
-            await registrarAssinaturaPushProprio();
-            aviso.textContent = "Notificações ativadas";
-            setTimeout(() => aviso.remove(), 2200);
         } catch (erro) {
-            console.error(
-                "Erro completo ao ativar Web Push:",
-                erro
-            );
-            aviso.disabled = false;
-            aviso.textContent = "Tentar ativar novamente";
+            console.error("Erro ao ativar notificações:", erro);
+            aviso.textContent = "Erro ao ativar";
         }
+
+        setTimeout(() => aviso.remove(), 2500);
     });
 
     document.body.appendChild(aviso);
-    return aviso;
 }
-
-async function verificarEstadoNotificacoes() {
-    if (typeof Notification === "undefined") {
-        return;
-    }
-
-    if (!obterUsuarioFirebasePush() || !obterUsernamePush()) {
-        return;
-    }
-
-    if (Notification.permission === "denied") {
-        criarBotaoAtivarNotificacoesPush(
-            "A permissão está bloqueada nas configurações do navegador."
-        );
-        return;
-    }
-
-    if (Notification.permission !== "granted") {
-        criarBotaoAtivarNotificacoesPush(
-            "Clique para ativar notificações neste dispositivo."
-        );
-        return;
-    }
-
-    try {
-        const registro = await obterRegistroServiceWorkerPush();
-        const assinatura = await registro.pushManager.getSubscription();
-
-        if (!assinatura) {
-            localStorage.removeItem("webPushAssinaturaAtiva");
-            criarBotaoAtivarNotificacoesPush(
-                "Este dispositivo ainda não possui uma assinatura ativa."
-            );
-            return;
-        }
-
-        await registrarAssinaturaPushProprio();
-        localStorage.setItem("webPushAssinaturaAtiva", "true");
-    } catch (erro) {
-        console.warn(
-            "Não foi possível validar a assinatura Web Push:",
-            erro
-        );
-        criarBotaoAtivarNotificacoesPush(
-            "A assinatura precisa ser ativada novamente neste dispositivo."
-        );
-    }
-}
-
-function solicitarPermissaoNotificacoes() {
-    verificarEstadoNotificacoes();
-}
-
-window.addEventListener("focus", () => {
-    verificarEstadoNotificacoes();
-});
-
-document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-        verificarEstadoNotificacoes();
-    }
-});
 
 function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
+    if (
+        typeof Notification === "undefined" ||
+        Notification.permission !== "granted"
+    ) {
+        return;
+    }
+
     const texto = quantidade === 1
         ? "Você recebeu uma nova mensagem."
         : `Você recebeu ${quantidade} novas mensagens.`;
@@ -1743,9 +1565,7 @@ function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
         ? `${nomeContato}: ${texto}`
         : texto;
 
-    let toast = document.getElementById(
-        "notificacao-mensagem-chat"
-    );
+    let toast = document.getElementById("notificacao-mensagem-chat");
 
     if (!toast) {
         toast = document.createElement("div");
@@ -1774,21 +1594,14 @@ function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
         toast.style.display = "none";
     }, 5000);
 
-    if (
-        typeof Notification !== "undefined" &&
-        Notification.permission === "granted" &&
-        document.visibilityState !== "visible"
-    ) {
+    if (document.visibilityState !== "visible") {
         try {
             new Notification("Nova mensagem", {
                 body: mensagem,
                 tag: "mensagem-chat"
             });
         } catch (erro) {
-            console.warn(
-                "Notificação nativa indisponível:",
-                erro
-            );
+            console.warn("Notificação nativa indisponível:", erro);
         }
     }
 }
