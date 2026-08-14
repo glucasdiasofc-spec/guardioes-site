@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.188.0 - versão alpha";
+const VERSAO_ATUAL = "v0.189.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -414,64 +414,43 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    if (window._observadorNotificacoesCriado !== true) {
-        window._observadorNotificacoesCriado = true;
-
-        window.addEventListener("focus", () => {
-            solicitarPermissaoNotificacoes();
-        });
-
-        document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === "visible") {
-                solicitarPermissaoNotificacoes();
-            }
-        });
-    }
-
-    if (!document.body) {
-        setTimeout(
-            solicitarPermissaoNotificacoes,
-            500
-        );
-        return;
-    }
-
-    if (document.getElementById("btn-ativar-notificacoes")) {
+    if (window._pedidoNativoNotificacaoEmAndamento) {
         return;
     }
 
     if (Notification.permission === "granted") {
-        registrarPushNesteDispositivo()
-            .then(assinatura => {
-                if (!assinatura) {
-                    criarBotaoAtivacaoPush(
-                        "A assinatura deste dispositivo precisa ser reativada."
-                    );
-                }
-            })
-            .catch(erro => {
-                console.warn(
-                    "Falha ao registrar Web Push:",
-                    erro
-                );
-                criarBotaoAtivacaoPush(
-                    "Reativar notificações"
-                );
-            });
+        registrarPushNesteDispositivo();
         return;
     }
 
     if (Notification.permission === "denied") {
-        criarBotaoAtivacaoPush(
-            "As notificações estão bloqueadas nas configurações."
+        console.warn(
+            "As notificações estão bloqueadas nas configurações do navegador."
         );
         return;
     }
 
-    criarBotaoAtivacaoPush(
-        "Clique para ativar as notificações."
-    );
+    window._pedidoNativoNotificacaoEmAndamento = true;
+
+    setTimeout(async () => {
+        try {
+            const permissao =
+                await Notification.requestPermission();
+
+            if (permissao === "granted") {
+                await registrarPushNesteDispositivo();
+            }
+        } catch (erro) {
+            console.warn(
+                "O navegador não exibiu o pedido nativo de notificações:",
+                erro
+            );
+        } finally {
+            window._pedidoNativoNotificacaoEmAndamento = false;
+        }
+    }, 800);
 }
+
 
 
 
