@@ -704,7 +704,11 @@ async function enviarPushProprio(request, env, usuario) {
                     body: corpo,
                     chatId: String(dados.chatId || ""),
                     url: "/index.html"
-                })
+                }),
+                {
+                    TTL: 86400,
+                    urgency: "high"
+                }
             );
             enviados += 1;
         } catch (erro) {
