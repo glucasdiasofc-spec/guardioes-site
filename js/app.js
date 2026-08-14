@@ -3103,6 +3103,101 @@ try {
 }
 
 // === LOGO DO CLUBE ===
+async function atualizarIdentidadePWA(logoAppUrl) {
+    const linkManifest = document.querySelector(
+        'link[rel="manifest"]'
+    );
+    const appleTouchIcon = document.getElementById(
+        "app-touch-icon"
+    );
+    const logoPersonalizada = String(
+        logoAppUrl || ""
+    ).trim();
+
+    if (appleTouchIcon) {
+        appleTouchIcon.href = logoPersonalizada ||
+            "icons/icon-192x192.png";
+    }
+
+    if (!linkManifest) {
+        return;
+    }
+
+    if (!linkManifest.dataset.manifestoOriginalHref) {
+        linkManifest.dataset.manifestoOriginalHref =
+            linkManifest.href;
+    }
+
+    if (!logoPersonalizada) {
+        if (window._manifestoPwaBlobUrl) {
+            URL.revokeObjectURL(
+                window._manifestoPwaBlobUrl
+            );
+            window._manifestoPwaBlobUrl = null;
+        }
+
+        linkManifest.href =
+            linkManifest.dataset.manifestoOriginalHref;
+        return;
+    }
+
+    try {
+        const resposta = await fetch(
+            linkManifest.dataset.manifestoOriginalHref,
+            { cache: "no-store" }
+        );
+
+        if (!resposta.ok) {
+            throw new Error(
+                `Manifesto retornou HTTP ${resposta.status}.`
+            );
+        }
+
+        const manifesto = await resposta.json();
+        manifesto.icons = [
+            {
+                src: logoPersonalizada,
+                type: "image/png",
+                sizes: "192x192",
+                purpose: "any"
+            },
+            {
+                src: logoPersonalizada,
+                type: "image/png",
+                sizes: "192x192",
+                purpose: "maskable"
+            },
+            {
+                src: logoPersonalizada,
+                type: "image/png",
+                sizes: "512x512",
+                purpose: "any"
+            }
+        ];
+
+        const manifestoBlob = new Blob(
+            [JSON.stringify(manifesto)],
+            { type: "application/manifest+json" }
+        );
+
+        if (window._manifestoPwaBlobUrl) {
+            URL.revokeObjectURL(
+                window._manifestoPwaBlobUrl
+            );
+        }
+
+        window._manifestoPwaBlobUrl = URL.createObjectURL(
+            manifestoBlob
+        );
+        linkManifest.href = window._manifestoPwaBlobUrl;
+    } catch (erro) {
+        console.warn(
+            "Não foi possível atualizar a logo do manifesto PWA:",
+            erro
+        );
+    }
+}
+
 async function carregarLogoClubeConfig() {
     try {
         const docRef = window.ClubeDB.textoDB.collection("configuracoes").doc("geral");
@@ -3128,7 +3223,7 @@ async function carregarLogoClubeConfig() {
                 }
             }
 
-            // 2. Aplica Logo do App
+            // 2. Aplica Logo do App/PWA
             const logoAppImg = document.getElementById("app-logo-img");
 
             if (dados.logoAppUrl && logoAppImg) {
@@ -3139,6 +3234,10 @@ async function carregarLogoClubeConfig() {
                     previaApp.src = dados.logoAppUrl;
                 }
             }
+
+            await atualizarIdentidadePWA(
+                dados.logoAppUrl || ""
+            );
 
             // 3. Aplica Favicon
             if (dados.faviconUrl) {
