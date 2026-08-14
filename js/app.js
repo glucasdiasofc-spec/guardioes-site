@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.194.0 - versão alpha";
+const VERSAO_ATUAL = "v0.195.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -273,14 +273,27 @@ function converterChavePublicaVapid(chave ) {
 
 async function registrarPushNesteDispositivo() {
     try {
-        if (
-            typeof Notification === "undefined" ||
-            Notification.permission !== "granted" ||
-            !navigator.serviceWorker ||
-            !window.isSecureContext
-        ) {
+        if (typeof Notification === "undefined") {
             throw new Error(
-                "Web Push exige HTTPS e um Service Worker ativo."
+                "Este navegador não possui a API de notificações."
+            );
+        }
+
+        if (Notification.permission !== "granted") {
+            throw new Error(
+                "A permissão de notificações ainda não foi concedida."
+            );
+        }
+
+        if (!window.isSecureContext) {
+            throw new Error(
+                "O site precisa estar aberto em HTTPS."
+            );
+        }
+
+        if (!navigator.serviceWorker) {
+            throw new Error(
+                "Este navegador não possui Service Worker."
             );
         }
 
@@ -292,9 +305,15 @@ async function registrarPushNesteDispositivo() {
             localStorage.getItem("usernameLogado") || ""
         ).trim().toLowerCase();
 
-        if (!usuarioFirebase || !username) {
+        if (!usuarioFirebase) {
             throw new Error(
-                "Usuário Firebase ou usernameLogado não encontrado."
+                "O usuário Firebase ainda não está pronto."
+            );
+        }
+
+        if (!username) {
+            throw new Error(
+                "O usernameLogado não foi encontrado."
             );
         }
 
@@ -306,18 +325,21 @@ async function registrarPushNesteDispositivo() {
         const registro =
             await navigator.serviceWorker.ready;
 
-        if (!registro.pushManager) {
+        const pushManager =
+            registro.pushManager;
+
+        if (!pushManager) {
             throw new Error(
-                "Este navegador não disponibiliza PushManager."
+                "O navegador não disponibiliza PushManager."
             );
         }
 
         let subscription =
-            await registro.pushManager.getSubscription();
+            await pushManager.getSubscription();
 
         if (!subscription) {
             subscription =
-                await registro.pushManager.subscribe({
+                await pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey:
                         converterChavePublicaVapid(
@@ -326,17 +348,14 @@ async function registrarPushNesteDispositivo() {
                 });
         }
 
-        const dadosSubscription = subscription.toJSON();
+        const dadosSubscription =
+            typeof subscription.toJSON === "function"
+                ? subscription.toJSON()
+                : subscription;
 
-        if (
-            !dadosSubscription.endpoint ||
-            !dadosSubscription.keys ||
-            !dadosSubscription.keys.p256dh ||
-            !dadosSubscription.keys.auth
-        ) {
+        if (!dadosSubscription || !dadosSubscription.endpoint) {
             throw new Error(
-                "O iOS criou uma assinatura incompleta. " +
-                "Verifique se o site está instalado como PWA na Tela de Início."
+                "O navegador não forneceu o endpoint da assinatura."
             );
         }
 
@@ -361,13 +380,6 @@ async function registrarPushNesteDispositivo() {
         const corpoResposta =
             await resposta.text();
 
-        if (!resposta.ok) {
-            throw new Error(
-                `Worker recusou o cadastro: HTTP ` +
-                `${resposta.status} — ${corpoResposta}`
-            );
-        }
-
         let respostaJSON = {};
 
         try {
@@ -376,15 +388,15 @@ async function registrarPushNesteDispositivo() {
                 : {};
         } catch (erroJSON) {
             throw new Error(
-                "O Worker respondeu em formato inválido: " +
+                "Resposta inválida do Worker: " +
                 corpoResposta
             );
         }
 
-        if (respostaJSON.ok !== true) {
+        if (!resposta.ok || respostaJSON.ok !== true) {
             throw new Error(
-                "O Worker não confirmou o cadastro: " +
-                corpoResposta
+                `Worker recusou o cadastro: HTTP ` +
+                `${resposta.status} — ${corpoResposta}`
             );
         }
 
@@ -400,10 +412,17 @@ async function registrarPushNesteDispositivo() {
 
         return subscription;
     } catch (erro) {
+        const mensagemErro = erro && erro.message
+            ? erro.message
+            : String(erro);
+
         console.error(
             "Falha completa ao registrar Web Push:",
-            erro
+            mensagemErro
         );
+
+        window._ultimoErroRegistroPush =
+            mensagemErro;
 
         localStorage.removeItem(
             "webPushAssinaturaAtiva"
@@ -412,6 +431,7 @@ async function registrarPushNesteDispositivo() {
         return null;
     }
 }
+
 
 
 
