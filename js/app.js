@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.186.0 - versão alpha";
+const VERSAO_ATUAL = "v0.187.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -414,8 +414,8 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    if (!window._verificadorNotificacoesConfigurado) {
-        window._verificadorNotificacoesConfigurado = true;
+    if (window._observadorNotificacoesCriado !== true) {
+        window._observadorNotificacoesCriado = true;
 
         window.addEventListener("focus", () => {
             solicitarPermissaoNotificacoes();
@@ -432,43 +432,90 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    const permissaoAtual = Notification.permission;
+    const permissao = Notification.permission;
+    const aviso = document.createElement("button");
 
-    if (permissaoAtual === "granted") {
-        registrarPushNesteDispositivo()
-            .then(subscription => {
-                if (subscription) {
-                    return;
-                }
+    aviso.id = "btn-ativar-notificacoes";
+    aviso.type = "button";
+    aviso.textContent = permissao === "denied"
+        ? "Permitir notificações nas configurações"
+        : "Ativar notificações";
+    aviso.style.position = "fixed";
+    aviso.style.right = "16px";
+    aviso.style.bottom = "78px";
+    aviso.style.zIndex = "2147483647";
+    aviso.style.padding = "11px 14px";
+    aviso.style.border = "0";
+    aviso.style.borderRadius = "10px";
+    aviso.style.background = "#1683e8";
+    aviso.style.color = "#fff";
+    aviso.style.fontWeight = "700";
+    aviso.style.cursor = "pointer";
 
-                criarBotaoAtivacaoPush(
-                    "A assinatura deste dispositivo precisa ser ativada novamente."
+    aviso.addEventListener("click", async () => {
+        if (Notification.permission === "denied") {
+            alert(
+                "As notificações estão bloqueadas neste dispositivo. " +
+                "Abra as configurações do site no navegador, permita " +
+                "as notificações e depois recarregue a página."
+            );
+            return;
+        }
+
+        aviso.disabled = true;
+        aviso.textContent = "Ativando...";
+
+        try {
+            const permissaoAtual =
+                await Notification.requestPermission();
+
+            if (permissaoAtual !== "granted") {
+                aviso.disabled = false;
+                aviso.textContent = "Ativar notificações";
+                return;
+            }
+
+            const assinatura =
+                await registrarPushNesteDispositivo();
+
+            if (!assinatura) {
+                throw new Error(
+                    "O dispositivo não foi registrado no Worker."
                 );
+            }
+
+            aviso.textContent = "Notificações ativadas";
+            setTimeout(() => aviso.remove(), 2200);
+        } catch (erro) {
+            console.error(
+                "Erro ao ativar notificações:",
+                erro
+            );
+            aviso.disabled = false;
+            aviso.textContent = "Tentar novamente";
+        }
+    });
+
+    document.body.appendChild(aviso);
+
+    if (permissao === "granted") {
+        registrarPushNesteDispositivo()
+            .then(assinatura => {
+                if (!assinatura &&
+                    document.getElementById("btn-ativar-notificacoes")) {
+                    aviso.textContent = "Reativar notificações";
+                }
             })
             .catch(erro => {
                 console.warn(
-                    "Não foi possível renovar o Web Push:",
+                    "Falha ao renovar a assinatura Web Push:",
                     erro
                 );
-                criarBotaoAtivacaoPush(
-                    "A assinatura precisa ser ativada novamente."
-                );
+                aviso.textContent = "Reativar notificações";
             });
-
-        return;
     }
-
-    if (permissaoAtual === "denied") {
-        criarBotaoAtivacaoPush(
-            "As notificações estão bloqueadas nas configurações do navegador."
-        );
-        return;
-    }
-
-    criarBotaoAtivacaoPush(
-        "Clique para permitir notificações neste dispositivo."
-    );
 }
+
 
 function criarBotaoAtivacaoPush(motivo) {
     if (document.getElementById("btn-ativar-notificacoes")) {
