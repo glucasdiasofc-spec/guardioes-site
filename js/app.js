@@ -254,7 +254,7 @@ async function executarLoginMembro() {
     }
 }
 
-const VAPID_PUBLIC_KEY_PROPRIA = "BEqg1YF_tRSajW2-drRQQv1d6BUpOUkUtYpJjLQG6y5WnjWGcQ4WP5y7ranaDKTCS3ovefcwCXToY-_tnsUE6q8";
+const VAPID_PUBLIC_KEY_PROPRIA = "BEqg1YF_tRSajW2-drR0Qv1d6BUpOUkUtYpJjlQG6y5wnjWGcQ4WP5y7ranaDKTCS3ovefcwCXToY-_tnsUE6q8";
 const WORKER_NOTIFICACOES_URL = "https://telegram.glucasdiasofc.workers.dev";
 let _registroServiceWorkerPush = null;
 
@@ -317,16 +317,17 @@ async function registrarPushNesteDispositivo() {
             );
         }
 
-        await navigator.serviceWorker.register(
+        const registro = await navigator.serviceWorker.register(
             "/firebase-messaging-sw.js",
             { scope: "/" }
         );
 
-        const registro =
-            await navigator.serviceWorker.ready;
+        if (typeof registro.update === "function") {
+            await registro.update().catch(() => undefined);
+        }
 
-        const pushManager =
-            registro.pushManager;
+        const registroPronto = await navigator.serviceWorker.ready;
+        const pushManager = registroPronto.pushManager;
 
         if (!pushManager) {
             throw new Error(
@@ -338,14 +339,13 @@ async function registrarPushNesteDispositivo() {
             await pushManager.getSubscription();
 
         if (!subscription) {
-            subscription =
-                await pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey:
-                        converterChavePublicaVapid(
-                            VAPID_PUBLIC_KEY_PROPRIA
-                        )
-                });
+            subscription = await pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey:
+                    converterChavePublicaVapid(
+                        VAPID_PUBLIC_KEY_PROPRIA
+                    )
+            });
         }
 
         const dadosSubscription =
@@ -353,9 +353,15 @@ async function registrarPushNesteDispositivo() {
                 ? subscription.toJSON()
                 : subscription;
 
-        if (!dadosSubscription || !dadosSubscription.endpoint) {
+        if (
+            !dadosSubscription ||
+            !dadosSubscription.endpoint ||
+            !dadosSubscription.keys ||
+            !dadosSubscription.keys.p256dh ||
+            !dadosSubscription.keys.auth
+        ) {
             throw new Error(
-                "O navegador não forneceu o endpoint da assinatura."
+                "O navegador não forneceu uma assinatura Push completa."
             );
         }
 
@@ -371,15 +377,13 @@ async function registrarPushNesteDispositivo() {
                     "Authorization": `Bearer ${idToken}`
                 },
                 body: JSON.stringify({
-                    username: username,
+                    username,
                     subscription: dadosSubscription
                 })
             }
         );
 
-        const corpoResposta =
-            await resposta.text();
-
+        const corpoResposta = await resposta.text();
         let respostaJSON = {};
 
         try {
@@ -388,15 +392,13 @@ async function registrarPushNesteDispositivo() {
                 : {};
         } catch (erroJSON) {
             throw new Error(
-                "Resposta inválida do Worker: " +
-                corpoResposta
+                "Resposta inválida do Worker: " + corpoResposta
             );
         }
 
         if (!resposta.ok || respostaJSON.ok !== true) {
             throw new Error(
-                `Worker recusou o cadastro: HTTP ` +
-                `${resposta.status} — ${corpoResposta}`
+                `Worker recusou o cadastro: HTTP ${resposta.status} — ${corpoResposta}`
             );
         }
 
@@ -404,6 +406,12 @@ async function registrarPushNesteDispositivo() {
             "webPushAssinaturaAtiva",
             "true"
         );
+        localStorage.setItem(
+            "webPushEndpoint",
+            String(dadosSubscription.endpoint)
+        );
+
+        delete window._ultimoErroRegistroPush;
 
         console.log(
             "Web Push registrado com sucesso:",
@@ -421,12 +429,8 @@ async function registrarPushNesteDispositivo() {
             mensagemErro
         );
 
-        window._ultimoErroRegistroPush =
-            mensagemErro;
-
-        localStorage.removeItem(
-            "webPushAssinaturaAtiva"
-        );
+        window._ultimoErroRegistroPush = mensagemErro;
+        localStorage.removeItem("webPushAssinaturaAtiva");
 
         return null;
     }
@@ -439,20 +443,26 @@ async function enviarPushParaDestinatario(
     destinatario,
     remetente,
     texto,
-    chatId
+    chatId,
+    messageId
 ) {
     try {
         const usuarioFirebase = window.ClubeDB &&
             window.ClubeDB.loginDB &&
             window.ClubeDB.loginDB.currentUser;
 
-        if (!usuarioFirebase || !destinatario || !texto) {
+        if (
+            !usuarioFirebase ||
+            !destinatario ||
+            !remetente ||
+            !texto ||
+            !chatId
+        ) {
             return;
         }
 
         const idToken = await usuarioFirebase.getIdToken();
-
-        await fetch(
+        const resposta = await fetch(
             `${WORKER_NOTIFICACOES_URL}/push/send`,
             {
                 method: "POST",
@@ -461,13 +471,24 @@ async function enviarPushParaDestinatario(
                     "Authorization": `Bearer ${idToken}`
                 },
                 body: JSON.stringify({
-                    destinatario: String(destinatario).trim().toLowerCase(),
-                    remetente: String(remetente || "").trim().toLowerCase(),
+                    destinatario: String(
+                        destinatario
+                    ).trim().toLowerCase(),
+                    remetente: String(
+                        remetente
+                    ).trim().toLowerCase(),
                     texto: String(texto),
-                    chatId: String(chatId || "")
+                    chatId: String(chatId),
+                    messageId: String(messageId || "")
                 })
             }
         );
+
+        if (!resposta.ok) {
+            throw new Error(
+                `Worker de notificações retornou HTTP ${resposta.status}.`
+            );
+        }
     } catch (erro) {
         console.warn(
             "O push falhou, mas a mensagem foi enviada normalmente:",
@@ -477,7 +498,7 @@ async function enviarPushParaDestinatario(
 }
 
 // Direciona o fluxo para a tela de visualização do site
-function solicitarPermissaoNotificacoes() {
+async function solicitarPermissaoNotificacoes() {
     if (typeof Notification === "undefined") {
         return;
     }
@@ -488,45 +509,20 @@ function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    const avisoAnterior = document.getElementById(
-        "aviso-notificacoes-site"
-    );
+    const iOS = (
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (
+            navigator.platform === "MacIntel" &&
+            navigator.maxTouchPoints > 1
+        )
+    ) && !window.MSStream;
 
-    if (avisoAnterior) {
-        avisoAnterior.remove();
-    }
+    const PWA = Boolean(
+        window.matchMedia &&
+        window.matchMedia("(display-mode: standalone)").matches
+    ) || window.navigator.standalone === true;
 
-    const aviso = document.createElement("div");
-    aviso.id = "aviso-notificacoes-site";
-    aviso.style.position = "fixed";
-    aviso.style.left = "50%";
-    aviso.style.bottom = "24px";
-    aviso.style.transform = "translateX(-50%)";
-    aviso.style.zIndex = "2147483647";
-    aviso.style.width = "min(92vw, 430px)";
-    aviso.style.padding = "14px 16px";
-    aviso.style.borderRadius = "12px";
-    aviso.style.background = "#20252b";
-    aviso.style.color = "#fff";
-    aviso.style.boxShadow = "0 6px 24px rgba(0,0,0,.35)";
-    aviso.style.fontFamily = "Arial, sans-serif";
-    aviso.style.fontSize = "14px";
-    aviso.style.lineHeight = "1.4";
-
-    const texto = document.createElement("div");
-    texto.style.marginBottom = "10px";
-
-    const botao = document.createElement("button");
-    botao.type = "button";
-    botao.style.border = "0";
-    botao.style.borderRadius = "8px";
-    botao.style.padding = "8px 12px";
-    botao.style.background = "#1683e8";
-    botao.style.color = "#fff";
-    botao.style.fontWeight = "700";
-    botao.style.cursor = "pointer";
-
-    const fecharAviso = () => {
+    const removerAviso = () => {
         const avisoAtual = document.getElementById(
             "aviso-notificacoes-site"
         );
@@ -536,23 +532,111 @@ function solicitarPermissaoNotificacoes() {
         }
     };
 
+    if (
+        Notification.permission === "granted" &&
+        !(iOS && !PWA)
+    ) {
+        try {
+            const registro = await navigator.serviceWorker.register(
+                "/firebase-messaging-sw.js",
+                { scope: "/" }
+            );
+            const registroPronto = await navigator.serviceWorker.ready;
+            const assinaturaExistente =
+                registroPronto.pushManager
+                    ? await registroPronto.pushManager.getSubscription()
+                    : null;
+            const endpointAtual = assinaturaExistente &&
+                assinaturaExistente.endpoint
+                ? String(assinaturaExistente.endpoint)
+                : "";
+            const endpointCadastrado = String(
+                localStorage.getItem("webPushEndpoint") || ""
+            );
+
+            if (
+                localStorage.getItem("webPushAssinaturaAtiva") === "true" &&
+                endpointAtual &&
+                endpointAtual === endpointCadastrado
+            ) {
+                removerAviso();
+                return;
+            }
+
+            if (assinaturaExistente) {
+                const assinaturaCadastrada =
+                    await registrarPushNesteDispositivo();
+
+                if (assinaturaCadastrada) {
+                    removerAviso();
+                    return;
+                }
+            }
+        } catch (erro) {
+            console.warn(
+                "Não foi possível validar o cadastro de notificações:",
+                erro
+            );
+        }
+    }
+
+    removerAviso();
+
+    const aviso = document.createElement("div");
+    aviso.id = "aviso-notificacoes-site";
+    aviso.setAttribute("role", "status");
+    aviso.style.position = "fixed";
+    aviso.style.left = "50%";
+    aviso.style.bottom = "24px";
+    aviso.style.transform = "translateX(-50%)";
+    aviso.style.zIndex = "2147483647";
+    aviso.style.width = "min(92vw, 430px)";
+    aviso.style.padding = "16px";
+    aviso.style.borderRadius = "14px";
+    aviso.style.background = "#20252b";
+    aviso.style.color = "#fff";
+    aviso.style.boxShadow = "0 8px 28px rgba(0,0,0,.38)";
+    aviso.style.fontFamily = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    aviso.style.fontSize = "14px";
+    aviso.style.lineHeight = "1.45";
+
+    const texto = document.createElement("div");
+    texto.style.marginBottom = "12px";
+
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.style.border = "0";
+    botao.style.borderRadius = "9px";
+    botao.style.padding = "9px 14px";
+    botao.style.background = "#1683e8";
+    botao.style.color = "#fff";
+    botao.style.fontWeight = "700";
+    botao.style.cursor = "pointer";
+    botao.style.minHeight = "40px";
+
+    const fecharAviso = () => {
+        if (aviso.isConnected) {
+            aviso.remove();
+        }
+    };
+
     const mostrarBloqueio = () => {
         texto.textContent =
             "As notificações estão bloqueadas neste dispositivo. " +
             "Abra as configurações do site, entre em Notificações, " +
-            "selecione Permitir e recarregue o app.";
+            "selecione Permitir e retorne ao app.";
         botao.textContent = "Entendi";
         botao.disabled = false;
         botao.onclick = fecharAviso;
     };
 
-    const iOS =
-        /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-        !window.MSStream;
-
-    const PWA =
-        window.matchMedia("(display-mode: standalone)").matches ||
-        window.navigator.standalone === true;
+    const mostrarErroRegistro = () => {
+        texto.textContent =
+            "Não foi possível registrar este dispositivo. " +
+            "Verifique a conexão e tente novamente.";
+        botao.disabled = false;
+        botao.textContent = "Tentar novamente";
+    };
 
     if (Notification.permission === "denied") {
         texto.textContent =
@@ -562,21 +646,17 @@ function solicitarPermissaoNotificacoes() {
         botao.onclick = mostrarBloqueio;
     } else if (iOS && !PWA) {
         texto.textContent =
-            "No iPhone, instale o Clube Guardiões na Tela de Início " +
-            "para receber notificações com o app fechado.";
+            "Para receber notificações com o app fechado, instale o Clube Guardiões na Tela de Início.";
         botao.textContent = "Como instalar";
         botao.onclick = () => {
             texto.textContent =
-                "No Safari, toque em Compartilhar, escolha " +
-                "Adicionar à Tela de Início, abra o ícone criado e " +
-                "permita as notificações dentro dele.";
+                "No Safari, toque em Compartilhar, escolha Adicionar à Tela de Início, abra o ícone criado e permita as notificações dentro dele.";
             botao.textContent = "Entendi";
             botao.onclick = fecharAviso;
         };
     } else if (Notification.permission === "granted") {
         texto.textContent =
-            "Este dispositivo ainda não está registrado para receber " +
-            "notificações.";
+            "A permissão já foi concedida. Registre este dispositivo para receber cada nova mensagem.";
         botao.textContent = "Registrar dispositivo";
         botao.onclick = async () => {
             botao.disabled = true;
@@ -590,16 +670,11 @@ function solicitarPermissaoNotificacoes() {
                 return;
             }
 
-            botao.disabled = false;
-            botao.textContent = "Tentar novamente";
-            texto.textContent =
-                "Não foi possível registrar este dispositivo. " +
-                "Verifique se o PWA está instalado e tente novamente.";
+            mostrarErroRegistro();
         };
     } else {
         texto.textContent =
-            "Ative as notificações para receber cada nova mensagem " +
-            "mesmo quando o app estiver fechado.";
+            "Ative as notificações para receber cada nova mensagem, inclusive quando o app estiver em segundo plano ou fechado.";
         botao.textContent = "Permitir notificações";
         botao.onclick = async () => {
             botao.disabled = true;
@@ -618,11 +693,7 @@ function solicitarPermissaoNotificacoes() {
                         return;
                     }
 
-                    botao.disabled = false;
-                    botao.textContent = "Tentar novamente";
-                    texto.textContent =
-                        "A permissão foi concedida, mas o dispositivo " +
-                        "não foi registrado pelo servidor.";
+                    mostrarErroRegistro();
                     return;
                 }
 
@@ -638,11 +709,7 @@ function solicitarPermissaoNotificacoes() {
                     "Erro ao solicitar notificações:",
                     erro
                 );
-                botao.disabled = false;
-                botao.textContent = "Tentar novamente";
-                texto.textContent =
-                    "Não foi possível solicitar a permissão neste " +
-                    "momento. Tente novamente dentro do app.";
+                mostrarErroRegistro();
             }
         };
     }
@@ -727,11 +794,23 @@ function criarBotaoAtivacaoPush(motivo) {
 }
 
 
-function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
+function mostrarNotificacaoNovaMensagem(
+    quantidade,
+    nomeContato,
+    chatId
+) {
     if (
         typeof Notification === "undefined" ||
         Notification.permission !== "granted"
     ) {
+        return;
+    }
+
+    const chatAtualVisivel =
+        document.visibilityState === "visible" &&
+        String(window._chatIdAtivo || "") === String(chatId || "");
+
+    if (chatId && chatAtualVisivel) {
         return;
     }
 
@@ -747,17 +826,20 @@ function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
     if (!toast) {
         toast = document.createElement("div");
         toast.id = "notificacao-mensagem-chat";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
         toast.style.position = "fixed";
         toast.style.right = "16px";
         toast.style.bottom = "78px";
         toast.style.zIndex = "2147483646";
-        toast.style.maxWidth = "320px";
+        toast.style.maxWidth = "min(320px, calc(100vw - 32px))";
         toast.style.padding = "12px 16px";
         toast.style.borderRadius = "12px";
         toast.style.background = "#1683e8";
         toast.style.color = "#fff";
         toast.style.fontSize = "14px";
         toast.style.fontWeight = "600";
+        toast.style.lineHeight = "1.4";
         toast.style.boxShadow = "0 4px 18px rgba(0,0,0,.45)";
         toast.style.cursor = "pointer";
         document.body.appendChild(toast);
@@ -770,17 +852,6 @@ function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
     window._timerNotificacaoMensagem = setTimeout(() => {
         toast.style.display = "none";
     }, 5000);
-
-    if (document.visibilityState !== "visible") {
-        try {
-            new Notification("Nova mensagem", {
-                body: mensagem,
-                tag: "mensagem-chat"
-            });
-        } catch (erro) {
-            console.warn("Notificação nativa indisponível:", erro);
-        }
-    }
 }
 
 function iniciarListenerGlobalMensagens() {
@@ -930,7 +1001,8 @@ function iniciarListenerGlobalMensagens() {
                     if (atual > anterior) {
                         mostrarNotificacaoNovaMensagem(
                             atual - anterior,
-                            estado.contatosPorChat[chatId] || ""
+                            estado.contatosPorChat[chatId] || "",
+                            chatId
                         );
                     }
                 });
@@ -987,6 +1059,10 @@ function irParaSite() {
     mudarSubAbaSite("feed");
     solicitarPermissaoNotificacoes();
     iniciarListenerGlobalMensagens();
+    window.setTimeout(
+        processarAberturaChatPorNotificacao,
+        0
+    );
 }
 
 
@@ -1204,6 +1280,38 @@ function mudarSubAbaSite(abaAlvo) {
 // ==========================================
 let unsubscribeChatAtivo = null;
 let usuarioChatDestino = null;
+window._chatIdAtivo = "";
+
+function sincronizarEstadoChatComServiceWorker() {
+    if (!("serviceWorker" in navigator)) {
+        return;
+    }
+
+    navigator.serviceWorker.getRegistration("/")
+        .then(registro => {
+            if (!registro || !registro.active) {
+                return;
+            }
+
+            registro.active.postMessage({
+                type: "CHAT_STATE",
+                chatId: String(window._chatIdAtivo || ""),
+                visivel: document.visibilityState === "visible" &&
+                    Boolean(window._chatIdAtivo)
+            });
+        })
+        .catch(erro => {
+            console.warn(
+                "Não foi possível sincronizar o estado do chat:",
+                erro
+            );
+        });
+}
+
+document.addEventListener(
+    "visibilitychange",
+    sincronizarEstadoChatComServiceWorker
+);
 
 async function carregarListaDeContatosChat() {
     const usernameLogado = localStorage.getItem("usernameLogado");
@@ -1328,6 +1436,138 @@ function criarCardContatoChat(username, nome, cargo, fotoUrl) {
 }
 // Cria um Hash único para as mensagens independentemente de quem enviou primeiro (Garante o P2P da mesma sala)
 
+// Localiza o card do contato para abrir a conversa correta.
+function encontrarCardChatPorNotificacao(remetente, chatId) {
+    const remetenteNormalizado = String(
+        remetente || ""
+    ).trim().toLowerCase();
+    const chatIdNormalizado = String(chatId || "");
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+
+    return Array.from(
+        document.querySelectorAll("[data-chat-username]")
+    ).find(card => {
+        const usernameContato = String(
+            card.getAttribute("data-chat-username") || ""
+        ).trim().toLowerCase();
+
+        if (
+            remetenteNormalizado &&
+            usernameContato === remetenteNormalizado
+        ) {
+            return true;
+        }
+
+        return Boolean(
+            chatIdNormalizado &&
+            usernameLogado &&
+            gerarIdChat(usernameLogado, usernameContato) ===
+                chatIdNormalizado
+        );
+    }) || null;
+}
+
+function abrirChatPorNotificacao(dados) {
+    const remetente = String(
+        dados && dados.remetente || ""
+    ).trim().toLowerCase();
+    const chatId = String(
+        dados && dados.chatId || ""
+    ).trim();
+
+    if (!remetente && !chatId) {
+        return;
+    }
+
+    window._chatNotificacaoPendente = {
+        remetente,
+        chatId
+    };
+
+    mudarSubAbaSite("mensagens");
+
+    let tentativas = 0;
+    const tentarAbrir = () => {
+        const pendente = window._chatNotificacaoPendente;
+
+        if (!pendente) {
+            return;
+        }
+
+        const card = encontrarCardChatPorNotificacao(
+            pendente.remetente,
+            pendente.chatId
+        );
+
+        if (card) {
+            window._chatNotificacaoPendente = null;
+            card.click();
+            return;
+        }
+
+        tentativas += 1;
+
+        if (tentativas < 24) {
+            window.setTimeout(tentarAbrir, 250);
+        } else {
+            window._chatNotificacaoPendente = null;
+        }
+    };
+
+    window.setTimeout(tentarAbrir, 0);
+}
+
+function processarAberturaChatPorNotificacao() {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    const parametros = new URLSearchParams(
+        window.location.search
+    );
+    const remetente = parametros.get("openChatUser") || "";
+    const chatId = parametros.get("openChatId") || "";
+
+    if (!remetente && !chatId) {
+        return;
+    }
+
+    if (
+        window.history &&
+        typeof window.history.replaceState === "function"
+    ) {
+        const urlLimpa =
+            `${window.location.pathname}${window.location.hash}`;
+        window.history.replaceState(
+            {},
+            document.title,
+            urlLimpa
+        );
+    }
+
+    abrirChatPorNotificacao({
+        remetente,
+        chatId
+    });
+}
+
+if (typeof window !== "undefined") {
+    window.addEventListener("message", evento => {
+        const dados = evento && evento.data;
+
+        if (
+            !dados ||
+            dados.type !== "OPEN_CHAT_NOTIFICATION"
+        ) {
+            return;
+        }
+
+        abrirChatPorNotificacao(dados);
+    });
+}
+
 // Cria um Hash único para as mensagens independentemente de quem enviou primeiro (Garante o P2P da mesma sala)
 function gerarIdChat(user1, user2) {
     return [user1, user2].sort().join("_");
@@ -1335,7 +1575,11 @@ function gerarIdChat(user1, user2) {
 
 
 function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
-    usuarioChatDestino = usernameAlvo;
+    const usernameAlvoNormalizado = String(
+        usernameAlvo || ""
+    ).trim().toLowerCase();
+
+    usuarioChatDestino = usernameAlvoNormalizado;
 
     const telaLista = document.getElementById("tela-lista-mensagens");
     const telaChat = document.getElementById("tela-sala-chat");
@@ -1345,7 +1589,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     if (!telaChat || !inputMsg) return;
 
-    // 1. Atualiza dados do contato
     const nomeEl = document.getElementById("chat-nome-atual");
     const cargoEl = document.getElementById("chat-cargo-atual");
     const avatarEl = document.getElementById("chat-avatar-atual");
@@ -1353,12 +1596,19 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     if (nomeEl) nomeEl.textContent = nomeAlvo || "Usuário";
     if (cargoEl) cargoEl.textContent = cargoAlvo || "";
     if (avatarEl) {
-        avatarEl.src = (typeof normalizarUrlPublicacao === 'function' ? normalizarUrlPublicacao(fotoAlvo) : fotoAlvo) || window.AVATAR_USUARIO_PADRAO;
-        avatarEl.onerror = () => { avatarEl.src = window.AVATAR_USUARIO_PADRAO; };
+        avatarEl.src = (
+            typeof normalizarUrlPublicacao === "function"
+                ? normalizarUrlPublicacao(fotoAlvo)
+                : fotoAlvo
+        ) || window.AVATAR_USUARIO_PADRAO;
+        avatarEl.onerror = () => {
+            avatarEl.src = window.AVATAR_USUARIO_PADRAO;
+        };
     }
 
-    // 2. Isolamento de Interface (Oculta o site e trava o fundo)
-    const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollPos =
+        window.pageYOffset || document.documentElement.scrollTop;
+
     telaChat._backupBody = {
         overflow: document.body.style.overflow,
         position: document.body.style.position,
@@ -1368,9 +1618,12 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         backgroundColor: document.body.style.backgroundColor
     };
 
-    // Esconde fisicamente a lista e o header do site para não haver "vazamento" visual
     if (telaLista) telaLista.style.display = "none";
-    const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
+
+    const siteHeader =
+        document.querySelector(".site-header") ||
+        document.querySelector("header");
+
     if (siteHeader) siteHeader.style.visibility = "hidden";
 
     document.body.style.backgroundColor = "#000";
@@ -1381,7 +1634,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     document.body.style.height = "100%";
     telaChat._scrollPos = scrollPos;
 
-    // 3. Configuração do Container de Chat (Fixo e Imóvel no topo)
     telaChat.style.display = "flex";
     telaChat.style.flexDirection = "column";
     telaChat.style.position = "fixed";
@@ -1389,23 +1641,19 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     telaChat.style.left = "0";
     telaChat.style.width = "100%";
     telaChat.style.height = "100%";
-
-    // Mantém o overlay cobrindo a tela inteira para impedir que o fundo apareça.
-    telaChat.style.left = "0";
-    telaChat.style.width = "100%";
     telaChat.style.boxSizing = "border-box";
     telaChat.style.paddingLeft = "0";
     telaChat.style.paddingRight = "0";
 
-    // No PC, recua somente o conteúdo interno sem reduzir o overlay.
     if (window.matchMedia("(min-width: 769px)").matches) {
         telaChat.style.paddingLeft = "12vw";
         telaChat.style.paddingRight = "12vw";
     }
+
     telaChat.style.zIndex = "2147483647";
     telaChat.style.backgroundColor = "#000";
     telaChat.style.overflow = "hidden";
-    telaChat.style.transform = "none"; // Remove qualquer transformação anterior
+    telaChat.style.transform = "none";
 
     if (cabecalhoChat) {
         cabecalhoChat.style.position = "relative";
@@ -1421,19 +1669,17 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         container.style.webkitOverflowScrolling = "touch";
     }
 
-    // 4. Sincronização Estrita do Viewport (Evita que o header suba)
     const syncViewport = () => {
         const vv = window.visualViewport;
+
         if (vv && telaChat.style.display !== "none") {
-            // Forçamos o navegador a não rolar a página (o que faria o header sumir)
             window.scrollTo(0, 0);
-            
-            // Acompanhamos o deslocamento real do visualViewport no Android para eliminar o vão preto das abas
             telaChat.style.top = `${vv.offsetTop}px`;
-            // Ajustamos a altura para o espaço exato que sobra acima do teclado
             telaChat.style.height = `${vv.height}px`;
-            
-            if (container) container.scrollTop = container.scrollHeight;
+
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
         }
     };
 
@@ -1442,9 +1688,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         window.visualViewport.addEventListener("scroll", syncViewport);
         telaChat._vvSync = syncViewport;
     }
+
     syncViewport();
 
-    // 5. Tratamento de Foco e Borda Neon Pulsante no Header do Chat
     if (!document.getElementById("style-borda-header-chat")) {
         const styleEl = document.createElement("style");
         styleEl.id = "style-borda-header-chat";
@@ -1469,7 +1715,8 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         if (!cabecalhoChat) return;
         cabecalhoChat.style.boxSizing = "border-box";
         cabecalhoChat.style.border = "2px solid #00ff66";
-        cabecalhoChat.style.animation = "bordaRespiracaoVerde 1.8s infinite ease-in-out";
+        cabecalhoChat.style.animation =
+            "bordaRespiracaoVerde 1.8s infinite ease-in-out";
     };
 
     const removerBordaHeader = () => {
@@ -1480,12 +1727,13 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         cabecalhoChat.style.animation = "none";
     };
 
-    const piscarBordaHeader = (cor) => {
+    const piscarBordaHeader = cor => {
         if (!cabecalhoChat) return;
         if (timerCorBordaHeader) clearTimeout(timerCorBordaHeader);
         cabecalhoChat.style.animation = "none";
         cabecalhoChat.style.borderColor = cor;
-        cabecalhoChat.style.boxShadow = `0 0 22px ${cor}, inset 0 0 14px ${cor}`;
+        cabecalhoChat.style.boxShadow =
+            `0 0 22px ${cor}, inset 0 0 14px ${cor}`;
         timerCorBordaHeader = setTimeout(() => {
             aplicarBordaVerdeHeader();
         }, 220);
@@ -1501,20 +1749,40 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         removerBordaHeader();
     };
 
-    inputMsg.onkeydown = (e) => {
-        if (e.key === "Backspace" || e.key === "Delete") {
+    inputMsg.onkeydown = event => {
+        if (event.key === "Backspace" || event.key === "Delete") {
             piscarBordaHeader("#ff0044");
-        } else if (e.key !== "Shift" && e.key !== "Control" && e.key !== "Alt" && e.key !== "Meta" && e.key !== "CapsLock") {
+        } else if (
+            event.key !== "Shift" &&
+            event.key !== "Control" &&
+            event.key !== "Alt" &&
+            event.key !== "Meta" &&
+            event.key !== "CapsLock"
+        ) {
             piscarBordaHeader("#0088ff");
         }
     };
 
-    // 6. Firebase Listener
-    if (unsubscribeChatAtivo) unsubscribeChatAtivo();
-    if (container) container.innerHTML = "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando...</p>";
+    if (unsubscribeChatAtivo) {
+        unsubscribeChatAtivo();
+    }
 
-    const meuUsername = localStorage.getItem("usernameLogado");
-    const chatId = [meuUsername, usernameAlvo].sort().join("_");
+    if (container) {
+        container.innerHTML =
+            "<p style='color:#8e8e8e; text-align:center; margin-top:20px; font-size:12px;'>Conectando...</p>";
+    }
+
+    const meuUsername = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+
+    const chatId = gerarIdChat(
+        meuUsername,
+        usernameAlvoNormalizado
+    );
+
+    window._chatIdAtivo = chatId;
+    sincronizarEstadoChatComServiceWorker();
     marcarMensagensComoLidas(chatId, meuUsername);
 
     unsubscribeChatAtivo = window.ClubeDB.textoDB
@@ -1524,15 +1792,20 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         .orderBy("timestamp", "asc")
         .onSnapshot(snapshot => {
             if (!container) return;
+
             container.innerHTML = "";
+
             snapshot.forEach(doc => {
                 const msg = doc.data();
                 const isMinha = msg.remetente === meuUsername;
                 const div = document.createElement("div");
+
                 div.style.display = "flex";
                 div.style.width = "100%";
                 div.style.marginBottom = "8px";
-                div.style.justifyContent = isMinha ? "flex-end" : "flex-start";
+                div.style.justifyContent = isMinha
+                    ? "flex-end"
+                    : "flex-start";
 
                 const balao = document.createElement("div");
                 balao.style.display = "flex";
@@ -1545,7 +1818,9 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 balao.appendChild(textoMensagem);
 
                 const horarioEnvio = document.createElement("span");
-                horarioEnvio.textContent = formatarHoraMensagem(msg.enviadoEm || msg.timestamp);
+                horarioEnvio.textContent = formatarHoraMensagem(
+                    msg.enviadoEm || msg.timestamp
+                );
                 horarioEnvio.style.fontSize = "10px";
                 horarioEnvio.style.opacity = "0.75";
                 horarioEnvio.style.alignSelf = "flex-end";
@@ -1561,19 +1836,27 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                     statusLeitura.style.alignSelf = "flex-end";
                     balao.appendChild(statusLeitura);
                 }
+
                 balao.style.maxWidth = "75%";
                 balao.style.padding = "10px 14px";
                 balao.style.borderRadius = "18px";
                 balao.style.fontSize = "14px";
                 balao.style.wordBreak = "break-word";
-                balao.style.background = isMinha ? "#0095f6" : "#262626";
+                balao.style.background = isMinha
+                    ? "#0095f6"
+                    : "#262626";
                 balao.style.color = "#fff";
-                if (isMinha) balao.style.borderBottomRightRadius = "4px";
-                else balao.style.borderBottomLeftRadius = "4px";
+
+                if (isMinha) {
+                    balao.style.borderBottomRightRadius = "4px";
+                } else {
+                    balao.style.borderBottomLeftRadius = "4px";
+                }
 
                 div.appendChild(balao);
                 container.appendChild(div);
             });
+
             container.scrollTop = container.scrollHeight;
             marcarMensagensComoLidas(chatId, meuUsername);
             atualizarIndicadorAbaMensagens();
@@ -1593,26 +1876,41 @@ function fecharSalaChat() {
         cabecalhoChat.style.animation = "none";
     }
 
-    if (inputMsg) inputMsg.blur();
+    if (inputMsg) {
+        inputMsg.blur();
+    }
 
-    // 1. Remove listeners do viewport
     if (telaChat && telaChat._vvSync && window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", telaChat._vvSync);
-        window.visualViewport.removeEventListener("scroll", telaChat._vvSync);
+        window.visualViewport.removeEventListener(
+            "resize",
+            telaChat._vvSync
+        );
+        window.visualViewport.removeEventListener(
+            "scroll",
+            telaChat._vvSync
+        );
         telaChat._vvSync = null;
     }
 
-    // 2. Restaura o Estado do Site
     if (telaChat && telaChat._backupBody) {
-        document.body.style.overflow = telaChat._backupBody.overflow;
-        document.body.style.position = telaChat._backupBody.position;
+        document.body.style.overflow =
+            telaChat._backupBody.overflow;
+        document.body.style.position =
+            telaChat._backupBody.position;
         document.body.style.top = telaChat._backupBody.top;
-        document.body.style.height = telaChat._backupBody.height;
+        document.body.style.height =
+            telaChat._backupBody.height;
         document.body.style.width = telaChat._backupBody.width;
-        document.body.style.backgroundColor = telaChat._backupBody.backgroundColor;
-        
-        const siteHeader = document.querySelector('.site-header') || document.querySelector('header');
-        if (siteHeader) siteHeader.style.visibility = "visible";
+        document.body.style.backgroundColor =
+            telaChat._backupBody.backgroundColor;
+
+        const siteHeader =
+            document.querySelector(".site-header") ||
+            document.querySelector("header");
+
+        if (siteHeader) {
+            siteHeader.style.visibility = "visible";
+        }
     }
 
     if (telaChat) {
@@ -1620,10 +1918,15 @@ function fecharSalaChat() {
         telaChat.style.transform = "none";
         window.scrollTo(0, telaChat._scrollPos || 0);
     }
-    
-    if (telaLista) telaLista.style.display = "flex";
+
+    if (telaLista) {
+        telaLista.style.display = "flex";
+    }
 
     usuarioChatDestino = null;
+    window._chatIdAtivo = "";
+    sincronizarEstadoChatComServiceWorker();
+
     if (unsubscribeChatAtivo) {
         unsubscribeChatAtivo();
         unsubscribeChatAtivo = null;
@@ -1774,61 +2077,7 @@ async function registrarTokenFCM() {
 }
 
 
-function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
-    if (
-        typeof Notification === "undefined" ||
-        Notification.permission !== "granted"
-    ) {
-        return;
-    }
-
-    const texto = quantidade === 1
-        ? "Você recebeu uma nova mensagem."
-        : `Você recebeu ${quantidade} novas mensagens.`;
-    const mensagem = nomeContato
-        ? `${nomeContato}: ${texto}`
-        : texto;
-
-    let toast = document.getElementById("notificacao-mensagem-chat");
-
-    if (!toast) {
-        toast = document.createElement("div");
-        toast.id = "notificacao-mensagem-chat";
-        toast.style.position = "fixed";
-        toast.style.right = "18px";
-        toast.style.bottom = "78px";
-        toast.style.zIndex = "2147483647";
-        toast.style.maxWidth = "320px";
-        toast.style.padding = "12px 16px";
-        toast.style.borderRadius = "12px";
-        toast.style.background = "#1683e8";
-        toast.style.color = "#fff";
-        toast.style.fontSize = "14px";
-        toast.style.fontWeight = "600";
-        toast.style.boxShadow = "0 4px 18px rgba(0,0,0,.45)";
-        toast.style.cursor = "pointer";
-        document.body.appendChild(toast);
-    }
-
-    toast.textContent = mensagem;
-    toast.style.display = "block";
-
-    clearTimeout(window._timerNotificacaoMensagem);
-    window._timerNotificacaoMensagem = setTimeout(() => {
-        toast.style.display = "none";
-    }, 5000);
-
-    if (document.visibilityState !== "visible") {
-        try {
-            new Notification("Nova mensagem", {
-                body: mensagem,
-                tag: "mensagem-chat"
-            });
-        } catch (erro) {
-            console.warn("Notificação nativa indisponível:", erro);
-        }
-    }
-}
+/* A notificação interna possui uma única implementação acima. */
 
 function renderizarMarcadoresMensagens(snapshot) {
     const usernameLogado = localStorage.getItem("usernameLogado");
@@ -2197,28 +2446,20 @@ async function enviarMensagemChat() {
             chatDestinoAtual
         );
 
-    /*
-     * Limpa o campo imediatamente,
-     * mas NÃO remove o foco dele.
-     */
     input.value = "";
 
-    /*
-     * Mantém o cursor e o teclado no campo.
-     */
     input.focus({
         preventScroll: true
     });
 
     try {
-        await window.ClubeDB.textoDB
+        const mensagemCriada = await window.ClubeDB.textoDB
             .collection("chats")
             .doc(chatId)
             .collection("mensagens")
             .add({
                 remetente:
                     meuUsername,
-
                 texto:
                     texto,
                 destinatario:
@@ -2233,9 +2474,6 @@ async function enviarMensagemChat() {
                     firebase.firestore.FieldValue.serverTimestamp()
             });
 
-        /*
-         * Atualiza o documento base da conversa.
-         */
         await window.ClubeDB.textoDB
             .collection("chats")
             .doc(chatId)
@@ -2243,7 +2481,6 @@ async function enviarMensagemChat() {
                 {
                     ultimoEnvio:
                         firebase.firestore.FieldValue.serverTimestamp(),
-
                     usuarios: [
                         meuUsername,
                         chatDestinoAtual
@@ -2253,23 +2490,23 @@ async function enviarMensagemChat() {
                     merge: true
                 }
             );
-            await ajustarNaoLidasChat(chatId, chatDestinoAtual, 1);
-            await atualizarIndicadorAbaMensagens();
 
-            enviarPushParaDestinatario(
-                chatDestinoAtual,
-                meuUsername,
-                texto,
-                chatId
-            );
+        await ajustarNaoLidasChat(
+            chatId,
+            chatDestinoAtual,
+            1
+        );
 
-        /*
-         * Após o envio, mantém:
-         *
-         * - teclado aberto;
-         * - input focado;
-         * - conversa no final.
-         */
+        await atualizarIndicadorAbaMensagens();
+
+        enviarPushParaDestinatario(
+            chatDestinoAtual,
+            meuUsername,
+            texto,
+            chatId,
+            mensagemCriada.id
+        );
+
         requestAnimationFrame(
             () => {
                 input.focus({
@@ -2288,10 +2525,6 @@ async function enviarMensagemChat() {
             e
         );
 
-        /*
-         * Em caso de erro, devolve o foco
-         * ao campo de mensagem.
-         */
         input.focus({
             preventScroll: true
         });

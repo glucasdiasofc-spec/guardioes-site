@@ -1,58 +1,145 @@
-importScripts("https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js" );
-importScripts("https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js" );
+let estadoChatAtivo = {
+    chatId: "",
+    visivel: false
+};
 
-firebase.initializeApp({
-    apiKey: "AIzaSyClBlFwrHzom9tFIIuo3eORTn5xqy3wSKY",
-    authDomain: "guardioesdbv-firebase.firebaseapp.com",
-    projectId: "guardioesdbv-firebase",
-    storageBucket: "guardioesdbv-firebase.firebasestorage.app",
-    messagingSenderId: "362596177413",
-    appId: "1:362596177413:web:8088eb72dc554c788a6e6c"
+self.addEventListener("message", event => {
+    const dados = event && event.data;
+
+    if (!dados || dados.type !== "CHAT_STATE") {
+        return;
+    }
+
+    estadoChatAtivo = {
+        chatId: String(dados.chatId || ""),
+        visivel: dados.visivel === true
+    };
 });
 
-const messaging = firebase.messaging();
-
-messaging.onBackgroundMessage(payload => {
-    const notification = payload.notification || {};
-    const dados = payload.data || {};
-
-    const titulo = notification.title || dados.title || "Nova mensagem";
-    const opcoes = {
-        body: notification.body || dados.body || "Você recebeu uma nova mensagem.",
-        icon: "/icons/icon-192x192.png",
-        badge: "/icons/icon-192x192.png",
-        tag: dados.chatId || "mensagem-chat",
-        renotify: true,
-        data: {
-            url: dados.url || "/index.html",
-            chatId: dados.chatId || ""
+self.addEventListener("push", event => {
+    event.waitUntil((async () => {
+        if (!event.data) {
+            return;
         }
-    };
 
-    return self.registration.showNotification(titulo, opcoes);
+        let payload = {};
+
+        try {
+            payload = event.data.json();
+        } catch (erroJSON) {
+            payload = {
+                body: event.data.text()
+            };
+        }
+
+        const dados = payload.data || payload || {};
+        const notificacao = payload.notification || {};
+        const chatId = String(dados.chatId || "");
+        const messageId = String(dados.messageId || "");
+        const remetente = String(dados.remetente || "");
+
+        if (estadoChatAtivo.visivel) {
+            return;
+        }
+
+        const clientes = await self.clients.matchAll({
+            type: "window",
+            includeUncontrolled: true
+        });
+
+        const existeJanelaVisivel = clientes.some(cliente => {
+            return cliente.visibilityState === "visible";
+        });
+
+        if (existeJanelaVisivel) {
+            return;
+        }
+
+        const titulo =
+            notificacao.title ||
+            dados.title ||
+            "Nova mensagem";
+
+        const corpo =
+            notificacao.body ||
+            dados.body ||
+            "Você recebeu uma nova mensagem.";
+
+        const tag = messageId
+            ? `mensagem-${messageId}`
+            : `mensagem-${chatId || Date.now()}`;
+
+        await self.registration.showNotification(
+            titulo,
+            {
+                body: corpo,
+                icon: "/icons/icon-192x192.png",
+                badge: "/icons/icon-192x192.png",
+                tag,
+                renotify: true,
+                data: {
+                    url: dados.url || "/index.html",
+                    chatId,
+                    remetente,
+                    messageId
+                }
+            }
+        );
+    })());
 });
 
 self.addEventListener("notificationclick", event => {
     event.notification.close();
 
-    const destino = event.notification.data &&
-        event.notification.data.url
-        ? event.notification.data.url
-        : "/index.html";
+    const dados = event.notification.data || {};
+    const chatId = String(dados.chatId || "");
+    const remetente = String(dados.remetente || "");
+
+    const origem = new URL(
+        dados.url || "/index.html",
+        self.location.origin
+    );
+
+    if (remetente) {
+        origem.searchParams.set(
+            "openChatUser",
+            remetente
+        );
+    }
+
+    if (chatId) {
+        origem.searchParams.set(
+            "openChatId",
+            chatId
+        );
+    }
+
+    const destino =
+        origem.pathname +
+        origem.search +
+        origem.hash;
 
     event.waitUntil(
-        clients.matchAll({
+        self.clients.matchAll({
             type: "window",
             includeUncontrolled: true
-        }).then(lista => {
+        }).then(async lista => {
             for (const cliente of lista) {
-                if ("focus" in cliente) {
+                if (
+                    "postMessage" in cliente &&
+                    "focus" in cliente
+                ) {
+                    cliente.postMessage({
+                        type: "OPEN_CHAT_NOTIFICATION",
+                        chatId,
+                        remetente
+                    });
                     return cliente.focus();
                 }
             }
 
-            if (clients.openWindow) {
-                return clients.openWindow(destino);
+            if (self.clients.openWindow) {
+                return self.clients.openWindow(destino);
             }
 
             return undefined;
