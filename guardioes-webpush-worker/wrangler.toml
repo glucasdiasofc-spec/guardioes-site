@@ -1,0 +1,14 @@
+﻿name = "telegram"
+main = "src/index.js"
+account_id = "36b6ada610a83cabd6031fb65e07b695"
+compatibility_date = "2026-08-13"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "PUSH_KV"
+id = "204c7b89e2e24c89a1daa58254a931ba"
+
+[vars]
+VAPID_PUBLIC_KEY = "BEqg1YF_tRSajW2-drR0Qv1d6BUpOUkUtYpJjlQG6y5wnjWGcQ4WP5y7ranaDKTCS3ovefcwCXToY-_tnsUE6q8"
+VAPID_SUBJECT = "mailto:admin@guardioesdbv.com"
+

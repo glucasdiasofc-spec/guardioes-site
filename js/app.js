@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.182.0 - versão alpha";
+const VERSAO_ATUAL = "v0.183.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -254,13 +254,145 @@ async function executarLoginMembro() {
     }
 }
 
+const VAPID_PUBLIC_KEY_PROPRIA = "BEqg1YF_tRSajW2-drRQQv1d6BUpOUkUtYpJjLQG6y5WnjWGcQ4WP5y7ranaDKTCS3ovefcwCXToY-_tnsUE6q8";
+const WORKER_NOTIFICACOES_URL = "https://telegram.glucasdiasofc.workers.dev";
+let _registroServiceWorkerPush = null;
+
+function converterChavePublicaVapid(chave ) {
+    const preenchimento = "=".repeat((4 - chave.length % 4) % 4);
+    const base64 = (chave + preenchimento)
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+    const binario = atob(base64);
+
+    return Uint8Array.from(
+        binario,
+        caractere => caractere.charCodeAt(0)
+    );
+}
+
+async function registrarPushNesteDispositivo() {
+    try {
+        if (
+            typeof Notification === "undefined" ||
+            Notification.permission !== "granted" ||
+            !navigator.serviceWorker
+        ) {
+            return null;
+        }
+
+        const usuarioFirebase = window.ClubeDB &&
+            window.ClubeDB.loginDB &&
+            window.ClubeDB.loginDB.currentUser;
+
+        const username = String(
+            localStorage.getItem("usernameLogado") || ""
+        ).trim().toLowerCase();
+
+        if (!usuarioFirebase || !username) {
+            return null;
+        }
+
+        if (!_registroServiceWorkerPush) {
+            _registroServiceWorkerPush =
+                await navigator.serviceWorker.register(
+                    "/firebase-messaging-sw.js",
+                    { scope: "/" }
+                );
+        }
+
+        let subscription = await _registroServiceWorkerPush.pushManager
+            .getSubscription();
+
+        if (!subscription) {
+            subscription = await _registroServiceWorkerPush.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey:
+                    converterChavePublicaVapid(VAPID_PUBLIC_KEY_PROPRIA)
+            });
+        }
+
+        const idToken = await usuarioFirebase.getIdToken();
+        const resposta = await fetch(
+            `${WORKER_NOTIFICACOES_URL}/push/subscribe`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    username,
+                    subscription: subscription.toJSON()
+                })
+            }
+        );
+
+        if (!resposta.ok) {
+            throw new Error(`Falha ao registrar dispositivo: HTTP ${resposta.status}`);
+        }
+
+        console.log("Dispositivo registrado para Web Push.");
+        return subscription;
+    } catch (erro) {
+        console.error("Erro ao registrar Web Push:", erro);
+        return null;
+    }
+}
+
+async function enviarPushParaDestinatario(
+    destinatario,
+    remetente,
+    texto,
+    chatId
+) {
+    try {
+        const usuarioFirebase = window.ClubeDB &&
+            window.ClubeDB.loginDB &&
+            window.ClubeDB.loginDB.currentUser;
+
+        if (!usuarioFirebase || !destinatario || !texto) {
+            return;
+        }
+
+        const idToken = await usuarioFirebase.getIdToken();
+
+        await fetch(
+            `${WORKER_NOTIFICACOES_URL}/push/send`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    destinatario: String(destinatario).trim().toLowerCase(),
+                    remetente: String(remetente || "").trim().toLowerCase(),
+                    texto: String(texto),
+                    chatId: String(chatId || "")
+                })
+            }
+        );
+    } catch (erro) {
+        console.warn(
+            "O push falhou, mas a mensagem foi enviada normalmente:",
+            erro
+        );
+    }
+}
+
 // Direciona o fluxo para a tela de visualização do site
 function solicitarPermissaoNotificacoes() {
     if (typeof Notification === "undefined") {
         return;
     }
 
-    if (Notification.permission !== "default") {
+    if (Notification.permission === "granted") {
+        registrarPushNesteDispositivo();
+        return;
+    }
+
+    if (Notification.permission === "denied") {
         return;
     }
 
@@ -285,26 +417,41 @@ function solicitarPermissaoNotificacoes() {
     aviso.style.cursor = "pointer";
 
     aviso.addEventListener("click", async () => {
+        aviso.disabled = true;
+        aviso.textContent = "Ativando...";
+
         try {
             const permissao = await Notification.requestPermission();
 
-            if (permissao === "granted") {
-                aviso.textContent = "Notificações ativadas";
-                setTimeout(() => aviso.remove(), 1800);
-            } else {
+            if (permissao !== "granted") {
                 aviso.textContent = "Permissão não concedida";
                 setTimeout(() => aviso.remove(), 2500);
+                return;
             }
+
+            const subscription = await registrarPushNesteDispositivo();
+            aviso.textContent = subscription
+                ? "Notificações ativadas"
+                : "Não foi possível registrar o dispositivo";
         } catch (erro) {
-            console.error("Erro ao solicitar notificações:", erro);
-            aviso.remove();
+            console.error("Erro ao ativar notificações:", erro);
+            aviso.textContent = "Erro ao ativar";
         }
+
+        setTimeout(() => aviso.remove(), 2500);
     });
 
     document.body.appendChild(aviso);
 }
 
 function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
+    if (
+        typeof Notification === "undefined" ||
+        Notification.permission !== "granted"
+    ) {
+        return;
+    }
+
     const texto = quantidade === 1
         ? "Você recebeu uma nova mensagem."
         : `Você recebeu ${quantidade} novas mensagens.`;
@@ -341,11 +488,7 @@ function mostrarNotificacaoNovaMensagem(quantidade, nomeContato) {
         toast.style.display = "none";
     }, 5000);
 
-    if (
-        typeof Notification !== "undefined" &&
-        Notification.permission === "granted" &&
-        document.visibilityState !== "visible"
-    ) {
+    if (document.visibilityState !== "visible") {
         try {
             new Notification("Nova mensagem", {
                 body: mensagem,
@@ -1266,7 +1409,7 @@ function criarOuAtualizarBadgeMensagens() {
     return badge;
 }
 
-const FCM_VAPID_PUBLIC_KEY = "BG6gvludyaQi2aktxnSkJC8VYzFTG9MJXhFINKjZshT1Tyz93ABrHXg9wjzen4nYmJlXT3nav8nK9oJjeGwohGE";
+const FCM_VAPID_PUBLIC_KEY = "BEqg1YF_tRSajW2-drRQQv1d6BUpOUkUtYpJjLQG6y5WnjWGcQ4WP5y7ranaDKTCS3ovefcwCXToY-_tnsUE6q8";
 let _registroServiceWorkerFCM = null;
 let _listenerForegroundFCMAtivo = false;
 
@@ -1888,6 +2031,13 @@ async function enviarMensagemChat() {
             );
             await ajustarNaoLidasChat(chatId, chatDestinoAtual, 1);
             await atualizarIndicadorAbaMensagens();
+
+            enviarPushParaDestinatario(
+                chatDestinoAtual,
+                meuUsername,
+                texto,
+                chatId
+            );
 
         /*
          * Após o envio, mantém:
