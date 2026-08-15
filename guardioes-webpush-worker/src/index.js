@@ -772,6 +772,35 @@ async function removerEndpointDaConta(
     return removidos;
 }
 
+async function removerTodasAssinaturasDaConta(
+    env,
+    username
+) {
+    const usuarioNormalizado = normalizarUsername(
+        username
+    );
+
+    if (!usuarioNormalizado) {
+        return 0;
+    }
+
+    const assinaturas = await lerAssinaturasPush(
+        env,
+        usuarioNormalizado
+    );
+
+    if (!assinaturas.length) {
+        return 0;
+    }
+
+    await env.PUSH_KV.delete(
+        `push:user:${usuarioNormalizado}`
+    );
+
+    return assinaturas.length;
+}
+
+
 async function removerEndpointDeOutrasContas(
     env,
     usernameAtual,
@@ -963,10 +992,8 @@ async function enviarPushProprio(request, env, usuario) {
 
     const deveSuprimirPorPresenca = Boolean(
         presenca &&
-        (
-            presenca.visivel === true ||
-            presenca.chatId === chatId
-        )
+        presenca.visivel === true &&
+        presenca.chatId === chatId
     );
 
     if (deveSuprimirPorPresenca) {

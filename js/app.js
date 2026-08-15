@@ -4144,13 +4144,167 @@ async function salvarNotificacaoGeralNoFirestore(
     return quantidadeSalva;
 }
 
+function mostrarAlertaNotificacaoGeral(notificacao) {
+    if (!notificacao) {
+        return;
+    }
+
+    const alertaAnterior = document.getElementById(
+        "alerta-notificacao-geral"
+    );
+
+    if (alertaAnterior) {
+        alertaAnterior.remove();
+    }
+
+    const alerta = document.createElement("div");
+    const conteudo = document.createElement("div");
+    const titulo = document.createElement("strong");
+    const corpo = document.createElement("div");
+    const acoes = document.createElement("div");
+    const abrir = document.createElement("button");
+    const fechar = document.createElement("button");
+
+    alerta.id = "alerta-notificacao-geral";
+    alerta.setAttribute("role", "status");
+    alerta.setAttribute("aria-live", "polite");
+    alerta.style.position = "fixed";
+    alerta.style.top = "calc(76px + env(safe-area-inset-top))";
+    alerta.style.left = "16px";
+    alerta.style.right = "16px";
+    alerta.style.maxWidth = "420px";
+    alerta.style.margin = "0 auto";
+    alerta.style.display = "flex";
+    alerta.style.alignItems = "flex-start";
+    alerta.style.gap = "12px";
+    alerta.style.padding = "14px 15px";
+    alerta.style.boxSizing = "border-box";
+    alerta.style.background = "#18212a";
+    alerta.style.border = "1px solid #0095f6";
+    alerta.style.borderRadius = "12px";
+    alerta.style.boxShadow = "0 10px 28px rgba(0, 0, 0, 0.45)";
+    alerta.style.zIndex = "2147483002";
+
+    conteudo.style.flex = "1";
+    conteudo.style.minWidth = "0";
+
+    titulo.textContent = String(
+        notificacao.titulo || "Nova notificação"
+    );
+    titulo.style.display = "block";
+    titulo.style.color = "#fff";
+    titulo.style.fontSize = "14px";
+    titulo.style.lineHeight = "1.3";
+
+    corpo.textContent = String(
+        notificacao.corpo || "Você recebeu uma notificação geral."
+    );
+    corpo.style.marginTop = "4px";
+    corpo.style.color = "#d7d9db";
+    corpo.style.fontSize = "13px";
+    corpo.style.lineHeight = "1.4";
+    corpo.style.whiteSpace = "pre-wrap";
+    corpo.style.wordBreak = "break-word";
+
+    acoes.style.display = "flex";
+    acoes.style.flexDirection = "column";
+    acoes.style.alignItems = "flex-end";
+    acoes.style.gap = "8px";
+
+    abrir.type = "button";
+    abrir.textContent = "Ver";
+    abrir.style.border = "none";
+    abrir.style.background = "transparent";
+    abrir.style.color = "#58b7ff";
+    abrir.style.fontSize = "12px";
+    abrir.style.fontWeight = "700";
+    abrir.style.cursor = "pointer";
+    abrir.style.padding = "0";
+
+    fechar.type = "button";
+    fechar.textContent = "×";
+    fechar.setAttribute(
+        "aria-label",
+        "Fechar alerta de notificação"
+    );
+    fechar.style.border = "none";
+    fechar.style.background = "transparent";
+    fechar.style.color = "#fff";
+    fechar.style.fontSize = "22px";
+    fechar.style.lineHeight = "18px";
+    fechar.style.cursor = "pointer";
+    fechar.style.padding = "0";
+
+    const removerAlerta = () => {
+        if (window._timerAlertaNotificacaoGeral) {
+            clearTimeout(
+                window._timerAlertaNotificacaoGeral
+            );
+            window._timerAlertaNotificacaoGeral = null;
+        }
+        alerta.remove();
+    };
+
+    abrir.addEventListener("click", () => {
+        removerAlerta();
+        abrirPainelNotificacoes();
+    });
+
+    fechar.addEventListener("click", removerAlerta);
+
+    conteudo.appendChild(titulo);
+    conteudo.appendChild(corpo);
+    acoes.appendChild(abrir);
+    acoes.appendChild(fechar);
+    alerta.appendChild(conteudo);
+    alerta.appendChild(acoes);
+    document.body.appendChild(alerta);
+
+    window._timerAlertaNotificacaoGeral =
+        setTimeout(removerAlerta, 8000);
+}
+
+function configurarCliqueExternoPainelNotificacoes() {
+    if (window._cliqueExternoNotificacoesConfigurado) {
+        return;
+    }
+
+    window._cliqueExternoNotificacoesConfigurado = true;
+
+    document.addEventListener("click", evento => {
+        const painel = document.getElementById(
+            "painel-notificacoes-header"
+        );
+        const botao = document.getElementById(
+            "btn-notificacoes-header"
+        );
+
+        if (
+            !painel ||
+            painel.style.display !== "flex"
+        ) {
+            return;
+        }
+
+        if (
+            painel.contains(evento.target) ||
+            (botao && botao.contains(evento.target))
+        ) {
+            return;
+        }
+
+        fecharPainelNotificacoes();
+    });
+}
+
 function iniciarListenerNotificacoesGerais() {
     const usernameLogado = String(
         localStorage.getItem("usernameLogado") || ""
     ).trim().toLowerCase();
-
     const banco = window.ClubeDB &&
         window.ClubeDB.textoDB;
+
+    configurarCliqueExternoPainelNotificacoes();
 
     if (!usernameLogado) {
         return;
@@ -4189,6 +4343,9 @@ function iniciarListenerNotificacoesGerais() {
     window._listenerNotificacoesGeraisUsuario =
         usernameLogado;
     window._notificacoesGeraisAtuais = [];
+    window._notificacoesGeraisIdsConhecidos = new Set();
+
+    let primeiraLeitura = true;
 
     const referencia = banco
         .collection("notificacoes_gerais")
@@ -4232,7 +4389,26 @@ function iniciarListenerNotificacoesGerais() {
                 return valorSegundo - valorPrimeiro;
             });
 
+            const idsNovos = lista.filter(notificacao => {
+                return !primeiraLeitura &&
+                    !window._notificacoesGeraisIdsConhecidos.has(
+                        notificacao.id
+                    ) &&
+                    notificacao.lida !== true;
+            });
+
+            window._notificacoesGeraisIdsConhecidos =
+                new Set(
+                    lista.map(notificacao => notificacao.id)
+                );
+
             window._notificacoesGeraisAtuais = lista;
+
+            idsNovos.slice(0, 3).forEach(
+                mostrarAlertaNotificacaoGeral
+            );
+
+            primeiraLeitura = false;
 
             const naoLidas = lista.filter(
                 notificacao => notificacao.lida !== true
@@ -4254,10 +4430,13 @@ function iniciarListenerNotificacoesGerais() {
         window._listenerNotificacoesGeraisAtivo = false;
         window._listenerNotificacoesGeraisUsuario = "";
         window._notificacoesGeraisAtuais = [];
+        window._notificacoesGeraisIdsConhecidos = new Set();
         atualizarBadgeNotificacoesHeader(0);
         renderizarListaNotificacoesHeader([]);
+        fecharPainelNotificacoes();
     };
 }
+
 
 function atualizarBadgeNotificacoesHeader(total) {
     const badge = document.getElementById(
@@ -4477,10 +4656,33 @@ async function excluirNotificacao(docId) {
 
     try {
         await referencia.doc(id).delete();
+
+        const listaAtual = Array.isArray(
+            window._notificacoesGeraisAtuais
+        )
+            ? window._notificacoesGeraisAtuais
+            : [];
+        const novaLista = listaAtual.filter(
+            notificacao => String(
+                notificacao.id || ""
+            ) !== id
+        );
+
+        window._notificacoesGeraisAtuais = novaLista;
+        atualizarBadgeNotificacoesHeader(
+            novaLista.filter(
+                notificacao => notificacao.lida !== true
+            ).length
+        );
+        renderizarListaNotificacoesHeader(novaLista);
     } catch (erro) {
         console.error(
             "Erro ao excluir notificação geral:",
             erro
+        );
+        window.alert(
+            "Não foi possível excluir esta notificação. " +
+            "Verifique sua conexão e tente novamente."
         );
     }
 }
@@ -4490,16 +4692,6 @@ async function limparTodasNotificacoes() {
         obterReferenciaNotificacoesGeraisUsuario();
 
     if (!referencia) {
-        return;
-    }
-
-    const listaAtual = Array.isArray(
-        window._notificacoesGeraisAtuais
-    )
-        ? window._notificacoesGeraisAtuais
-        : [];
-
-    if (!listaAtual.length) {
         return;
     }
 
@@ -4531,15 +4723,26 @@ async function limparTodasNotificacoes() {
                 lote.delete(documento.ref);
             });
 
-            await lote.commit();
+            if (documentosDoLote.length) {
+                await lote.commit();
+            }
         }
+
+        window._notificacoesGeraisAtuais = [];
+        atualizarBadgeNotificacoesHeader(0);
+        renderizarListaNotificacoesHeader([]);
     } catch (erro) {
         console.error(
             "Erro ao limpar notificações gerais:",
             erro
         );
+        window.alert(
+            "Não foi possível limpar suas notificações. " +
+            "Verifique sua conexão e tente novamente."
+        );
     }
 }
+
 
 function fecharPainelNotificacoes() {
     const painel = document.getElementById(
