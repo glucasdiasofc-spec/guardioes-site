@@ -51,6 +51,18 @@ export default {
 
             if (
                 request.method === "POST" &&
+                url.pathname === "/push/admin-send"
+            ) {
+                const usuario = await autorizarUpload(request, env);
+                return await enviarNotificacaoGeral(
+                    request,
+                    env,
+                    usuario
+                );
+            }
+
+            if (
+                request.method === "POST" &&
                 url.pathname === "/upload"
             ) {
                 const usuario =
@@ -866,6 +878,184 @@ async function enviarPushProprio(request, env, usuario) {
         enviados,
         removidos: expiradas.length,
         remetente: usuario.uid
+    });
+}
+
+async function enviarNotificacaoGeral(
+    request,
+    env,
+    usuario
+) {
+    if (!env.PUSH_KV) {
+        throw criarErro(
+            500,
+            "Binding PUSH_KV não configurado."
+        );
+    }
+
+    if (
+        !env.VAPID_PUBLIC_KEY ||
+        !env.VAPID_PRIVATE_KEY ||
+        !env.VAPID_SUBJECT
+    ) {
+        throw criarErro(
+            500,
+            "Segredos VAPID não configurados."
+        );
+    }
+
+    if (
+        !usuario ||
+        usuario.modo !== "firebase" ||
+        usuario.username !== "admin"
+    ) {
+        throw criarErro(
+            403,
+            "Somente o administrador pode enviar notificações gerais."
+        );
+    }
+
+    const dados = await request.json();
+    const titulo = String(
+        dados.titulo || ""
+    ).trim().slice(0, 80);
+    const texto = String(
+        dados.mensagem || ""
+    ).trim().slice(0, 240);
+    const destinatarios = Array.from(
+        new Set(
+            Array.isArray(dados.destinatarios)
+                ? dados.destinatarios
+                    .map(normalizarUsername)
+                    .filter(Boolean)
+                : []
+        )
+    ).slice(0, 500);
+
+    if (!titulo || !texto) {
+        throw criarErro(
+            400,
+            "Título e mensagem são obrigatórios."
+        );
+    }
+
+    if (!destinatarios.length) {
+        throw criarErro(
+            400,
+            "Nenhum destinatário foi selecionado."
+        );
+    }
+
+    webpush.setVapidDetails(
+        env.VAPID_SUBJECT,
+        env.VAPID_PUBLIC_KEY,
+        env.VAPID_PRIVATE_KEY
+    );
+
+    const expiradasPorUsuario = new Map();
+    let destinatariosComDispositivo = 0;
+    let dispositivosNotificados = 0;
+    let falhas = 0;
+
+    await Promise.all(
+        destinatarios.map(async destinatario => {
+            const assinaturas = await lerAssinaturasPush(
+                env,
+                destinatario
+            );
+
+            if (!assinaturas.length) {
+                return;
+            }
+
+            destinatariosComDispositivo += 1;
+            const expiradas = [];
+
+            await Promise.all(
+                assinaturas.map(async assinatura => {
+                    try {
+                        await webpush.sendNotification(
+                            assinatura,
+                            JSON.stringify({
+                                title: titulo,
+                                body: texto,
+                                tipo: "notificacao_geral",
+                                chatId: "",
+                                messageId: "",
+                                remetente: "admin",
+                                url: "/index.html"
+                            }),
+                            {
+                                TTL: 86400,
+                                urgency: "high"
+                            }
+                        );
+
+                        dispositivosNotificados += 1;
+                    } catch (erro) {
+                        const status = Number(
+                            erro.statusCode || 0
+                        );
+
+                        if (status === 404 || status === 410) {
+                            expiradas.push(
+                                assinatura.endpoint
+                            );
+                        } else {
+                            falhas += 1;
+                            console.error(
+                                "Falha no push geral:",
+                                destinatario,
+                                status,
+                                erro.message
+                            );
+                        }
+                    }
+                })
+            );
+
+            if (expiradas.length) {
+                expiradasPorUsuario.set(
+                    destinatario,
+                    expiradas
+                );
+            }
+        })
+    );
+
+    await Promise.all(
+        Array.from(
+            expiradasPorUsuario.entries()
+        ).map(async ([destinatario, expiradas]) => {
+            const assinaturas = await lerAssinaturasPush(
+                env,
+                destinatario
+            );
+            const ativas = assinaturas.filter(
+                assinatura => !expiradas.includes(
+                    assinatura.endpoint
+                )
+            );
+
+            await env.PUSH_KV.put(
+                `push:user:${destinatario}`,
+                JSON.stringify(ativas)
+            );
+        })
+    );
+
+    return responderJSON({
+        ok: true,
+        destinatariosSolicitados: destinatarios.length,
+        destinatariosComDispositivo,
+        dispositivosNotificados,
+        dispositivosExpirados: Array.from(
+            expiradasPorUsuario.values()
+        ).reduce(
+            (total, endpoints) => total + endpoints.length,
+            0
+        ),
+        falhas
     });
 }
 

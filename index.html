@@ -78,6 +78,7 @@
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-membros')" style="flex-shrink: 0; white-space: nowrap;">Membros (Usuários)</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-conquistas-gestao')" style="flex-shrink: 0; white-space: nowrap;">Gestão de Conquistas</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-cargos')" style="flex-shrink: 0; white-space: nowrap;">Cargos e Funções</button>
+                <button class="aba-item" onclick="mudarAbaAdmin('aba-notificacoes-gerais')" style="flex-shrink: 0; white-space: nowrap;">Notificações Gerais</button>
                 <button class="aba-item" onclick="mudarAbaAdmin('aba-customizacao')" style="flex-shrink: 0; white-space: nowrap;">Customização</button>
             </nav>
 
@@ -245,6 +246,70 @@
             </div>
 
 
+
+            <!-- Conteúdo: Notificações Gerais -->
+            <div id="aba-notificacoes-gerais" class="conteudo-aba" style="display: none;">
+                <h3>Notificações Gerais</h3>
+                <p style="color: #8e8e8e; font-size: 13px; margin: 0 0 18px 0; line-height: 1.5;">
+                    Envie um aviso profissional para todos os usuários ou para um público específico.
+                </p>
+
+                <div class="formulario-admin" style="display: flex; flex-direction: column; gap: 16px;">
+                    <label style="color: #ccc; font-weight: 700;">
+                        Título da notificação
+                        <input id="notificacao-geral-titulo" type="text" maxlength="80" placeholder="Ex.: Aviso importante" style="width: 100%; margin-top: 6px; box-sizing: border-box;">
+                    </label>
+
+                    <label style="color: #ccc; font-weight: 700;">
+                        Mensagem
+                        <textarea id="notificacao-geral-mensagem" maxlength="240" placeholder="Digite o conteúdo que aparecerá na notificação" style="width: 100%; min-height: 110px; margin-top: 6px; resize: vertical; box-sizing: border-box;"></textarea>
+                    </label>
+
+                    <label style="color: #ccc; font-weight: 700;">
+                        Público destinatário
+                        <select id="notificacao-geral-publico" onchange="atualizarInterfaceNotificacaoGeral()" style="width: 100%; margin-top: 6px; box-sizing: border-box;">
+                            <option value="todos">Todos os usuários com notificações ativas</option>
+                            <option value="lideranca">Toda a liderança</option>
+                            <option value="desbravadores">Todos os desbravadores</option>
+                            <option value="unidade">Uma unidade</option>
+                            <option value="cargo">Um cargo</option>
+                            <option value="selecionados">Selecionar pessoas</option>
+                        </select>
+                    </label>
+
+                    <div id="notificacao-geral-filtro-container" style="display: none;">
+                        <label style="color: #ccc; font-weight: 700;">
+                            Filtro
+                            <select id="notificacao-geral-filtro" onchange="atualizarResumoDestinatarios()" style="width: 100%; margin-top: 6px; box-sizing: border-box;"></select>
+                        </label>
+                    </div>
+
+                    <div id="notificacao-geral-selecionados-container" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px;">
+                            <strong style="color: #ccc;">Pessoas selecionadas</strong>
+                            <button type="button" onclick="alternarSelecaoTodosNotificacaoGeral()" style="background: #555; color: #fff; border: 0; border-radius: 7px; padding: 7px 10px; cursor: pointer;">Selecionar todos</button>
+                        </div>
+                        <div id="notificacao-geral-lista-usuarios" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding: 10px; background: #171717; border: 1px solid #333; border-radius: 9px;"></div>
+                    </div>
+
+                    <div id="notificacao-geral-resumo" style="padding: 12px; border-radius: 9px; background: #171717; border: 1px solid #333; color: #aaa; font-size: 13px;">
+                        Carregando destinatários...
+                    </div>
+
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" onclick="visualizarNotificacaoGeralAdmin()" style="flex: 1; min-width: 150px; background: #555; color: #fff; border: 0; border-radius: 8px; padding: 10px; cursor: pointer;">Visualizar</button>
+                        <button type="button" onclick="enviarNotificacaoGeralAdmin()" style="flex: 1; min-width: 150px; background: #0095f6; color: #fff; border: 0; border-radius: 8px; padding: 10px; cursor: pointer; font-weight: 700;">Enviar notificação</button>
+                    </div>
+
+                    <div id="notificacao-geral-preview" style="display: none; padding: 14px; border-radius: 10px; background: #20252b; color: #fff; box-shadow: 0 5px 18px rgba(0,0,0,.25);">
+                        <div style="font-size: 12px; color: #8e8e8e; margin-bottom: 6px;">Pré-visualização</div>
+                        <strong id="notificacao-geral-preview-titulo" style="display: block; margin-bottom: 5px;"></strong>
+                        <span id="notificacao-geral-preview-mensagem"></span>
+                    </div>
+
+                    <div id="notificacao-geral-status" role="status" style="font-size: 13px; color: #8e8e8e; min-height: 20px;"></div>
+                </div>
+            </div>
 
             <!-- Conteúdo: Customização -->
             <div id="aba-customizacao" class="conteudo-aba" style="display: none;">

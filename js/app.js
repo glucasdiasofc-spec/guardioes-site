@@ -3510,6 +3510,568 @@ function fazerLogoutSessao() {
 
 
 // Controle das abas do menu
+let usuariosNotificacaoGeral = [];
+let carregamentoNotificacaoGeralEmAndamento = null;
+
+function normalizarTextoNotificacaoGeral(valor) {
+    return String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+}
+
+function obterUsuariosNotificacaoGeral() {
+    return Array.isArray(window._usuariosNotificacaoGeral)
+        ? window._usuariosNotificacaoGeral
+        : usuariosNotificacaoGeral;
+}
+
+async function carregarNotificacoesGeraisUsuarios() {
+    const resumo = document.getElementById(
+        "notificacao-geral-resumo"
+    );
+
+    if (window._usuariosNotificacaoGeralCarregado) {
+        atualizarInterfaceNotificacaoGeral();
+        return;
+    }
+
+    if (carregamentoNotificacaoGeralEmAndamento) {
+        return carregamentoNotificacaoGeralEmAndamento;
+    }
+
+    if (!window.ClubeDB || !window.ClubeDB.textoDB) {
+        if (resumo) {
+            resumo.textContent =
+                "Banco de dados ainda não foi inicializado.";
+        }
+        return;
+    }
+
+    if (resumo) {
+        resumo.textContent =
+            "Carregando usuários cadastrados...";
+    }
+
+    carregamentoNotificacaoGeralEmAndamento = (async () => {
+        try {
+            const snapshot = await window.ClubeDB.textoDB
+                .collection("usuarios")
+                .get();
+
+            usuariosNotificacaoGeral = snapshot.docs
+                .map(doc => {
+                    const dados = doc.data() || {};
+                    const username = String(
+                        dados.username || ""
+                    ).trim().toLowerCase();
+
+                    return {
+                        id: doc.id,
+                        username,
+                        nomeReal: String(
+                            dados.nomeReal || username
+                        ).trim(),
+                        tipo: String(
+                            dados.tipo || ""
+                        ).trim(),
+                        cargo: String(
+                            dados.cargo || ""
+                        ).trim(),
+                        unidade: String(
+                            dados.unidade || ""
+                        ).trim()
+                    };
+                })
+                .filter(usuario => usuario.username)
+                .sort((a, b) => {
+                    return a.nomeReal.localeCompare(
+                        b.nomeReal,
+                        "pt-BR",
+                        { sensitivity: "base" }
+                    );
+                });
+
+            window._usuariosNotificacaoGeral =
+                usuariosNotificacaoGeral;
+            window._usuariosNotificacaoGeralCarregado = true;
+
+            atualizarInterfaceNotificacaoGeral();
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar usuários das notificações:",
+                erro
+            );
+
+            if (resumo) {
+                resumo.textContent =
+                    "Não foi possível carregar os usuários. " +
+                    (erro.message || "Tente novamente.");
+            }
+        } finally {
+            carregamentoNotificacaoGeralEmAndamento = null;
+        }
+    })();
+
+    return carregamentoNotificacaoGeralEmAndamento;
+}
+
+function preencherFiltroNotificacaoGeral() {
+    const publico = document.getElementById(
+        "notificacao-geral-publico"
+    );
+    const filtro = document.getElementById(
+        "notificacao-geral-filtro"
+    );
+
+    if (!publico || !filtro) {
+        return;
+    }
+
+    const usuarios = obterUsuariosNotificacaoGeral();
+    const campo = publico.value === "unidade"
+        ? "unidade"
+        : "cargo";
+    const valores = Array.from(
+        new Set(
+            usuarios
+                .map(usuario => usuario[campo])
+                .filter(Boolean)
+        )
+    ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+    const valorAnterior = filtro.value;
+    filtro.innerHTML = "";
+
+    const opcaoInicial = document.createElement("option");
+    opcaoInicial.value = "";
+    opcaoInicial.textContent =
+        campo === "unidade"
+            ? "Selecione a unidade"
+            : "Selecione o cargo";
+    filtro.appendChild(opcaoInicial);
+
+    valores.forEach(valor => {
+        const opcao = document.createElement("option");
+        opcao.value = valor;
+        opcao.textContent = valor;
+        filtro.appendChild(opcao);
+    });
+
+    if (valores.includes(valorAnterior)) {
+        filtro.value = valorAnterior;
+    }
+}
+
+function renderizarListaUsuariosNotificacaoGeral() {
+    const lista = document.getElementById(
+        "notificacao-geral-lista-usuarios"
+    );
+
+    if (!lista) {
+        return;
+    }
+
+    const usuarios = obterUsuariosNotificacaoGeral();
+
+    if (!usuarios.length) {
+        lista.innerHTML =
+            "<span style=\"color:#aaa;\">Nenhum usuário encontrado.</span>";
+        return;
+    }
+
+    const selecionados = new Set(
+        Array.from(
+            lista.querySelectorAll(
+                "input[data-notificacao-usuario]:checked"
+            )
+        ).map(input => input.value)
+    );
+
+    lista.innerHTML = usuarios.map(usuario => {
+        const marcado = selecionados.has(usuario.username)
+            ? " checked"
+            : "";
+        const descricao = [
+            usuario.cargo,
+            usuario.unidade
+        ].filter(Boolean).join(" · ");
+
+        return `
+            <label style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px;background:#222;cursor:pointer;">
+                <input type="checkbox" data-notificacao-usuario value="${escaparHtml(usuario.username)}"${marcado} onchange="atualizarResumoDestinatarios()">
+                <span style="display:flex;flex-direction:column;gap:2px;">
+                    <strong style="color:#fff;">${escaparHtml(usuario.nomeReal)}</strong>
+                    <small style="color:#999;">@${escaparHtml(usuario.username)}${descricao ? " · " + escaparHtml(descricao) : ""}</small>
+                </span>
+            </label>
+        `;
+    }).join("");
+}
+
+function obterDestinatariosNotificacaoGeral() {
+    const publico = document.getElementById(
+        "notificacao-geral-publico"
+    );
+    const filtro = document.getElementById(
+        "notificacao-geral-filtro"
+    );
+    const usuarios = obterUsuariosNotificacaoGeral();
+
+    if (!publico) {
+        return [];
+    }
+
+    const tipo = publico.value;
+    const valorFiltro = normalizarTextoNotificacaoGeral(
+        filtro && filtro.value
+    );
+
+    if (tipo === "todos") {
+        return usuarios.map(usuario => usuario.username);
+    }
+
+    if (tipo === "lideranca") {
+        return usuarios
+            .filter(usuario => {
+                return normalizarTextoNotificacaoGeral(
+                    usuario.tipo
+                ) === "lideranca";
+            })
+            .map(usuario => usuario.username);
+    }
+
+    if (tipo === "desbravadores") {
+        return usuarios
+            .filter(usuario => {
+                return normalizarTextoNotificacaoGeral(
+                    usuario.tipo
+                ) === "desbravador";
+            })
+            .map(usuario => usuario.username);
+    }
+
+    if (tipo === "unidade" || tipo === "cargo") {
+        return usuarios
+            .filter(usuario => {
+                return normalizarTextoNotificacaoGeral(
+                    usuario[tipo]
+                ) === valorFiltro;
+            })
+            .map(usuario => usuario.username);
+    }
+
+    if (tipo === "selecionados") {
+        const lista = document.getElementById(
+            "notificacao-geral-lista-usuarios"
+        );
+
+        return lista
+            ? Array.from(
+                lista.querySelectorAll(
+                    "input[data-notificacao-usuario]:checked"
+                )
+            ).map(input => input.value)
+            : [];
+    }
+
+    return [];
+}
+
+function atualizarResumoDestinatarios() {
+    const resumo = document.getElementById(
+        "notificacao-geral-resumo"
+    );
+
+    if (!resumo) {
+        return;
+    }
+
+    const quantidade = obterDestinatariosNotificacaoGeral()
+        .length;
+
+    resumo.textContent = quantidade
+        ? `${quantidade} usuário(s) receberão esta notificação.`
+        : "Nenhum destinatário selecionado.";
+}
+
+function atualizarInterfaceNotificacaoGeral() {
+    const publico = document.getElementById(
+        "notificacao-geral-publico"
+    );
+    const filtroContainer = document.getElementById(
+        "notificacao-geral-filtro-container"
+    );
+    const selecionadosContainer = document.getElementById(
+        "notificacao-geral-selecionados-container"
+    );
+
+    if (!publico) {
+        return;
+    }
+
+    const exigeFiltro =
+        publico.value === "unidade" ||
+        publico.value === "cargo";
+    const exigeSelecao = publico.value === "selecionados";
+
+    if (filtroContainer) {
+        filtroContainer.style.display = exigeFiltro
+            ? "block"
+            : "none";
+    }
+
+    if (selecionadosContainer) {
+        selecionadosContainer.style.display = exigeSelecao
+            ? "block"
+            : "none";
+    }
+
+    if (exigeFiltro) {
+        preencherFiltroNotificacaoGeral();
+    }
+
+    if (exigeSelecao) {
+        renderizarListaUsuariosNotificacaoGeral();
+    }
+
+    atualizarResumoDestinatarios();
+}
+
+function alternarSelecaoTodosNotificacaoGeral() {
+    const lista = document.getElementById(
+        "notificacao-geral-lista-usuarios"
+    );
+
+    if (!lista) {
+        return;
+    }
+
+    const caixas = Array.from(
+        lista.querySelectorAll(
+            "input[data-notificacao-usuario]"
+        )
+    );
+    const todosMarcados = caixas.length > 0 &&
+        caixas.every(caixa => caixa.checked);
+
+    caixas.forEach(caixa => {
+        caixa.checked = !todosMarcados;
+    });
+
+    atualizarResumoDestinatarios();
+}
+
+function visualizarNotificacaoGeralAdmin() {
+    const titulo = document.getElementById(
+        "notificacao-geral-titulo"
+    );
+    const mensagem = document.getElementById(
+        "notificacao-geral-mensagem"
+    );
+    const preview = document.getElementById(
+        "notificacao-geral-preview"
+    );
+    const previewTitulo = document.getElementById(
+        "notificacao-geral-preview-titulo"
+    );
+    const previewMensagem = document.getElementById(
+        "notificacao-geral-preview-mensagem"
+    );
+
+    if (!titulo || !mensagem || !preview) {
+        return;
+    }
+
+    const tituloValor = titulo.value.trim();
+    const mensagemValor = mensagem.value.trim();
+
+    if (!tituloValor || !mensagemValor) {
+        alert("Preencha o título e a mensagem antes de visualizar.");
+        return;
+    }
+
+    if (previewTitulo) {
+        previewTitulo.textContent = tituloValor;
+    }
+
+    if (previewMensagem) {
+        previewMensagem.textContent = mensagemValor;
+    }
+
+    preview.style.display = "block";
+}
+
+let envioNotificacaoGeralEmAndamento = false;
+
+async function enviarNotificacaoGeralAdmin() {
+    const status = document.getElementById(
+        "notificacao-geral-status"
+    );
+    const tituloEl = document.getElementById(
+        "notificacao-geral-titulo"
+    );
+    const mensagemEl = document.getElementById(
+        "notificacao-geral-mensagem"
+    );
+    const botao = document.querySelector(
+        'button[onclick="enviarNotificacaoGeralAdmin()"]'
+    );
+
+    if (envioNotificacaoGeralEmAndamento) {
+        return;
+    }
+
+    if (
+        localStorage.getItem("usuarioLogado") !== "admin"
+    ) {
+        if (status) {
+            status.style.color = "#ff6b6b";
+            status.textContent =
+                "Somente o administrador pode enviar notificações gerais.";
+        }
+        return;
+    }
+
+    const usuarioFirebase = window.ClubeDB &&
+        window.ClubeDB.loginDB &&
+        window.ClubeDB.loginDB.currentUser;
+
+    if (!usuarioFirebase) {
+        if (status) {
+            status.style.color = "#ff6b6b";
+            status.textContent =
+                "A sessão do administrador não está disponível.";
+        }
+        return;
+    }
+
+    const titulo = tituloEl
+        ? tituloEl.value.trim()
+        : "";
+    const mensagem = mensagemEl
+        ? mensagemEl.value.trim()
+        : "";
+    const destinatarios =
+        typeof obterDestinatariosNotificacaoGeral ===
+            "function"
+            ? obterDestinatariosNotificacaoGeral()
+            : [];
+
+    if (!titulo || !mensagem) {
+        if (status) {
+            status.style.color = "#ff6b6b";
+            status.textContent =
+                "Preencha o título e a mensagem.";
+        }
+        return;
+    }
+
+    if (!destinatarios.length) {
+        if (status) {
+            status.style.color = "#ff6b6b";
+            status.textContent =
+                "Selecione pelo menos um destinatário.";
+        }
+        return;
+    }
+
+    const confirmar = window.confirm(
+        `Enviar esta notificação para ${destinatarios.length} usuário(s)?`
+    );
+
+    if (!confirmar) {
+        return;
+    }
+
+    envioNotificacaoGeralEmAndamento = true;
+
+    if (botao) {
+        botao.disabled = true;
+        botao.style.opacity = "0.65";
+        botao.textContent = "Enviando...";
+    }
+
+    if (status) {
+        status.style.color = "#8e8e8e";
+        status.textContent =
+            "Enviando a notificação para os dispositivos registrados...";
+    }
+
+    try {
+        const idToken = await usuarioFirebase.getIdToken(true);
+        const resposta = await fetch(
+            `${WORKER_NOTIFICACOES_URL}/push/admin-send`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    titulo,
+                    mensagem,
+                    destinatarios
+                })
+            }
+        );
+
+        const corpo = await resposta.text();
+        let dados = {};
+
+        try {
+            dados = corpo ? JSON.parse(corpo) : {};
+        } catch (erroJSON) {
+            throw new Error(
+                "O Worker devolveu uma resposta inválida."
+            );
+        }
+
+        if (!resposta.ok || dados.ok !== true) {
+            throw new Error(
+                dados.erro ||
+                `O Worker recusou o envio (HTTP ${resposta.status}).`
+            );
+        }
+
+        const enviados = Number(
+            dados.dispositivosNotificados || 0
+        );
+        const comDispositivo = Number(
+            dados.destinatariosComDispositivo || 0
+        );
+        const falhas = Number(dados.falhas || 0);
+
+        if (status) {
+            status.style.color = "#5edc8a";
+            status.textContent = enviados
+                ? `Notificação enviada para ${enviados} dispositivo(s), de ${comDispositivo} usuário(s) com Push ativo${falhas ? `; falhas: ${falhas}.` : "."}`
+                : "Nenhum destinatário possui um dispositivo registrado para receber Push.";
+        }
+    } catch (erro) {
+        console.error(
+            "Erro ao enviar notificação geral:",
+            erro
+        );
+
+        if (status) {
+            status.style.color = "#ff6b6b";
+            status.textContent =
+                erro.message ||
+                "Não foi possível enviar a notificação.";
+        }
+    } finally {
+        envioNotificacaoGeralEmAndamento = false;
+
+        if (botao) {
+            botao.disabled = false;
+            botao.style.opacity = "1";
+            botao.textContent = "Enviar notificação";
+        }
+    }
+}
+
 function mudarAbaAdmin(idAbaDestino) {
     const conteudos = document.querySelectorAll(".conteudo-aba");
     conteudos.forEach(aba => {
@@ -3545,6 +4107,11 @@ function mudarAbaAdmin(idAbaDestino) {
     // Carrega a gestão de conquistas somente quando a aba é aberta.
     if (idAbaDestino === "aba-conquistas-gestao") {
         carregarUsuariosParaGestaoConquistas();
+    }
+
+    if (idAbaDestino === "aba-notificacoes-gerais") {
+        carregarNotificacoesGeraisUsuarios();
+        atualizarInterfaceNotificacaoGeral();
     }
 }
 
