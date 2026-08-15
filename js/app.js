@@ -507,8 +507,56 @@ async function enviarPushParaDestinatario(
     }
 }
 
+async function sincronizarPresencaPush() {
+    const usuarioFirebase = window.ClubeDB &&
+        window.ClubeDB.loginDB &&
+        window.ClubeDB.loginDB.currentUser;
+    const username = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+
+    if (!usuarioFirebase || !username) {
+        return;
+    }
+
+    try {
+        const idToken = await usuarioFirebase.getIdToken();
+        const visivel = document.visibilityState === "visible";
+        const resposta = await fetch(
+            `${WORKER_NOTIFICACOES_URL}/push/presence`,
+            {
+                method: "POST",
+                keepalive: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    username,
+                    visivel,
+                    chatId: visivel
+                        ? String(window._chatIdAtivo || "")
+                        : ""
+                })
+            }
+        );
+
+        if (!resposta.ok) {
+            throw new Error(
+                `Presença de notificações retornou HTTP ${resposta.status}.`
+            );
+        }
+    } catch (erro) {
+        console.warn(
+            "Não foi possível sincronizar a presença de notificações:",
+            erro
+        );
+    }
+}
+
 // Direciona o fluxo para a tela de visualização do site
 async function solicitarPermissaoNotificacoes() {
+
     if (typeof Notification === "undefined") {
         return;
     }
@@ -4674,13 +4722,20 @@ async function excluirNotificacao(docId) {
     const id = String(docId || "").trim();
     const referencia =
         obterReferenciaNotificacoesGeraisUsuario();
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
 
-    if (!id || !referencia) {
+    if (!id || !referencia || !usernameLogado) {
+        window.alert(
+            "Não foi possível identificar a conta atual para excluir esta notificação."
+        );
         return;
     }
 
     try {
-        await referencia.doc(id).delete();
+        const documento = referencia.doc(id);
+        await documento.delete();
 
         const listaAtual = Array.isArray(
             window._notificacoesGeraisAtuais
@@ -4701,16 +4756,34 @@ async function excluirNotificacao(docId) {
         );
         renderizarListaNotificacoesHeader(novaLista);
     } catch (erro) {
+        const codigo = String(
+            erro && erro.code ||
+            "sem-codigo"
+        );
+        const mensagem = String(
+            erro && erro.message ||
+            erro ||
+            "Falha desconhecida."
+        );
+
         console.error(
             "Erro ao excluir notificação geral:",
-            erro
+            {
+                codigo,
+                mensagem,
+                usernameLogado,
+                docId: id
+            }
         );
+
         window.alert(
-            "Não foi possível excluir esta notificação. " +
-            "Verifique sua conexão e tente novamente."
+            `Não foi possível excluir a notificação.\n\n` +
+            `Código: ${codigo}\n` +
+            `Detalhes: ${mensagem}`
         );
     }
 }
+
 
 async function limparTodasNotificacoes() {
     const referencia =
