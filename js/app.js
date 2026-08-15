@@ -4814,7 +4814,111 @@ function abrirPainelNotificacoes() {
     }
 }
 
+async function purgarRegistrosPushAntigosAdmin() {
+    if (
+        localStorage.getItem("usuarioLogado") !==
+        "admin"
+    ) {
+        window.alert(
+            "Somente o administrador pode executar esta limpeza."
+        );
+        return;
+    }
+
+    const usuarioFirebase = window.ClubeDB &&
+        window.ClubeDB.loginDB &&
+        window.ClubeDB.loginDB.currentUser;
+
+    if (!usuarioFirebase) {
+        window.alert(
+            "A sessão do administrador não está disponível."
+        );
+        return;
+    }
+
+    const confirmar = window.confirm(
+        "Esta ação removerá os registros Push antigos de todas as contas. " +
+        "As notificações internas não serão apagadas. " +
+        "Depois, cada usuário deverá abrir o site novamente para registrar o dispositivo. " +
+        "Deseja continuar?"
+    );
+
+    if (!confirmar) {
+        return;
+    }
+
+    const botao = document.getElementById(
+        "btn-limpar-push-antigos"
+    );
+
+    if (botao) {
+        botao.disabled = true;
+        botao.textContent = "Limpando registros Push...";
+        botao.style.opacity = "0.65";
+    }
+
+    try {
+        const idToken = await usuarioFirebase.getIdToken(
+            true
+        );
+        const resposta = await fetch(
+            `${WORKER_NOTIFICACOES_URL}/push/admin-purge`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    confirmacao: "LIMPAR_PUSH_ANTIGOS"
+                })
+            }
+        );
+        const corpo = await resposta.text();
+        let dados = {};
+
+        try {
+            dados = corpo ? JSON.parse(corpo) : {};
+        } catch (erroJSON) {
+            throw new Error(
+                "O Worker devolveu uma resposta inválida."
+            );
+        }
+
+        if (!resposta.ok || dados.ok !== true) {
+            throw new Error(
+                dados.erro ||
+                `O Worker recusou a limpeza (HTTP ${resposta.status}).`
+            );
+        }
+
+        window.alert(
+            "Limpeza concluída. " +
+            `${Number(dados.usuariosRemovidos || 0)} registro(s) de Push e ` +
+            `${Number(dados.presencasRemovidas || 0)} presença(s) foram removidos. ` +
+            "Os usuários deverão abrir o site novamente para registrar o dispositivo."
+        );
+    } catch (erro) {
+        console.error(
+            "Erro ao limpar registros Push antigos:",
+            erro
+        );
+        window.alert(
+            erro.message ||
+            "Não foi possível limpar os registros Push antigos."
+        );
+    } finally {
+        if (botao) {
+            botao.disabled = false;
+            botao.textContent =
+                "Limpar registros Push antigos";
+            botao.style.opacity = "1";
+        }
+    }
+}
+
 let envioNotificacaoGeralEmAndamento = false;
+
 
 
 

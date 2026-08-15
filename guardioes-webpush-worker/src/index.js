@@ -57,7 +57,7 @@ export default {
                 return await enviarPushProprio(request, env, usuario);
             }
 
-            if (
+if (
                 request.method === "POST" &&
                 url.pathname === "/push/admin-send"
             ) {
@@ -68,6 +68,18 @@ export default {
                     usuario
                 );
             }
+            if (
+                request.method === "POST" &&
+                url.pathname === "/push/admin-purge"
+            ) {
+                const usuario = await autorizarUpload(request, env);
+                return await purgarAssinaturasPushAdmin(
+                    request,
+                    env,
+                    usuario
+                );
+            }
+
 
             if (
                 request.method === "POST" &&
@@ -801,11 +813,111 @@ async function removerTodasAssinaturasDaConta(
 }
 
 
+async function apagarChavesPushPorPrefixo(
+    env,
+    prefixo
+) {
+    let cursor = undefined;
+    let quantidadeRemovida = 0;
+
+    do {
+        const opcoes = {
+            prefix: prefixo,
+            limit: 1000
+        };
+
+        if (cursor) {
+            opcoes.cursor = cursor;
+        }
+
+        const pagina = await env.PUSH_KV.list(opcoes);
+        const chaves = Array.isArray(pagina.keys)
+            ? pagina.keys
+            : [];
+
+        for (const chave of chaves) {
+            await env.PUSH_KV.delete(chave.name);
+            quantidadeRemovida += 1;
+        }
+
+        if (pagina.list_complete) {
+            break;
+        }
+
+        cursor = pagina.cursor;
+    } while (cursor);
+
+    return quantidadeRemovida;
+}
+
+async function purgarAssinaturasPushAdmin(
+    request,
+    env,
+    usuario
+) {
+    if (!env.PUSH_KV) {
+        throw criarErro(
+            500,
+            "Binding PUSH_KV não configurado."
+        );
+    }
+
+    if (
+        !usuario ||
+        usuario.modo !== "firebase" ||
+        usuario.username !== "admin"
+    ) {
+        throw criarErro(
+            403,
+            "Somente o administrador pode limpar os registros Push."
+        );
+    }
+
+    let dados = {};
+
+    try {
+        dados = await request.json();
+    } catch (erroJSON) {
+        throw criarErro(
+            400,
+            "Confirmação da limpeza não informada."
+        );
+    }
+
+    if (
+        dados.confirmacao !==
+        "LIMPAR_PUSH_ANTIGOS"
+    ) {
+        throw criarErro(
+            400,
+            "Confirmação inválida para a limpeza Push."
+        );
+    }
+
+    const usuariosRemovidos =
+        await apagarChavesPushPorPrefixo(
+            env,
+            "push:user:"
+        );
+    const presencasRemovidas =
+        await apagarChavesPushPorPrefixo(
+            env,
+            "push:presence:"
+        );
+
+    return responderJSON({
+        ok: true,
+        usuariosRemovidos,
+        presencasRemovidas
+    });
+}
+
 async function removerEndpointDeOutrasContas(
     env,
     usernameAtual,
     endpoint
 ) {
+
     const atualNormalizado = normalizarUsername(
         usernameAtual
     );
