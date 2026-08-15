@@ -3473,36 +3473,26 @@ async function desvincularPushDaContaAtual() {
     const username = String(
         localStorage.getItem("usernameLogado") || ""
     ).trim().toLowerCase();
-    const endpoint = String(
-        localStorage.getItem("webPushEndpoint") || ""
-    ).trim();
 
     try {
         if (usuarioFirebase && username) {
             const idToken = await usuarioFirebase.getIdToken(true);
-            const requisicoes = [];
-
-            if (endpoint) {
-                requisicoes.push(
-                    fetch(
-                        `${WORKER_NOTIFICACOES_URL}/push/unsubscribe`,
-                        {
-                            method: "POST",
-                            keepalive: true,
-                            headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${idToken}`
-                            },
-                            body: JSON.stringify({
-                                username,
-                                endpoint
-                            })
-                        }
-                    )
-                );
-            }
-
-            requisicoes.push(
+            const requisicoes = [
+                fetch(
+                    `${WORKER_NOTIFICACOES_URL}/push/unsubscribe`,
+                    {
+                        method: "POST",
+                        keepalive: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${idToken}`
+                        },
+                        body: JSON.stringify({
+                            username,
+                            removerTodos: true
+                        })
+                    }
+                ),
                 fetch(
                     `${WORKER_NOTIFICACOES_URL}/push/presence`,
                     {
@@ -3519,7 +3509,7 @@ async function desvincularPushDaContaAtual() {
                         })
                     }
                 )
-            );
+            ];
 
             await Promise.allSettled(requisicoes);
         }
@@ -3541,9 +3531,44 @@ async function desvincularPushDaContaAtual() {
     }
 }
 
+
 // Limpa a sessão
 async function fazerLogoutSessao() {
     await desvincularPushDaContaAtual();
+
+    if (window._unsubscribeNotificacoesGerais) {
+        window._unsubscribeNotificacoesGerais();
+        window._unsubscribeNotificacoesGerais = null;
+    }
+
+    if (window._unsubscribeGlobalMensagens) {
+        window._unsubscribeGlobalMensagens();
+        window._unsubscribeGlobalMensagens = null;
+    }
+
+    window._listenerNotificacoesGeraisAtivo = false;
+    window._listenerNotificacoesGeraisUsuario = "";
+    window._listenerGlobalMensagensAtivo = false;
+    window._listenerGlobalMensagensUsuario = "";
+
+    if (typeof fecharPainelNotificacoes === "function") {
+        fecharPainelNotificacoes();
+    }
+
+    if (window._timerAlertaNotificacaoGeral) {
+        clearTimeout(
+            window._timerAlertaNotificacaoGeral
+        );
+        window._timerAlertaNotificacaoGeral = null;
+    }
+
+    const alertaNotificacaoGeral = document.getElementById(
+        "alerta-notificacao-geral"
+    );
+
+    if (alertaNotificacaoGeral) {
+        alertaNotificacaoGeral.remove();
+    }
 
     usuarioChatDestino = null;
     window._chatIdAtivo = null;
@@ -3557,7 +3582,6 @@ async function fazerLogoutSessao() {
     // Limpa os dados visuais do perfil anterior
     const avatarPadrao = window.AVATAR_PADRAO_SITE ||
         "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
-
     const avatarEl = document.getElementById(
         "perfil-usuario-avatar"
      );
@@ -3669,6 +3693,7 @@ async function fazerLogoutSessao() {
     if (telaSite) telaSite.style.display = "none";
     if (telaLogin) telaLogin.style.display = "flex";
 }
+
 
 
 // Controle das abas do menu

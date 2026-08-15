@@ -1363,13 +1363,23 @@
                     >
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 15px; border-bottom: 1px solid #2f3336;">
                             <strong style="color: #fff; font-size: 16px;">Notificações</strong>
-                            <button
-                                type="button"
-                                onclick="limparTodasNotificacoes()"
-                                style="border: none; background: transparent; color: #0095f6; font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 0;"
-                            >
-                                Limpar tudo
-                            </button>
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <button
+                                    type="button"
+                                    onclick="limparTodasNotificacoes()"
+                                    style="border: none; background: transparent; color: #0095f6; font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 0;"
+                                >
+                                    Limpar tudo
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="fecharPainelNotificacoes()"
+                                    aria-label="Fechar notificações"
+                                    style="border: none; background: transparent; color: #fff; font-size: 24px; line-height: 20px; cursor: pointer; padding: 0 2px;"
+                                >
+                                    ×
+                                </button>
+                            </div>
                         </div>
                         <div
                             id="lista-notificacoes-header"
@@ -1382,6 +1392,7 @@
                             Você não tem notificações gerais.
                         </div>
                     </div>
+
 
                     <button onclick="fazerLogoutSessao()" style="background: none; border: none; color: #ff4d4d; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0;">Sair</button>
                 </div>

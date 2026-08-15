@@ -868,11 +868,12 @@ async function removerAssinaturaPush(
     const endpoint = String(
         dados.endpoint || ""
     ).trim();
+    const removerTodos = dados.removerTodos === true;
 
-    if (!username || !endpoint) {
+    if (!username || (!endpoint && !removerTodos)) {
         throw criarErro(
             400,
-            "Usuário e endpoint são obrigatórios."
+            "Usuário e endpoint ou remoção total são obrigatórios."
         );
     }
 
@@ -886,17 +887,24 @@ async function removerAssinaturaPush(
         );
     }
 
-    const removidos = await removerEndpointDaConta(
-        env,
-        username,
-        endpoint
-    );
+    const removidos = removerTodos
+        ? await removerTodasAssinaturasDaConta(
+            env,
+            username
+        )
+        : await removerEndpointDaConta(
+            env,
+            username,
+            endpoint
+        );
 
     return responderJSON({
         ok: true,
-        removidos
+        removidos,
+        todos: removerTodos
     });
 }
+
 
 async function atualizarPresencaPush(request, env, usuario) {
     if (!env.PUSH_KV) {
