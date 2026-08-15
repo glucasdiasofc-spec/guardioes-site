@@ -35,6 +35,14 @@ export default {
 
             if (
                 request.method === "POST" &&
+                url.pathname === "/push/unsubscribe"
+            ) {
+                const usuario = await autorizarUpload(request, env);
+                return await removerAssinaturaPush(request, env, usuario);
+            }
+
+            if (
+                request.method === "POST" &&
                 url.pathname === "/push/presence"
             ) {
                 const usuario = await autorizarUpload(request, env);
@@ -639,22 +647,33 @@ async function lerAssinaturasPush(env, username) {
 
 async function registrarAssinaturaPush(request, env, usuario) {
     if (!env.PUSH_KV) {
-        throw criarErro(500, "Binding PUSH_KV não configurado.");
+        throw criarErro(
+            500,
+            "Binding PUSH_KV não configurado."
+        );
     }
 
     const dados = await request.json();
-    const username = normalizarUsername(dados.username || "");
+    const username = normalizarUsername(
+        dados.username || ""
+    );
     const subscription = dados.subscription;
+    const endpoint = String(
+        subscription && subscription.endpoint || ""
+    ).trim();
 
     if (
         !username ||
         !subscription ||
-        !subscription.endpoint ||
+        !endpoint ||
         !subscription.keys ||
         !subscription.keys.p256dh ||
         !subscription.keys.auth
     ) {
-        throw criarErro(400, "Assinatura Web Push inválida ou incompleta.");
+        throw criarErro(
+            400,
+            "Assinatura Web Push inválida ou incompleta."
+        );
     }
 
     if (
@@ -668,24 +687,42 @@ async function registrarAssinaturaPush(request, env, usuario) {
         );
     }
 
-    const assinaturas = await lerAssinaturasPush(env, username);
+    // Um mesmo navegador deve ficar vinculado somente à conta atualmente autenticada.
+    await removerEndpointDeOutrasContas(
+        env,
+        username,
+        endpoint
+    );
+
+    const assinaturas = await lerAssinaturasPush(
+        env,
+        username
+    );
     const semMesmoEndpoint = assinaturas.filter(
-        item => item && item.endpoint !== subscription.endpoint
+        item => item && item.endpoint !== endpoint
     );
 
     semMesmoEndpoint.push({
-        endpoint: String(subscription.endpoint),
-        expirationTime: subscription.expirationTime || null,
+        endpoint,
+        expirationTime:
+            subscription.expirationTime || null,
         keys: {
-            p256dh: String(subscription.keys && subscription.keys.p256dh || ""),
-            auth: String(subscription.keys && subscription.keys.auth || "")
+            p256dh: String(
+                subscription.keys.p256dh || ""
+            ),
+            auth: String(
+                subscription.keys.auth || ""
+            )
         },
         uid: usuario.uid,
         atualizadoEm: new Date().toISOString()
     });
 
     if (semMesmoEndpoint.length > 20) {
-        semMesmoEndpoint.splice(0, semMesmoEndpoint.length - 20);
+        semMesmoEndpoint.splice(
+            0,
+            semMesmoEndpoint.length - 20
+        );
     }
 
     await env.PUSH_KV.put(
@@ -695,7 +732,140 @@ async function registrarAssinaturaPush(request, env, usuario) {
 
     return responderJSON({
         ok: true,
-        dispositivos: semMesmoEndpoint.length
+        dispositivos: semMesmoEndpoint.length,
+        endpointVinculado: endpoint
+    });
+}
+
+async function removerEndpointDaConta(
+    env,
+    username,
+    endpoint
+) {
+    const usuarioNormalizado = normalizarUsername(
+        username
+    );
+    const endpointNormalizado = String(
+        endpoint || ""
+    ).trim();
+
+    if (!usuarioNormalizado || !endpointNormalizado) {
+        return 0;
+    }
+
+    const assinaturas = await lerAssinaturasPush(
+        env,
+        usuarioNormalizado
+    );
+    const restantes = assinaturas.filter(
+        item => item && item.endpoint !== endpointNormalizado
+    );
+    const removidos = assinaturas.length - restantes.length;
+
+    if (removidos > 0) {
+        await env.PUSH_KV.put(
+            `push:user:${usuarioNormalizado}`,
+            JSON.stringify(restantes)
+        );
+    }
+
+    return removidos;
+}
+
+async function removerEndpointDeOutrasContas(
+    env,
+    usernameAtual,
+    endpoint
+) {
+    const atualNormalizado = normalizarUsername(
+        usernameAtual
+    );
+    const endpointNormalizado = String(
+        endpoint || ""
+    ).trim();
+    const prefixo = "push:user:";
+    let cursor = undefined;
+
+    do {
+        const opcoes = { prefix: prefixo };
+
+        if (cursor) {
+            opcoes.cursor = cursor;
+        }
+
+        const pagina = await env.PUSH_KV.list(opcoes);
+        const tarefas = pagina.keys
+            .filter(chave => {
+                const usernameConta = chave.name
+                    .slice(prefixo.length);
+                return usernameConta !== atualNormalizado;
+            })
+            .map(chave => {
+                const usernameConta = chave.name
+                    .slice(prefixo.length);
+                return removerEndpointDaConta(
+                    env,
+                    usernameConta,
+                    endpointNormalizado
+                );
+            });
+
+        await Promise.all(tarefas);
+
+        if (pagina.list_complete) {
+            break;
+        }
+
+        cursor = pagina.cursor;
+    } while (cursor);
+}
+
+async function removerAssinaturaPush(
+    request,
+    env,
+    usuario
+) {
+    if (!env.PUSH_KV) {
+        throw criarErro(
+            500,
+            "Binding PUSH_KV não configurado."
+        );
+    }
+
+    const dados = await request.json();
+    const username = normalizarUsername(
+        dados.username || ""
+    );
+    const endpoint = String(
+        dados.endpoint || ""
+    ).trim();
+
+    if (!username || !endpoint) {
+        throw criarErro(
+            400,
+            "Usuário e endpoint são obrigatórios."
+        );
+    }
+
+    if (
+        usuario.modo === "firebase" &&
+        usuario.username !== username
+    ) {
+        throw criarErro(
+            403,
+            "A assinatura deve ser removida da conta autenticada."
+        );
+    }
+
+    const removidos = await removerEndpointDaConta(
+        env,
+        username,
+        endpoint
+    );
+
+    return responderJSON({
+        ok: true,
+        removidos
     });
 }
 

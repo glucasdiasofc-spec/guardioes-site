@@ -410,11 +410,16 @@ async function registrarPushNesteDispositivo() {
             "webPushEndpoint",
             String(dadosSubscription.endpoint)
         );
+        localStorage.setItem(
+            "webPushUsuarioAtivo",
+            username
+        );
 
         delete window._ultimoErroRegistroPush;
 
         console.log(
-            "Web Push registrado com sucesso:",
+            "Web Push registrado para a conta atual:",
+            username,
             respostaJSON
         );
 
@@ -430,7 +435,12 @@ async function registrarPushNesteDispositivo() {
         );
 
         window._ultimoErroRegistroPush = mensagemErro;
-        localStorage.removeItem("webPushAssinaturaAtiva");
+        localStorage.removeItem(
+            "webPushAssinaturaAtiva"
+        );
+        localStorage.removeItem(
+            "webPushUsuarioAtivo"
+        );
 
         return null;
     }
@@ -553,9 +563,17 @@ async function solicitarPermissaoNotificacoes() {
             const endpointCadastrado = String(
                 localStorage.getItem("webPushEndpoint") || ""
             );
+            const usuarioCadastrado = String(
+                localStorage.getItem("webPushUsuarioAtivo") || ""
+            ).trim().toLowerCase();
+            const usuarioAtual = String(
+                localStorage.getItem("usernameLogado") || ""
+            ).trim().toLowerCase();
 
             if (
                 localStorage.getItem("webPushAssinaturaAtiva") === "true" &&
+                usuarioCadastrado === usuarioAtual &&
+                usuarioAtual &&
                 endpointAtual &&
                 endpointAtual === endpointCadastrado
             ) {
