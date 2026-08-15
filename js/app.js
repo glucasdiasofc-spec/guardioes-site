@@ -1077,11 +1077,14 @@ function irParaSite() {
     mudarSubAbaSite("feed");
     solicitarPermissaoNotificacoes();
     iniciarListenerGlobalMensagens();
+    iniciarListenerNotificacoesGerais();
+    sincronizarPresencaPush();
     window.setTimeout(
         processarAberturaChatPorNotificacao,
         0
     );
 }
+
 
 
 
@@ -3463,49 +3466,181 @@ async function removerLogoClubeAdmin(tipo = 'site') {
 }
 
 
+async function desvincularPushDaContaAtual() {
+    const usuarioFirebase = window.ClubeDB &&
+        window.ClubeDB.loginDB &&
+        window.ClubeDB.loginDB.currentUser;
+    const username = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+    const endpoint = String(
+        localStorage.getItem("webPushEndpoint") || ""
+    ).trim();
+
+    try {
+        if (usuarioFirebase && username) {
+            const idToken = await usuarioFirebase.getIdToken(true);
+            const requisicoes = [];
+
+            if (endpoint) {
+                requisicoes.push(
+                    fetch(
+                        `${WORKER_NOTIFICACOES_URL}/push/unsubscribe`,
+                        {
+                            method: "POST",
+                            keepalive: true,
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Authorization": `Bearer ${idToken}`
+                            },
+                            body: JSON.stringify({
+                                username,
+                                endpoint
+                            })
+                        }
+                    )
+                );
+            }
+
+            requisicoes.push(
+                fetch(
+                    `${WORKER_NOTIFICACOES_URL}/push/presence`,
+                    {
+                        method: "POST",
+                        keepalive: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${idToken}`
+                        },
+                        body: JSON.stringify({
+                            username,
+                            visivel: false,
+                            chatId: ""
+                        })
+                    }
+                )
+            );
+
+            await Promise.allSettled(requisicoes);
+        }
+    } catch (erro) {
+        console.warn(
+            "Não foi possível desvincular o Push no logout:",
+            erro
+        );
+    } finally {
+        localStorage.removeItem(
+            "webPushAssinaturaAtiva"
+        );
+        localStorage.removeItem(
+            "webPushEndpoint"
+        );
+        localStorage.removeItem(
+            "webPushUsuarioAtivo"
+        );
+    }
+}
+
 // Limpa a sessão
-function fazerLogoutSessao() {
+async function fazerLogoutSessao() {
+    await desvincularPushDaContaAtual();
+
+    usuarioChatDestino = null;
+    window._chatIdAtivo = null;
+    sincronizarEstadoChatComServiceWorker();
+
     // Remove completamente os dados da sessão atual
     localStorage.removeItem("sessaoAdminLogado");
     localStorage.removeItem("usuarioLogado");
     localStorage.removeItem("usernameLogado");
 
     // Limpa os dados visuais do perfil anterior
-    const avatarPadrao = window.AVATAR_PADRAO_SITE || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+    const avatarPadrao = window.AVATAR_PADRAO_SITE ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
 
-    const avatarEl = document.getElementById("perfil-usuario-avatar" );
-    const nomeEl = document.getElementById("perfil-usuario-nome");
-    const cargoEl = document.getElementById("perfil-usuario-cargo");
-    const unidadeEl = document.getElementById("perfil-usuario-unidade-status");
-    const nascimentoEl = document.getElementById("perfil-usuario-nascimento");
-    const contadorEl = document.getElementById("perfil-usuario-conquistas-status");
-    const classesEl = document.getElementById("perfil-conquistas-classes");
-    const especialidadesEl = document.getElementById("perfil-conquistas-especialidades");
-    const mestradosEl = document.getElementById("perfil-conquistas-mestrados");
-    const tClasses = document.getElementById("titulo-conquistas-classes");
-    const tEspecialidades = document.getElementById("titulo-conquistas-especialidades");
-    const tMestrados = document.getElementById("titulo-conquistas-mestrados");
-    const gridEl = document.getElementById("perfil-usuario-grid");
-    const vazioEl = document.getElementById("perfil-publicacoes-vazio");
+    const avatarEl = document.getElementById(
+        "perfil-usuario-avatar"
+     );
+    const nomeEl = document.getElementById(
+        "perfil-usuario-nome"
+    );
+    const cargoEl = document.getElementById(
+        "perfil-usuario-cargo"
+    );
+    const unidadeEl = document.getElementById(
+        "perfil-usuario-unidade-status"
+    );
+    const nascimentoEl = document.getElementById(
+        "perfil-usuario-nascimento"
+    );
+    const contadorEl = document.getElementById(
+        "perfil-usuario-conquistas-status"
+    );
+    const classesEl = document.getElementById(
+        "perfil-conquistas-classes"
+    );
+    const especialidadesEl = document.getElementById(
+        "perfil-conquistas-especialidades"
+    );
+    const mestradosEl = document.getElementById(
+        "perfil-conquistas-mestrados"
+    );
+    const tClasses = document.getElementById(
+        "titulo-conquistas-classes"
+    );
+    const tEspecialidades = document.getElementById(
+        "titulo-conquistas-especialidades"
+    );
+    const tMestrados = document.getElementById(
+        "titulo-conquistas-mestrados"
+    );
+    const gridEl = document.getElementById(
+        "perfil-usuario-grid"
+    );
+    const vazioEl = document.getElementById(
+        "perfil-publicacoes-vazio"
+    );
 
     if (avatarEl) avatarEl.src = avatarPadrao;
     if (nomeEl) nomeEl.textContent = "Carregando...";
     if (cargoEl) cargoEl.textContent = "Cargo";
     if (unidadeEl) unidadeEl.textContent = "-";
-    if (nascimentoEl) nascimentoEl.textContent = "Nascido em: --/--/----";
+    if (nascimentoEl) {
+        nascimentoEl.textContent =
+            "Nascido em: --/--/----";
+    }
     if (contadorEl) contadorEl.textContent = "0";
-    if (classesEl) classesEl.textContent = "Nenhuma classe concluída.";
-    if (especialidadesEl) especialidadesEl.textContent = "Nenhuma especialidade validada.";
-    if (mestradosEl) mestradosEl.textContent = "Nenhum mestrado concluído ainda.";
-    if (tClasses) tClasses.textContent = "🎒 Classes Regulares (0)";
-    if (tEspecialidades) tEspecialidades.textContent = "🏅 Especialidades Adquiridas (0)";
-    if (tMestrados) tMestrados.textContent = "🏆 Mestrados Adquiridos (0)";
+    if (classesEl) {
+        classesEl.textContent =
+            "Nenhuma classe concluída.";
+    }
+    if (especialidadesEl) {
+        especialidadesEl.textContent =
+            "Nenhuma especialidade validada.";
+    }
+    if (mestradosEl) {
+        mestradosEl.textContent =
+            "Nenhum mestrado concluído ainda.";
+    }
+    if (tClasses) {
+        tClasses.textContent =
+            "🎒 Classes Regulares (0)";
+    }
+    if (tEspecialidades) {
+        tEspecialidades.textContent =
+            "🏅 Especialidades Adquiridas (0)";
+    }
+    if (tMestrados) {
+        tMestrados.textContent =
+            "🏆 Mestrados Adquiridos (0)";
+    }
     if (gridEl) {
         gridEl.innerHTML = "";
         gridEl.style.display = "none";
     }
     if (vazioEl) {
-        vazioEl.textContent = "Nenhuma publicação encontrada.";
+        vazioEl.textContent =
+            "Nenhuma publicação encontrada.";
         vazioEl.style.display = "block";
     }
 
@@ -3513,13 +3648,22 @@ function fazerLogoutSessao() {
     if (window.ClubeDB && window.ClubeDB.loginDB) {
         window.ClubeDB.loginDB
             .signOut()
-            .catch(err => console.log("Erro ao encerrar sessão: ", err));
+            .catch(err => console.log(
+                "Erro ao encerrar sessão: ",
+                err
+            ));
     }
 
     // Retorna para a tela de login
-    const telaAdmin = document.getElementById("tela-admin");
-    const telaSite = document.getElementById("tela-site");
-    const telaLogin = document.getElementById("tela-login");
+    const telaAdmin = document.getElementById(
+        "tela-admin"
+    );
+    const telaSite = document.getElementById(
+        "tela-site"
+    );
+    const telaLogin = document.getElementById(
+        "tela-login"
+    );
 
     if (telaAdmin) telaAdmin.style.display = "none";
     if (telaSite) telaSite.style.display = "none";
@@ -3920,8 +4064,532 @@ function visualizarNotificacaoGeralAdmin() {
 
     preview.style.display = "block";
 }
+async function salvarNotificacaoGeralNoFirestore(
+    titulo,
+    mensagem,
+    destinatarios
+) {
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+
+    if (
+        !banco ||
+        typeof banco.collection !== "function" ||
+        typeof banco.batch !== "function"
+    ) {
+        throw new Error(
+            "O banco de notificações ainda não está disponível."
+        );
+    }
+
+    const usuarios = Array.from(
+        new Set(
+            (Array.isArray(destinatarios)
+                ? destinatarios
+                : []
+            )
+                .map(destinatario => String(
+                    destinatario || ""
+                ).trim().toLowerCase())
+                .filter(Boolean)
+        )
+    );
+
+    if (!usuarios.length) {
+        return 0;
+    }
+
+    const tituloSeguro = String(
+        titulo || ""
+    ).trim();
+    const mensagemSegura = String(
+        mensagem || ""
+    ).trim();
+    const limitePorLote = 450;
+    let quantidadeSalva = 0;
+
+    for (
+        let inicio = 0;
+        inicio < usuarios.length;
+        inicio += limitePorLote
+    ) {
+        const usuariosDoLote = usuarios.slice(
+            inicio,
+            inicio + limitePorLote
+        );
+        const lote = banco.batch();
+
+        usuariosDoLote.forEach(username => {
+            const referencia = banco
+                .collection("notificacoes_gerais")
+                .doc(username)
+                .collection("itens")
+                .doc();
+
+            lote.set(referencia, {
+                titulo: tituloSeguro,
+                corpo: mensagemSegura,
+                timestamp:
+                    firebase.firestore.FieldValue.serverTimestamp(),
+                lida: false,
+                tipo: "geral",
+                destinatario: username
+            });
+        });
+
+        await lote.commit();
+        quantidadeSalva += usuariosDoLote.length;
+    }
+
+    return quantidadeSalva;
+}
+
+function iniciarListenerNotificacoesGerais() {
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+
+    if (!usernameLogado) {
+        return;
+    }
+
+    if (
+        !banco ||
+        typeof banco.collection !== "function"
+    ) {
+        clearTimeout(
+            window._timerListenerNotificacoesGerais
+        );
+        window._timerListenerNotificacoesGerais =
+            setTimeout(
+                iniciarListenerNotificacoesGerais,
+                500
+            );
+        return;
+    }
+
+    if (
+        window._listenerNotificacoesGeraisAtivo &&
+        window._listenerNotificacoesGeraisUsuario ===
+            usernameLogado &&
+        window._unsubscribeNotificacoesGerais
+    ) {
+        return;
+    }
+
+    if (window._unsubscribeNotificacoesGerais) {
+        window._unsubscribeNotificacoesGerais();
+        window._unsubscribeNotificacoesGerais = null;
+    }
+
+    window._listenerNotificacoesGeraisAtivo = true;
+    window._listenerNotificacoesGeraisUsuario =
+        usernameLogado;
+    window._notificacoesGeraisAtuais = [];
+
+    const referencia = banco
+        .collection("notificacoes_gerais")
+        .doc(usernameLogado)
+        .collection("itens");
+
+    const unsubscribe = referencia.onSnapshot(
+        snapshot => {
+            const lista = [];
+
+            snapshot.forEach(documento => {
+                const dados = documento.data() || {};
+                const tipo = String(
+                    dados.tipo || "geral"
+                ).trim().toLowerCase();
+
+                if (tipo !== "geral") {
+                    return;
+                }
+
+                lista.push({
+                    id: documento.id,
+                    ...dados
+                });
+            });
+
+            lista.sort((primeiro, segundo) => {
+                const valorPrimeiro =
+                    primeiro.timestamp &&
+                    typeof primeiro.timestamp.toMillis ===
+                        "function"
+                        ? primeiro.timestamp.toMillis()
+                        : 0;
+                const valorSegundo =
+                    segundo.timestamp &&
+                    typeof segundo.timestamp.toMillis ===
+                        "function"
+                        ? segundo.timestamp.toMillis()
+                        : 0;
+
+                return valorSegundo - valorPrimeiro;
+            });
+
+            window._notificacoesGeraisAtuais = lista;
+
+            const naoLidas = lista.filter(
+                notificacao => notificacao.lida !== true
+            ).length;
+
+            atualizarBadgeNotificacoesHeader(naoLidas);
+            renderizarListaNotificacoesHeader(lista);
+        },
+        erro => {
+            console.error(
+                "Erro ao observar notificações gerais:",
+                erro
+            );
+        }
+    );
+
+    window._unsubscribeNotificacoesGerais = () => {
+        unsubscribe();
+        window._listenerNotificacoesGeraisAtivo = false;
+        window._listenerNotificacoesGeraisUsuario = "";
+        window._notificacoesGeraisAtuais = [];
+        atualizarBadgeNotificacoesHeader(0);
+        renderizarListaNotificacoesHeader([]);
+    };
+}
+
+function atualizarBadgeNotificacoesHeader(total) {
+    const badge = document.getElementById(
+        "badge-notificacoes-header"
+    );
+
+    if (!badge) {
+        return;
+    }
+
+    const quantidade = Math.max(0, Number(total) || 0);
+
+    badge.textContent = quantidade > 99
+        ? "99+"
+        : String(quantidade);
+    badge.style.display = quantidade > 0
+        ? "block"
+        : "none";
+}
+
+function formatarDataNotificacaoGeral(valor) {
+    let data = null;
+
+    if (
+        valor &&
+        typeof valor.toDate === "function"
+    ) {
+        data = valor.toDate();
+    } else if (valor instanceof Date) {
+        data = valor;
+    } else if (
+        typeof valor === "string" ||
+        typeof valor === "number"
+    ) {
+        data = new Date(valor);
+    }
+
+    if (
+        !data ||
+        Number.isNaN(data.getTime())
+    ) {
+        return "Agora";
+    }
+
+    return data.toLocaleString(
+        "pt-BR",
+        {
+            dateStyle: "short",
+            timeStyle: "short"
+        }
+    );
+}
+
+function renderizarListaNotificacoesHeader(lista) {
+    const container = document.getElementById(
+        "lista-notificacoes-header"
+    );
+    const estadoVazio = document.getElementById(
+        "estado-vazio-notificacoes-header"
+    );
+
+    if (!container || !estadoVazio) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!Array.isArray(lista) || !lista.length) {
+        estadoVazio.style.display = "block";
+        return;
+    }
+
+    estadoVazio.style.display = "none";
+
+    lista.forEach(notificacao => {
+        const item = document.createElement("article");
+        const cabecalho = document.createElement("div");
+        const titulo = document.createElement("strong");
+        const corpo = document.createElement("div");
+        const rodape = document.createElement("div");
+        const data = document.createElement("span");
+        const excluir = document.createElement("button");
+
+        item.style.display = "flex";
+        item.style.flexDirection = "column";
+        item.style.gap = "8px";
+        item.style.padding = "13px 15px";
+        item.style.borderBottom = "1px solid #2f3336";
+        item.style.borderLeft = notificacao.lida === true
+            ? "3px solid transparent"
+            : "3px solid #0095f6";
+        item.style.background = notificacao.lida === true
+            ? "#121212"
+            : "#18212a";
+        item.style.cursor = "pointer";
+        item.setAttribute(
+            "data-notificacao-id",
+            String(notificacao.id || "")
+        );
+
+        cabecalho.style.display = "flex";
+        cabecalho.style.alignItems = "flex-start";
+        cabecalho.style.justifyContent = "space-between";
+        cabecalho.style.gap = "10px";
+
+        titulo.textContent = String(
+            notificacao.titulo || "Notificação"
+        );
+        titulo.style.color = "#fff";
+        titulo.style.fontSize = "14px";
+        titulo.style.lineHeight = "1.3";
+
+        corpo.textContent = String(
+            notificacao.corpo || ""
+        );
+        corpo.style.color = "#d7d9db";
+        corpo.style.fontSize = "13px";
+        corpo.style.lineHeight = "1.45";
+        corpo.style.whiteSpace = "pre-wrap";
+        corpo.style.wordBreak = "break-word";
+
+        rodape.style.display = "flex";
+        rodape.style.alignItems = "center";
+        rodape.style.justifyContent = "space-between";
+        rodape.style.gap = "10px";
+
+        data.textContent = formatarDataNotificacaoGeral(
+            notificacao.timestamp
+        );
+        data.style.color = "#8e8e8e";
+        data.style.fontSize = "11px";
+
+        excluir.type = "button";
+        excluir.textContent = "Excluir";
+        excluir.style.border = "none";
+        excluir.style.background = "transparent";
+        excluir.style.color = "#ff6b6b";
+        excluir.style.fontSize = "11px";
+        excluir.style.fontWeight = "600";
+        excluir.style.cursor = "pointer";
+        excluir.style.padding = "3px 0";
+        excluir.addEventListener("click", evento => {
+            evento.stopPropagation();
+            excluirNotificacao(notificacao.id);
+        });
+
+        cabecalho.appendChild(titulo);
+        rodape.appendChild(data);
+        rodape.appendChild(excluir);
+        item.appendChild(cabecalho);
+        item.appendChild(corpo);
+        item.appendChild(rodape);
+
+        item.addEventListener("click", () => {
+            marcarNotificacaoComoLida(notificacao.id);
+        });
+
+        container.appendChild(item);
+    });
+}
+
+function obterReferenciaNotificacoesGeraisUsuario() {
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+
+    if (
+        !usernameLogado ||
+        !banco ||
+        typeof banco.collection !== "function"
+    ) {
+        return null;
+    }
+
+    return banco
+        .collection("notificacoes_gerais")
+        .doc(usernameLogado)
+        .collection("itens");
+}
+
+async function marcarNotificacaoComoLida(docId) {
+    const id = String(docId || "").trim();
+    const referencia =
+        obterReferenciaNotificacoesGeraisUsuario();
+
+    if (!id || !referencia) {
+        return;
+    }
+
+    try {
+        await referencia.doc(id).set(
+            {
+                lida: true
+            },
+            {
+                merge: true
+            }
+        );
+    } catch (erro) {
+        console.error(
+            "Erro ao marcar notificação geral como lida:",
+            erro
+        );
+    }
+}
+
+async function excluirNotificacao(docId) {
+    const id = String(docId || "").trim();
+    const referencia =
+        obterReferenciaNotificacoesGeraisUsuario();
+
+    if (!id || !referencia) {
+        return;
+    }
+
+    try {
+        await referencia.doc(id).delete();
+    } catch (erro) {
+        console.error(
+            "Erro ao excluir notificação geral:",
+            erro
+        );
+    }
+}
+
+async function limparTodasNotificacoes() {
+    const referencia =
+        obterReferenciaNotificacoesGeraisUsuario();
+
+    if (!referencia) {
+        return;
+    }
+
+    const listaAtual = Array.isArray(
+        window._notificacoesGeraisAtuais
+    )
+        ? window._notificacoesGeraisAtuais
+        : [];
+
+    if (!listaAtual.length) {
+        return;
+    }
+
+    const confirmar = window.confirm(
+        "Deseja apagar todas as suas notificações gerais?"
+    );
+
+    if (!confirmar) {
+        return;
+    }
+
+    try {
+        const snapshot = await referencia.get();
+        const documentos = snapshot.docs || [];
+        const limitePorLote = 450;
+
+        for (
+            let inicio = 0;
+            inicio < documentos.length;
+            inicio += limitePorLote
+        ) {
+            const lote = window.ClubeDB.textoDB.batch();
+            const documentosDoLote = documentos.slice(
+                inicio,
+                inicio + limitePorLote
+            );
+
+            documentosDoLote.forEach(documento => {
+                lote.delete(documento.ref);
+            });
+
+            await lote.commit();
+        }
+    } catch (erro) {
+        console.error(
+            "Erro ao limpar notificações gerais:",
+            erro
+        );
+    }
+}
+
+function fecharPainelNotificacoes() {
+    const painel = document.getElementById(
+        "painel-notificacoes-header"
+    );
+    const botao = document.getElementById(
+        "btn-notificacoes-header"
+    );
+
+    if (painel) {
+        painel.style.display = "none";
+        painel.setAttribute("aria-hidden", "true");
+    }
+
+    if (botao) {
+        botao.setAttribute("aria-expanded", "false");
+    }
+}
+
+function abrirPainelNotificacoes() {
+    const painel = document.getElementById(
+        "painel-notificacoes-header"
+    );
+    const botao = document.getElementById(
+        "btn-notificacoes-header"
+    );
+
+    if (!painel) {
+        return;
+    }
+
+    const estaAberto = painel.style.display === "flex";
+
+    if (estaAberto) {
+        fecharPainelNotificacoes();
+        return;
+    }
+
+    painel.style.display = "flex";
+    painel.setAttribute("aria-hidden", "false");
+
+    if (botao) {
+        botao.setAttribute("aria-expanded", "true");
+    }
+}
 
 let envioNotificacaoGeralEmAndamento = false;
+
+
+
 
 async function enviarNotificacaoGeralAdmin() {
     const status = document.getElementById(
@@ -4060,12 +4728,38 @@ async function enviarNotificacaoGeralAdmin() {
             dados.destinatariosComDispositivo || 0
         );
         const falhas = Number(dados.falhas || 0);
+        let quantidadeSalva = 0;
+        let erroPersistencia = null;
+
+        try {
+            quantidadeSalva =
+                await salvarNotificacaoGeralNoFirestore(
+                    titulo,
+                    mensagem,
+                    destinatarios
+                );
+        } catch (erroFirestore) {
+            erroPersistencia = erroFirestore;
+            console.error(
+                "O Push foi enviado, mas a notificação não foi salva no centro interno:",
+                erroFirestore
+            );
+        }
 
         if (status) {
-            status.style.color = "#5edc8a";
-            status.textContent = enviados
-                ? `Notificação enviada para ${enviados} dispositivo(s), de ${comDispositivo} usuário(s) com Push ativo${falhas ? `; falhas: ${falhas}.` : "."}`
-                : "Nenhum destinatário possui um dispositivo registrado para receber Push.";
+            if (erroPersistencia) {
+                status.style.color = "#ffb44d";
+                status.textContent =
+                    "O Push foi processado, mas não foi possível salvar a notificação dentro do app. Verifique as regras do Firestore antes de reenviar.";
+            } else if (enviados) {
+                status.style.color = "#5edc8a";
+                status.textContent =
+                    `Notificação enviada para ${enviados} dispositivo(s), de ${comDispositivo} usuário(s) com Push ativo${falhas ? `; falhas: ${falhas}.` : "."} Também foi salva no centro do app para ${quantidadeSalva} usuário(s).`;
+            } else {
+                status.style.color = "#5edc8a";
+                status.textContent =
+                    `Notificação salva no centro do app para ${quantidadeSalva} usuário(s), mas nenhum destinatário possui um dispositivo registrado para receber Push.`;
+            }
         }
     } catch (erro) {
         console.error(
@@ -4089,6 +4783,7 @@ async function enviarNotificacaoGeralAdmin() {
         }
     }
 }
+
 
 function mudarAbaAdmin(idAbaDestino) {
     const conteudos = document.querySelectorAll(".conteudo-aba");

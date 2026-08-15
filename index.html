@@ -1331,11 +1331,61 @@
                 </div>
 
                 <!-- Lado Direito -->
-                <div style="display: flex; align-items: center; gap: 15px; z-index: 210;">
+<div style="display: flex; align-items: center; gap: 15px; z-index: 210;">
                     <button id="btn-admin-adicionar-item" onclick="abrirModalCriarItem()" style="display: none; background: #0095f6; border: none; color: #fff; width: 24px; height: 24px; border-radius: 50%; font-size: 18px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1;">+</button>
                     <button id="btn-voltar-painel" onclick="irParaPainel()" style="display: none; background: none; border: none; color: #0095f6; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0;">Painel</button>
+
+                    <button
+                        id="btn-notificacoes-header"
+                        type="button"
+                        onclick="abrirPainelNotificacoes()"
+                        aria-label="Abrir notificações gerais"
+                        aria-expanded="false"
+                        style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: none; border-radius: 50%; background: transparent; color: #fff; cursor: pointer;"
+                    >
+                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display: block;">
+                            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M10 21h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                        </svg>
+                        <span
+                            id="badge-notificacoes-header"
+                            aria-live="polite"
+                            style="display: none; position: absolute; top: -3px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; background: #ff3040; color: #fff; font-size: 10px; font-weight: 700; line-height: 18px; text-align: center;"
+                        ></span>
+                    </button>
+
+                    <div
+                        id="painel-notificacoes-header"
+                        role="dialog"
+                        aria-label="Notificações gerais"
+                        aria-hidden="true"
+                        style="display: none; position: fixed; top: calc(58px + env(safe-area-inset-top)); right: 12px; width: min(360px, calc(100vw - 24px)); max-height: min(70vh, 520px); box-sizing: border-box; overflow: hidden; flex-direction: column; background: #121212; border: 1px solid #2f3336; border-radius: 14px; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55); z-index: 2147483001;"
+                    >
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 15px; border-bottom: 1px solid #2f3336;">
+                            <strong style="color: #fff; font-size: 16px;">Notificações</strong>
+                            <button
+                                type="button"
+                                onclick="limparTodasNotificacoes()"
+                                style="border: none; background: transparent; color: #0095f6; font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 0;"
+                            >
+                                Limpar tudo
+                            </button>
+                        </div>
+                        <div
+                            id="lista-notificacoes-header"
+                            style="display: flex; flex-direction: column; max-height: 430px; overflow-y: auto;"
+                        ></div>
+                        <div
+                            id="estado-vazio-notificacoes-header"
+                            style="display: block; padding: 28px 18px; color: #8e8e8e; font-size: 13px; line-height: 1.45; text-align: center;"
+                        >
+                            Você não tem notificações gerais.
+                        </div>
+                    </div>
+
                     <button onclick="fazerLogoutSessao()" style="background: none; border: none; color: #ff4d4d; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0;">Sair</button>
                 </div>
+
             </header>
 
             <!-- Container de Conteúdo (Scrollável) -->
