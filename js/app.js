@@ -556,6 +556,7 @@ async function sincronizarPresencaPush() {
 
 // Direciona o fluxo para a tela de visualização do site
 async function solicitarPermissaoNotificacoes() {
+    const cicloAtual = ++_cicloAvisoNotificacoes;
 
     if (typeof Notification === "undefined") {
         return;
@@ -567,19 +568,6 @@ async function solicitarPermissaoNotificacoes() {
         return;
     }
 
-    const iOS = (
-        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (
-            navigator.platform === "MacIntel" &&
-            navigator.maxTouchPoints > 1
-        )
-    ) && !window.MSStream;
-
-    const PWA = Boolean(
-        window.matchMedia &&
-        window.matchMedia("(display-mode: standalone)").matches
-    ) || window.navigator.standalone === true;
-
     const removerAviso = () => {
         const avisoAtual = document.getElementById(
             "aviso-notificacoes-site"
@@ -590,60 +578,29 @@ async function solicitarPermissaoNotificacoes() {
         }
     };
 
-    if (
-        Notification.permission === "granted" &&
-        !(iOS && !PWA)
-    ) {
-        try {
-            const registro = await navigator.serviceWorker.register(
-                "/firebase-messaging-sw.js",
-                { scope: "/" }
-            );
-            const registroPronto = await navigator.serviceWorker.ready;
-            const assinaturaExistente =
-                registroPronto.pushManager
-                    ? await registroPronto.pushManager.getSubscription()
-                    : null;
-            const endpointAtual = assinaturaExistente &&
-                assinaturaExistente.endpoint
-                ? String(assinaturaExistente.endpoint)
-                : "";
-            const endpointCadastrado = String(
-                localStorage.getItem("webPushEndpoint") || ""
-            );
-            const usuarioCadastrado = String(
-                localStorage.getItem("webPushUsuarioAtivo") || ""
-            ).trim().toLowerCase();
-            const usuarioAtual = String(
-                localStorage.getItem("usernameLogado") || ""
-            ).trim().toLowerCase();
+    const permissaoConcedida = Notification.permission === "granted";
+    const aplicativoIOSForaDaTelaInicial =
+        ehIOS() && !ehAplicativoInstalado();
 
-            if (
-                localStorage.getItem("webPushAssinaturaAtiva") === "true" &&
-                usuarioCadastrado === usuarioAtual &&
-                usuarioAtual &&
-                endpointAtual &&
-                endpointAtual === endpointCadastrado
-            ) {
+    if (permissaoConcedida && !aplicativoIOSForaDaTelaInicial) {
+        try {
+            const assinaturaCadastrada =
+                await registrarPushNesteDispositivo();
+
+            if (assinaturaCadastrada) {
                 removerAviso();
                 return;
             }
-
-            if (assinaturaExistente) {
-                const assinaturaCadastrada =
-                    await registrarPushNesteDispositivo();
-
-                if (assinaturaCadastrada) {
-                    removerAviso();
-                    return;
-                }
-            }
         } catch (erro) {
             console.warn(
-                "Não foi possível validar o cadastro de notificações:",
+                "Não foi possível reanexar o cadastro de notificações:",
                 erro
             );
         }
+    }
+
+    if (cicloAtual !== _cicloAvisoNotificacoes) {
+        return;
     }
 
     removerAviso();
@@ -696,21 +653,7 @@ async function solicitarPermissaoNotificacoes() {
         botao.onclick = fecharAviso;
     };
 
-    const mostrarErroRegistro = () => {
-        texto.textContent =
-            "Não foi possível registrar este dispositivo. " +
-            "Verifique a conexão e tente novamente.";
-        botao.disabled = false;
-        botao.textContent = "Tentar novamente";
-    };
-
-    if (Notification.permission === "denied") {
-        texto.textContent =
-            "As notificações estão bloqueadas neste dispositivo. " +
-            "Libere a permissão nas configurações do site.";
-        botao.textContent = "Ver instruções";
-        botao.onclick = mostrarBloqueio;
-    } else if (iOS && !PWA) {
+    const configurarInstalacaoIOS = () => {
         texto.textContent =
             "Para receber notificações com o app fechado, instale o Clube Guardiões na Tela de Início.";
         botao.textContent = "Como instalar";
@@ -720,10 +663,41 @@ async function solicitarPermissaoNotificacoes() {
             botao.textContent = "Entendi";
             botao.onclick = fecharAviso;
         };
+    };
+
+    const mostrarErroRegistro = () => {
+        const detalhe = window._ultimoErroRegistroPush
+            ? ` Detalhe: ${window._ultimoErroRegistroPush}`
+            : "";
+        texto.textContent =
+            "Não foi possível registrar este dispositivo. Verifique a conexão e tente novamente." +
+            detalhe;
+        botao.disabled = false;
+        botao.textContent = "Tentar novamente";
+        botao.onclick = async () => {
+            botao.disabled = true;
+            botao.textContent = "Registrando...";
+            const assinatura =
+                await registrarPushNesteDispositivo();
+            if (assinatura) {
+                fecharAviso();
+                return;
+            }
+            mostrarErroRegistro();
+        };
+    };
+
+    if (Notification.permission === "denied") {
+        texto.textContent =
+            "As notificações estão bloqueadas neste dispositivo. Libere a permissão nas configurações do site.";
+        botao.textContent = "Ver instruções";
+        botao.onclick = mostrarBloqueio;
+    } else if (aplicativoIOSForaDaTelaInicial) {
+        configurarInstalacaoIOS();
     } else if (Notification.permission === "granted") {
         texto.textContent =
-            "A permissão já foi concedida. Registre este dispositivo para receber cada nova mensagem.";
-        botao.textContent = "Registrar dispositivo";
+            "A permissão está concedida, mas não foi possível registrar este dispositivo automaticamente.";
+        botao.textContent = "Tentar novamente";
         botao.onclick = async () => {
             botao.disabled = true;
             botao.textContent = "Registrando...";
