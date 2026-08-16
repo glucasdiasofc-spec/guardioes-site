@@ -1840,7 +1840,30 @@
             <div id="sub-aba-mensagens" style="display: none; flex-direction: column; height: 100%; position: relative;">
                 <!-- Lista de Contatos -->
                 <div id="tela-lista-mensagens" style="display: flex; flex-direction: column; height: 100%; padding: 16px 16px 80px 16px; overflow-y: auto;">
-                    <h3 style="color: #fff; margin: 0 0 20px 0; font-size: 22px; font-weight: 700;">Mensagens</h3>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px;">
+                        <h3 style="color: #fff; margin: 0; font-size: 22px; font-weight: 700;">Mensagens</h3>
+                        <button
+                            id="btn-criar-grupo-chat"
+                            type="button"
+                            onclick="abrirModalCriarGrupoChat()"
+                            style="border: 1px solid #0095f6; border-radius: 18px; background: transparent; color: #0095f6; padding: 7px 11px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;"
+                        >
+                            + Grupo
+                        </button>
+                    </div>
+
+                    <div style="position: relative; margin-bottom: 18px;">
+                        <input
+                            id="input-pesquisa-contatos-chat"
+                            type="search"
+                            autocomplete="off"
+                            placeholder="Pesquisar usuário ou cargo..."
+                            aria-label="Pesquisar usuário ou cargo"
+                            oninput="filtrarContatosChat(this.value)"
+                            style="width: 100%; box-sizing: border-box; padding: 11px 14px 11px 40px; background: #1c1c1c; border: 1px solid #363636; border-radius: 22px; color: #fff; font-size: 14px; outline: none;"
+                        >
+                        <span aria-hidden="true" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #8e8e8e; font-size: 16px; pointer-events: none;">⌕</span>
+                    </div>
 
                     <!-- Estado de Carregamento -->
                     <div id="msg-loading-state" style="text-align: center; padding: 40px 0; color: #8e8e8e; font-size: 14px;">
@@ -1855,7 +1878,12 @@
                     </div>
 
                     <div id="msg-contatos-container" style="display: none; flex: 1;">
+                        <!-- Grupos -->
+                        <h4 id="titulo-msg-grupos" style="color: #8e8e8e; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0; display: none;">Grupos</h4>
+                        <div id="lista-msg-grupos" style="display: flex; flex-direction: column;"></div>
+
                         <!-- Suporte -->
+
                         <h4 id="titulo-msg-suporte" style="color: #8e8e8e; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0; display: none;">Suporte</h4>
                         <div id="lista-msg-suporte" style="display: flex; flex-direction: column;"></div>
 
@@ -1901,7 +1929,75 @@
 
 
 
-            </div> <!-- Fecha sub-aba-mensagens -->
+</div> <!-- Fecha sub-aba-mensagens -->
+
+            <div
+                id="modal-criar-grupo-chat"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="titulo-modal-criar-grupo-chat"
+                style="display: none; position: fixed; inset: 0; z-index: 2147483646; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.78);"
+            >
+                <div style="display: flex; flex-direction: column; width: min(100%, 430px); max-height: min(86vh, 620px); overflow: hidden; box-sizing: border-box; background: #121212; border: 1px solid #2f3336; border-radius: 16px; box-shadow: 0 14px 42px rgba(0, 0, 0, 0.6);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid #2f3336;">
+                        <h3 id="titulo-modal-criar-grupo-chat" style="margin: 0; color: #fff; font-size: 17px;">Criar grupo</h3>
+                        <button
+                            type="button"
+                            onclick="fecharModalCriarGrupoChat()"
+                            aria-label="Fechar criação de grupo"
+                            style="border: none; background: transparent; color: #fff; font-size: 24px; line-height: 20px; cursor: pointer; padding: 0 2px;"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 14px; padding: 16px; overflow-y: auto;">
+                        <label style="display: flex; flex-direction: column; gap: 7px; color: #a8a8a8; font-size: 12px;">
+                            Nome do grupo
+                            <input
+                                id="input-nome-grupo-chat"
+                                type="text"
+                                maxlength="60"
+                                autocomplete="off"
+                                placeholder="Ex.: Desbravadores da Unidade"
+                                style="width: 100%; box-sizing: border-box; padding: 11px 12px; background: #1c1c1c; border: 1px solid #363636; border-radius: 9px; color: #fff; font-size: 14px; outline: none;"
+                            >
+                        </label>
+
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                                <strong style="color: #fff; font-size: 13px;">Participantes</strong>
+                                <span id="contador-participantes-grupo-chat" style="color: #8e8e8e; font-size: 12px;">0 selecionados</span>
+                            </div>
+                            <div
+                                id="lista-participantes-grupo-chat"
+                                style="display: flex; flex-direction: column; gap: 7px; min-height: 90px; max-height: 300px; overflow-y: auto; padding: 8px; background: #1c1c1c; border: 1px solid #363636; border-radius: 10px;"
+                            >
+                                <div style="padding: 18px 8px; color: #8e8e8e; font-size: 13px; text-align: center;">Carregando usuários...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 16px; border-top: 1px solid #2f3336;">
+                        <button
+                            type="button"
+                            onclick="fecharModalCriarGrupoChat()"
+                            style="border: 1px solid #3a3a3a; border-radius: 9px; background: transparent; color: #d7d9db; padding: 10px 14px; font-size: 13px; cursor: pointer;"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            id="btn-confirmar-criacao-grupo-chat"
+                            type="button"
+                            onclick="criarGrupoChat()"
+                            style="border: none; border-radius: 9px; background: #0095f6; color: #fff; padding: 10px 14px; font-size: 13px; font-weight: 700; cursor: pointer;"
+                        >
+                            Criar grupo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
 
                         </main>
 
