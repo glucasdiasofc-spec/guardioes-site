@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.196.0 - versão alpha";
+const VERSAO_ATUAL = "v0.300.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -2004,7 +2004,9 @@ async function criarGrupoChat() {
 
     const participantes = Array.from(
         _participantesGrupoChatSelecionados
-    ).filter(Boolean);
+    )
+        .map(usuario => String(usuario || "").trim().toLowerCase())
+        .filter(Boolean);
 
     if (!usernameLogado || !participantes.includes(usernameLogado)) {
         window.alert(
@@ -2056,14 +2058,33 @@ async function criarGrupoChat() {
         });
 
         fecharModalCriarGrupoChat();
+        await carregarListaDeContatosChat();
         window.alert("Grupo criado com sucesso.");
     } catch (erro) {
+        const codigo = String(
+            erro && erro.code ||
+            "sem-codigo"
+        );
+        const mensagem = String(
+            erro && erro.message ||
+            erro ||
+            "Falha desconhecida."
+        );
+
         console.error(
             "Erro ao criar grupo de chat:",
-            erro
+            {
+                codigo,
+                mensagem,
+                usernameLogado,
+                participantes
+            }
         );
+
         window.alert(
-            "Não foi possível criar o grupo. Verifique sua conexão e tente novamente."
+            `Não foi possível criar o grupo.\n\n` +
+            `Código: ${codigo}\n` +
+            `Detalhes: ${mensagem}`
         );
     } finally {
         if (botao) {
@@ -2073,6 +2094,7 @@ async function criarGrupoChat() {
         }
     }
 }
+
 
 function criarCardGrupoChat(
     chatId,
