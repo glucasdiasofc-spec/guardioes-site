@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.315.0 - versão alpha";
+const VERSAO_ATUAL = "v0.316.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -2268,6 +2268,7 @@ async function criarGrupoChat() {
             nomeGrupo,
             fotoGrupoUrl,
             usuarios: participantes,
+            administradores: [usernameLogado],
             criadoPor: usernameLogado,
             criadoEm:
                 firebase.firestore.FieldValue.serverTimestamp(),
@@ -2313,6 +2314,7 @@ async function criarGrupoChat() {
         }
     }
 }
+
 
 
 
@@ -2811,9 +2813,24 @@ function configurarAcoesGrupoChat(dadosGrupo) {
     const criadoPor = String(
         dadosGrupo && dadosGrupo.criadoPor || ""
     ).trim().toLowerCase();
+    const administradores = Array.isArray(
+        dadosGrupo && dadosGrupo.administradores
+    )
+        ? dadosGrupo.administradores.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
     const podeGerenciar =
         localStorage.getItem("usuarioLogado") === "admin" ||
-        Boolean(usernameLogado && criadoPor === usernameLogado);
+        Boolean(
+            usernameLogado &&
+            (
+                usernameLogado === criadoPor ||
+                administradores.includes(usernameLogado)
+            )
+        );
 
     if (!cabecalho) {
         return;
@@ -2827,6 +2844,40 @@ function configurarAcoesGrupoChat(dadosGrupo) {
         antigo.remove();
     }
 
+    if (
+        !administradores.length &&
+        dadosGrupo &&
+        dadosGrupo.chatId &&
+        !dadosGrupo._administradoresRecarregados &&
+        banco
+    ) {
+        dadosGrupo._administradoresRecarregados = true;
+
+        banco
+            .collection("chats")
+            .doc(dadosGrupo.chatId)
+            .get()
+            .then(documento => {
+                if (!documento.exists) {
+                    return;
+                }
+
+                const dadosAtuais = documento.data() || {};
+                dadosGrupo.administradores = Array.isArray(
+                    dadosAtuais.administradores
+                )
+                    ? dadosAtuais.administradores
+                    : [];
+                configurarAcoesGrupoChat(dadosGrupo);
+            })
+            .catch(erro => {
+                console.error(
+                    "Erro ao recarregar administradores do grupo:",
+                    erro
+                );
+            });
+    }
+
     if (!podeGerenciar) {
         return;
     }
@@ -2834,6 +2885,7 @@ function configurarAcoesGrupoChat(dadosGrupo) {
     const acoes = document.createElement("div");
     const inputFoto = document.createElement("input");
     const botaoFoto = document.createElement("button");
+    const botaoMembros = document.createElement("button");
     const botaoExcluir = document.createElement("button");
 
     acoes.id = "acoes-grupo-chat";
@@ -2865,6 +2917,21 @@ function configurarAcoesGrupoChat(dadosGrupo) {
         () => inputFoto.click()
     );
 
+    botaoMembros.type = "button";
+    botaoMembros.textContent = "Membros";
+    botaoMembros.title = "Gerenciar participantes e administradores";
+    botaoMembros.style.border = "1px solid #8b5cf6";
+    botaoMembros.style.borderRadius = "7px";
+    botaoMembros.style.background = "transparent";
+    botaoMembros.style.color = "#c4a7ff";
+    botaoMembros.style.padding = "5px 7px";
+    botaoMembros.style.fontSize = "11px";
+    botaoMembros.style.cursor = "pointer";
+    botaoMembros.addEventListener(
+        "click",
+        () => abrirGerenciadorMembrosGrupoChat()
+    );
+
     botaoExcluir.type = "button";
     botaoExcluir.textContent = "Excluir";
     botaoExcluir.title = "Excluir grupo";
@@ -2882,11 +2949,503 @@ function configurarAcoesGrupoChat(dadosGrupo) {
 
     acoes.appendChild(inputFoto);
     acoes.appendChild(botaoFoto);
+    acoes.appendChild(botaoMembros);
     acoes.appendChild(botaoExcluir);
     cabecalho.appendChild(acoes);
 }
 
+
+
+function fecharGerenciadorMembrosGrupoChat() {
+    const modal = document.getElementById(
+        "modal-gerenciar-membros-grupo-chat"
+    );
+
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function salvarGerenciamentoMembrosGrupoChat() {
+    const modal = document.getElementById(
+        "modal-gerenciar-membros-grupo-chat"
+    );
+    const grupo = _salaGrupoAtiva;
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+
+    if (!modal || !grupo || !grupo.chatId || !banco) {
+        return;
+    }
+
+    const criadoPor = String(
+        grupo.criadoPor || ""
+    ).trim().toLowerCase();
+    const participantes = Array.from(
+        modal.querySelectorAll(
+            "[data-membro-grupo]:checked"
+        )
+    )
+        .map(elemento => String(
+            elemento.value || ""
+        ).trim().toLowerCase())
+        .filter(Boolean);
+    const administradores = Array.from(
+        modal.querySelectorAll(
+            "[data-admin-grupo]:checked"
+        )
+    )
+        .map(elemento => String(
+            elemento.value || ""
+        ).trim().toLowerCase())
+        .filter(Boolean);
+
+    if (!criadoPor || !participantes.includes(criadoPor)) {
+        window.alert(
+            "O criador do grupo não pode ser removido."
+        );
+        return;
+    }
+
+    if (!administradores.includes(criadoPor)) {
+        window.alert(
+            "O criador precisa continuar como administrador."
+        );
+        return;
+    }
+
+    if (participantes.length < 2) {
+        window.alert(
+            "O grupo precisa ter pelo menos dois participantes."
+        );
+        return;
+    }
+
+    const adminsForaDoGrupo = administradores.some(
+        administrador => !participantes.includes(administrador)
+    );
+
+    if (adminsForaDoGrupo) {
+        window.alert(
+            "Um administrador precisa ser participante do grupo."
+        );
+        return;
+    }
+
+    const botao = modal.querySelector(
+        "[data-salvar-membros-grupo]"
+    );
+
+    if (botao) {
+        botao.disabled = true;
+        botao.textContent = "Salvando...";
+        botao.style.opacity = "0.65";
+    }
+
+    try {
+        await banco
+            .collection("chats")
+            .doc(grupo.chatId)
+            .set(
+                {
+                    usuarios: Array.from(
+                        new Set(participantes)
+                    ),
+                    administradores: Array.from(
+                        new Set(administradores)
+                    )
+                },
+                {
+                    merge: true
+                }
+            );
+
+        grupo.participantes = Array.from(
+            new Set(participantes)
+        );
+        grupo.administradores = Array.from(
+            new Set(administradores)
+        );
+
+        fecharGerenciadorMembrosGrupoChat();
+        configurarAcoesGrupoChat(grupo);
+        await carregarListaDeContatosChat();
+        window.alert(
+            "Participantes e administradores atualizados."
+        );
+    } catch (erro) {
+        console.error(
+            "Erro ao salvar membros do grupo:",
+            erro
+        );
+        window.alert(
+            `Não foi possível salvar as alterações.\n\n` +
+            `Código: ${String(erro && erro.code || "sem-codigo")}\n` +
+            `Detalhes: ${String(erro && erro.message || erro)}`
+        );
+    } finally {
+        if (botao) {
+            botao.disabled = false;
+            botao.textContent = "Salvar alterações";
+            botao.style.opacity = "1";
+        }
+    }
+}
+
+async function abrirGerenciadorMembrosGrupoChat() {
+    const grupo = _salaGrupoAtiva;
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+
+    if (!grupo || !grupo.chatId || !banco) {
+        return;
+    }
+
+    const administradoresAtuais = Array.isArray(
+        grupo.administradores
+    ) && grupo.administradores.length
+        ? grupo.administradores
+        : [String(
+            grupo.criadoPor || ""
+        ).trim().toLowerCase()];
+    const podeGerenciar =
+        localStorage.getItem("usuarioLogado") === "admin" ||
+        usernameLogado === String(
+            grupo.criadoPor || ""
+        ).trim().toLowerCase() ||
+        administradoresAtuais.includes(usernameLogado);
+
+    if (!podeGerenciar) {
+        window.alert(
+            "Você não tem permissão para gerenciar este grupo."
+        );
+        return;
+    }
+
+    fecharGerenciadorMembrosGrupoChat();
+
+    const modal = document.createElement("div");
+    const caixa = document.createElement("div");
+    const topo = document.createElement("div");
+    const titulo = document.createElement("strong");
+    const fechar = document.createElement("button");
+    const conteudo = document.createElement("div");
+    const lista = document.createElement("div");
+    const rodape = document.createElement("div");
+    const cancelar = document.createElement("button");
+    const salvar = document.createElement("button");
+
+    modal.id = "modal-gerenciar-membros-grupo-chat";
+    modal.style.position = "fixed";
+    modal.style.inset = "0";
+    modal.style.zIndex = "2147483647";
+    modal.style.display = "flex";
+    modal.style.alignItems = "center";
+    modal.style.justifyContent = "center";
+    modal.style.padding = "18px";
+    modal.style.boxSizing = "border-box";
+    modal.style.background = "rgba(0,0,0,.78)";
+
+    caixa.style.display = "flex";
+    caixa.style.flexDirection = "column";
+    caixa.style.width = "min(100%, 520px)";
+    caixa.style.maxHeight = "min(88vh, 680px)";
+    caixa.style.overflow = "hidden";
+    caixa.style.background = "#121212";
+    caixa.style.border = "1px solid #2f3336";
+    caixa.style.borderRadius = "16px";
+
+    topo.style.display = "flex";
+    topo.style.alignItems = "center";
+    topo.style.justifyContent = "space-between";
+    topo.style.padding = "16px";
+    topo.style.borderBottom = "1px solid #2f3336";
+
+    titulo.textContent =
+        `Gerenciar membros — ${grupo.nomeGrupo}`;
+    titulo.style.color = "#fff";
+    titulo.style.fontSize = "16px";
+
+    fechar.type = "button";
+    fechar.textContent = "×";
+    fechar.setAttribute(
+        "aria-label",
+        "Fechar gerenciamento de membros"
+    );
+    fechar.style.border = "none";
+    fechar.style.background = "transparent";
+    fechar.style.color = "#fff";
+    fechar.style.fontSize = "24px";
+    fechar.style.cursor = "pointer";
+    fechar.addEventListener(
+        "click",
+        fecharGerenciadorMembrosGrupoChat
+    );
+
+    conteudo.style.padding = "14px 16px";
+    conteudo.style.overflowY = "auto";
+
+    const explicacao = document.createElement("div");
+    explicacao.textContent =
+        "Marque os participantes e, na coluna Admin, escolha quem poderá gerenciar este grupo.";
+    explicacao.style.marginBottom = "12px";
+    explicacao.style.color = "#8e8e8e";
+    explicacao.style.fontSize = "12px";
+    explicacao.style.lineHeight = "1.4";
+
+    lista.style.display = "flex";
+    lista.style.flexDirection = "column";
+    lista.style.gap = "7px";
+    lista.style.minHeight = "80px";
+
+    const cabecalhoLista = document.createElement("div");
+    cabecalhoLista.style.display = "grid";
+    cabecalhoLista.style.gridTemplateColumns = "1fr 72px 72px";
+    cabecalhoLista.style.gap = "8px";
+    cabecalhoLista.style.padding = "0 9px 5px";
+    cabecalhoLista.style.color = "#8e8e8e";
+    cabecalhoLista.style.fontSize = "11px";
+    cabecalhoLista.innerHTML =
+        "<span>Usuário</span><span>Participa</span><span>Admin</span>";
+
+    const adicionarLinha = (
+        usuario,
+        nome,
+        cargo,
+        participa,
+        eCriador,
+        eAdmin
+    ) => {
+        const linha = document.createElement("div");
+        const textos = document.createElement("div");
+        const nomeEl = document.createElement("strong");
+        const cargoEl = document.createElement("span");
+        const participante = document.createElement("input");
+        const admin = document.createElement("input");
+
+        linha.style.display = "grid";
+        linha.style.gridTemplateColumns = "1fr 72px 72px";
+        linha.style.alignItems = "center";
+        linha.style.gap = "8px";
+        linha.style.padding = "9px";
+        linha.style.borderRadius = "9px";
+        linha.style.background = "#1c1c1c";
+
+        textos.style.display = "flex";
+        textos.style.flexDirection = "column";
+        textos.style.gap = "3px";
+        textos.style.minWidth = "0";
+
+        nomeEl.textContent = String(nome || usuario);
+        nomeEl.style.color = "#fff";
+        nomeEl.style.fontSize = "13px";
+        nomeEl.style.overflow = "hidden";
+        nomeEl.style.textOverflow = "ellipsis";
+        nomeEl.style.whiteSpace = "nowrap";
+
+        cargoEl.textContent = `${cargo || "Membro"} · @${usuario}`;
+        cargoEl.style.color = "#8e8e8e";
+        cargoEl.style.fontSize = "10px";
+        cargoEl.style.overflow = "hidden";
+        cargoEl.style.textOverflow = "ellipsis";
+        cargoEl.style.whiteSpace = "nowrap";
+
+        participante.type = "checkbox";
+        participante.value = usuario;
+        participante.checked = Boolean(participa);
+        participante.setAttribute(
+            "data-membro-grupo",
+            "true"
+        );
+        participante.style.width = "17px";
+        participante.style.height = "17px";
+        participante.style.accentColor = "#0095f6";
+        participante.style.justifySelf = "center";
+
+        admin.type = "checkbox";
+        admin.value = usuario;
+        admin.checked = Boolean(eAdmin || eCriador);
+        admin.setAttribute(
+            "data-admin-grupo",
+            "true"
+        );
+        admin.style.width = "17px";
+        admin.style.height = "17px";
+        admin.style.accentColor = "#8b5cf6";
+        admin.style.justifySelf = "center";
+        admin.disabled = Boolean(eCriador || !participa);
+
+        if (eCriador) {
+            participante.disabled = true;
+            admin.disabled = true;
+        }
+
+        participante.addEventListener(
+            "change",
+            () => {
+                if (!participante.checked) {
+                    admin.checked = false;
+                    admin.disabled = true;
+                } else if (!eCriador) {
+                    admin.disabled = false;
+                }
+            }
+        );
+
+        admin.addEventListener(
+            "change",
+            () => {
+                if (admin.checked) {
+                    participante.checked = true;
+                }
+            }
+        );
+
+        textos.appendChild(nomeEl);
+        textos.appendChild(cargoEl);
+        linha.appendChild(textos);
+        linha.appendChild(participante);
+        linha.appendChild(admin);
+        lista.appendChild(linha);
+    };
+
+    const membrosAtuais = Array.isArray(
+        grupo.participantes
+    )
+        ? grupo.participantes.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
+
+    try {
+        const usuariosSnap = await banco
+            .collection("usuarios")
+            .get();
+        const usuarios = [];
+
+        usuariosSnap.forEach(documento => {
+            const dados = documento.data() || {};
+            const usuario = String(
+                dados.username || ""
+            ).trim().toLowerCase();
+
+            if (!usuario) {
+                return;
+            }
+
+            usuarios.push({
+                usuario,
+                nome: dados.nomeReal || usuario,
+                cargo: dados.cargo || dados.tipo || "Membro"
+            });
+        });
+
+        usuarios.sort((primeiro, segundo) => {
+            return String(primeiro.nome).localeCompare(
+                String(segundo.nome),
+                "pt-BR",
+                {
+                    sensitivity: "base"
+                }
+            );
+        });
+
+        const ordem = [
+            ...membrosAtuais,
+            ...usuarios
+                .map(item => item.usuario)
+                .filter(usuario => !membrosAtuais.includes(usuario))
+        ];
+        const mapaUsuarios = new Map(
+            usuarios.map(item => [item.usuario, item])
+        );
+
+        ordem.forEach(usuario => {
+            const dados = mapaUsuarios.get(usuario) || {
+                usuario,
+                nome: usuario,
+                cargo: "Membro"
+            };
+            adicionarLinha(
+                usuario,
+                dados.nome,
+                dados.cargo,
+                membrosAtuais.includes(usuario),
+                usuario === String(
+                    grupo.criadoPor || ""
+                ).trim().toLowerCase(),
+                administradoresAtuais.includes(usuario)
+            );
+        });
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar gerenciamento de membros:",
+            erro
+        );
+        const erroEl = document.createElement("div");
+        erroEl.textContent =
+            "Não foi possível carregar os usuários.";
+        erroEl.style.color = "#ff6b6b";
+        erroEl.style.padding = "16px 8px";
+        lista.appendChild(erroEl);
+    }
+
+    rodape.style.display = "flex";
+    rodape.style.justifyContent = "flex-end";
+    rodape.style.gap = "9px";
+    rodape.style.padding = "14px 16px";
+    rodape.style.borderTop = "1px solid #2f3336";
+
+    cancelar.type = "button";
+    cancelar.textContent = "Cancelar";
+    cancelar.style.border = "1px solid #3a3a3a";
+    cancelar.style.borderRadius = "8px";
+    cancelar.style.background = "transparent";
+    cancelar.style.color = "#d7d9db";
+    cancelar.style.padding = "9px 13px";
+    cancelar.style.cursor = "pointer";
+    cancelar.addEventListener(
+        "click",
+        fecharGerenciadorMembrosGrupoChat
+    );
+
+    salvar.type = "button";
+    salvar.textContent = "Salvar alterações";
+    salvar.setAttribute(
+        "data-salvar-membros-grupo",
+        "true"
+    );
+    salvar.style.border = "none";
+    salvar.style.borderRadius = "8px";
+    salvar.style.background = "#0095f6";
+    salvar.style.color = "#fff";
+    salvar.style.padding = "9px 13px";
+    salvar.style.fontWeight = "700";
+    salvar.style.cursor = "pointer";
+    salvar.addEventListener(
+        "click",
+        salvarGerenciamentoMembrosGrupoChat
+    );
+
+    topo.appendChild(titulo);
+    topo.appendChild(fechar);
+    conteudo.appendChild(explicacao);
+    conteudo.appendChild(cabecalhoLista);
+    conteudo.appendChild(lista);
+    rodape.appendChild(cancelar);
+    rodape.appendChild(salvar);
+    caixa.appendChild(topo);
+    caixa.appendChild(conteudo);
+    caixa.appendChild(rodape);
+    modal.appendChild(caixa);
+    document.body.appendChild(modal);
+}
+
 async function trocarFotoGrupoChat(input) {
+
     const grupo = _salaGrupoAtiva;
     const arquivo = input &&
         input.files &&
