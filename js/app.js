@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.300.0 - versão alpha";
+const VERSAO_ATUAL = "v0.315.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -894,7 +894,57 @@ function mostrarNotificacaoNovaMensagem(
     }, 5000);
 }
 
+let _timerOrdenacaoContatosChat = null;
+let _ordenacaoContatosChatEmAndamento = false;
+let _ordenacaoContatosChatPendente = false;
+
+function agendarAtualizacaoOrdenacaoContatosChat() {
+    clearTimeout(_timerOrdenacaoContatosChat);
+
+    _timerOrdenacaoContatosChat = setTimeout(
+        atualizarOrdenacaoContatosChat,
+        180
+    );
+}
+
+async function atualizarOrdenacaoContatosChat() {
+    const telaLista = document.getElementById(
+        "tela-lista-mensagens"
+    );
+
+    if (
+        telaLista &&
+        telaLista.style.display === "none"
+    ) {
+        return;
+    }
+
+    if (_ordenacaoContatosChatEmAndamento) {
+        _ordenacaoContatosChatPendente = true;
+        return;
+    }
+
+    _ordenacaoContatosChatEmAndamento = true;
+
+    try {
+        await carregarListaDeContatosChat();
+    } catch (erro) {
+        console.error(
+            "Erro ao atualizar a ordem dos contatos:",
+            erro
+        );
+    } finally {
+        _ordenacaoContatosChatEmAndamento = false;
+
+        if (_ordenacaoContatosChatPendente) {
+            _ordenacaoContatosChatPendente = false;
+            agendarAtualizacaoOrdenacaoContatosChat();
+        }
+    }
+}
+
 function iniciarListenerGlobalMensagens() {
+
     const usernameLogado = String(
         localStorage.getItem("usernameLogado") || ""
     ).trim().toLowerCase();
@@ -1002,9 +1052,11 @@ function iniciarListenerGlobalMensagens() {
             });
 
             renderizar();
+            agendarAtualizacaoOrdenacaoContatosChat();
         }, erro => {
             console.error("Erro ao observar contatos do chat:", erro);
         });
+
 
     const unsubscribeMensagens = window.ClubeDB.textoDB
         .collectionGroup("mensagens")
@@ -1750,7 +1802,108 @@ async function carregarListaDeContatosChat() {
 }
 
 
+function filtrarContatosChat(termo) {
+    const pesquisa = String(
+        termo || ""
+    )
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    const container = document.getElementById(
+        "msg-contatos-container"
+    );
+    const vazio = document.getElementById(
+        "msg-empty-state"
+    );
+
+    if (!container) {
+        return;
+    }
+
+    const cards = Array.from(
+        container.querySelectorAll(
+            "[data-chat-username], [data-group-chat-id]"
+        )
+    );
+    let encontrados = 0;
+
+    cards.forEach(card => {
+        const username = String(
+            card.getAttribute("data-chat-username") || ""
+        );
+        const grupoId = String(
+            card.getAttribute("data-group-chat-id") || ""
+        );
+        const textoCard = `${username} ${grupoId} ${
+            card.textContent || ""
+        }`
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+        const corresponde = !pesquisa ||
+            textoCard.includes(pesquisa);
+
+        card.style.display = corresponde
+            ? "flex"
+            : "none";
+
+        if (corresponde) {
+            encontrados += 1;
+        }
+    });
+
+    const secoes = [
+        [
+            "titulo-msg-grupos",
+            "lista-msg-grupos"
+        ],
+        [
+            "titulo-msg-suporte",
+            "lista-msg-suporte"
+        ],
+        [
+            "titulo-msg-lideranca",
+            "lista-msg-lideranca"
+        ],
+        [
+            "titulo-msg-unidade",
+            "lista-msg-unidade"
+        ],
+        [
+            "titulo-msg-outras",
+            "lista-msg-outras"
+        ]
+    ];
+
+    secoes.forEach(([idTitulo, idLista]) => {
+        const titulo = document.getElementById(idTitulo);
+        const lista = document.getElementById(idLista);
+
+        if (!titulo || !lista) {
+            return;
+        }
+
+        const possuiCardVisivel = Array.from(
+            lista.querySelectorAll(
+                "[data-chat-username], [data-group-chat-id]"
+            )
+        ).some(card => card.style.display !== "none");
+
+        titulo.style.display = possuiCardVisivel
+            ? "block"
+            : "none";
+    });
+
+    if (vazio) {
+        vazio.style.display = encontrados === 0
+            ? "block"
+            : "none";
+    }
+}
+
 let _participantesGrupoChatSelecionados = new Set();
+
 
 function atualizarContadorParticipantesGrupoChat() {
     const contador = document.getElementById(
@@ -1974,9 +2127,52 @@ function abrirModalCriarGrupoChat() {
     atualizarContadorParticipantesGrupoChat();
 }
 
+function mostrarPreviaImagemGrupoChat(input) {
+    const imagem = document.getElementById(
+        "previa-foto-grupo-chat"
+    );
+    const arquivo = input &&
+        input.files &&
+        input.files[0];
+
+    if (!imagem || !arquivo) {
+        if (imagem) {
+            imagem.removeAttribute("src");
+            imagem.style.display = "none";
+        }
+        return;
+    }
+
+    if (!arquivo.type.startsWith("image/")) {
+        input.value = "";
+        imagem.removeAttribute("src");
+        imagem.style.display = "none";
+        window.alert("Selecione um arquivo de imagem válido.");
+        return;
+    }
+
+    const leitor = new FileReader();
+
+    leitor.onload = evento => {
+        imagem.src = String(
+            evento.target &&
+            evento.target.result ||
+            ""
+        );
+        imagem.style.display = imagem.src
+            ? "block"
+            : "none";
+    };
+
+    leitor.readAsDataURL(arquivo);
+}
+
 async function criarGrupoChat() {
     const nomeEl = document.getElementById(
         "input-nome-grupo-chat"
+    );
+    const fotoInput = document.getElementById(
+        "input-foto-grupo-chat"
     );
     const botao = document.getElementById(
         "btn-confirmar-criacao-grupo-chat"
@@ -1989,6 +2185,14 @@ async function criarGrupoChat() {
     const nomeGrupo = nomeEl
         ? String(nomeEl.value || "").trim()
         : "";
+    const participantes = Array.from(
+        _participantesGrupoChatSelecionados
+    )
+        .map(usuario => String(usuario || "").trim().toLowerCase())
+        .filter(Boolean);
+    const arquivoFoto = fotoInput &&
+        fotoInput.files &&
+        fotoInput.files[0];
 
     if (!nomeGrupo) {
         window.alert("Informe um nome para o grupo.");
@@ -2001,12 +2205,6 @@ async function criarGrupoChat() {
         );
         return;
     }
-
-    const participantes = Array.from(
-        _participantesGrupoChatSelecionados
-    )
-        .map(usuario => String(usuario || "").trim().toLowerCase())
-        .filter(Boolean);
 
     if (!usernameLogado || !participantes.includes(usernameLogado)) {
         window.alert(
@@ -2036,6 +2234,26 @@ async function criarGrupoChat() {
     }
 
     try {
+        let fotoGrupoUrl = "";
+
+        if (arquivoFoto) {
+            if (!arquivoFoto.type.startsWith("image/")) {
+                throw new Error(
+                    "Selecione um arquivo de imagem válido."
+                );
+            }
+
+            fotoGrupoUrl = await subirImagemParaNuvem(
+                arquivoFoto
+            );
+
+            if (!fotoGrupoUrl) {
+                throw new Error(
+                    "Não foi possível enviar a foto do grupo."
+                );
+            }
+        }
+
         const referencia = banco
             .collection("chats")
             .doc();
@@ -2048,6 +2266,7 @@ async function criarGrupoChat() {
         await referencia.set({
             tipo: "grupo",
             nomeGrupo,
+            fotoGrupoUrl,
             usuarios: participantes,
             criadoPor: usernameLogado,
             criadoEm:
@@ -2094,6 +2313,7 @@ async function criarGrupoChat() {
         }
     }
 }
+
 
 
 function criarCardGrupoChat(
@@ -2581,6 +2801,216 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
 let _salaGrupoAtiva = null;
 
+function configurarAcoesGrupoChat(dadosGrupo) {
+    const cabecalho = document.getElementById(
+        "cabecalho-sala-chat"
+    );
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+    const criadoPor = String(
+        dadosGrupo && dadosGrupo.criadoPor || ""
+    ).trim().toLowerCase();
+    const podeGerenciar =
+        localStorage.getItem("usuarioLogado") === "admin" ||
+        Boolean(usernameLogado && criadoPor === usernameLogado);
+
+    if (!cabecalho) {
+        return;
+    }
+
+    const antigo = document.getElementById(
+        "acoes-grupo-chat"
+    );
+
+    if (antigo) {
+        antigo.remove();
+    }
+
+    if (!podeGerenciar) {
+        return;
+    }
+
+    const acoes = document.createElement("div");
+    const inputFoto = document.createElement("input");
+    const botaoFoto = document.createElement("button");
+    const botaoExcluir = document.createElement("button");
+
+    acoes.id = "acoes-grupo-chat";
+    acoes.style.display = "flex";
+    acoes.style.alignItems = "center";
+    acoes.style.gap = "6px";
+    acoes.style.marginLeft = "8px";
+
+    inputFoto.type = "file";
+    inputFoto.accept = "image/png,image/jpeg,image/webp";
+    inputFoto.style.display = "none";
+    inputFoto.addEventListener(
+        "change",
+        () => trocarFotoGrupoChat(inputFoto)
+    );
+
+    botaoFoto.type = "button";
+    botaoFoto.textContent = "Foto";
+    botaoFoto.title = "Trocar foto do grupo";
+    botaoFoto.style.border = "1px solid #0095f6";
+    botaoFoto.style.borderRadius = "7px";
+    botaoFoto.style.background = "transparent";
+    botaoFoto.style.color = "#58b7ff";
+    botaoFoto.style.padding = "5px 7px";
+    botaoFoto.style.fontSize = "11px";
+    botaoFoto.style.cursor = "pointer";
+    botaoFoto.addEventListener(
+        "click",
+        () => inputFoto.click()
+    );
+
+    botaoExcluir.type = "button";
+    botaoExcluir.textContent = "Excluir";
+    botaoExcluir.title = "Excluir grupo";
+    botaoExcluir.style.border = "1px solid #ff4d4d";
+    botaoExcluir.style.borderRadius = "7px";
+    botaoExcluir.style.background = "transparent";
+    botaoExcluir.style.color = "#ff6b6b";
+    botaoExcluir.style.padding = "5px 7px";
+    botaoExcluir.style.fontSize = "11px";
+    botaoExcluir.style.cursor = "pointer";
+    botaoExcluir.addEventListener(
+        "click",
+        excluirGrupoChat
+    );
+
+    acoes.appendChild(inputFoto);
+    acoes.appendChild(botaoFoto);
+    acoes.appendChild(botaoExcluir);
+    cabecalho.appendChild(acoes);
+}
+
+async function trocarFotoGrupoChat(input) {
+    const grupo = _salaGrupoAtiva;
+    const arquivo = input &&
+        input.files &&
+        input.files[0];
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+
+    if (!grupo || !grupo.chatId || !arquivo || !banco) {
+        return;
+    }
+
+    if (
+        localStorage.getItem("usuarioLogado") !== "admin" &&
+        usernameLogado !== grupo.criadoPor
+    ) {
+        window.alert(
+            "Somente o criador do grupo pode trocar a foto."
+        );
+        input.value = "";
+        return;
+    }
+
+    try {
+        const fotoGrupoUrl =
+            await subirImagemParaNuvem(arquivo);
+
+        if (!fotoGrupoUrl) {
+            throw new Error(
+                "O upload da nova foto não retornou uma URL."
+            );
+        }
+
+        await banco
+            .collection("chats")
+            .doc(grupo.chatId)
+            .set(
+                {
+                    fotoGrupoUrl
+                },
+                {
+                    merge: true
+                }
+            );
+
+        grupo.fotoGrupoUrl = fotoGrupoUrl;
+
+        const avatar = document.getElementById(
+            "chat-avatar-atual"
+        );
+        if (avatar) {
+            avatar.src = fotoGrupoUrl;
+        }
+
+        await carregarListaDeContatosChat();
+        window.alert("Foto do grupo atualizada.");
+    } catch (erro) {
+        console.error(
+            "Erro ao trocar foto do grupo:",
+            erro
+        );
+        window.alert(
+            `Não foi possível trocar a foto.\n\n` +
+            `Código: ${String(erro && erro.code || "sem-codigo")}\n` +
+            `Detalhes: ${String(erro && erro.message || erro)}`
+        );
+    } finally {
+        input.value = "";
+    }
+}
+
+async function excluirGrupoChat() {
+    const grupo = _salaGrupoAtiva;
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+
+    if (!grupo || !grupo.chatId || !banco) {
+        return;
+    }
+
+    const podeExcluir =
+        localStorage.getItem("usuarioLogado") === "admin" ||
+        usernameLogado === grupo.criadoPor;
+
+    if (!podeExcluir) {
+        window.alert(
+            "Somente o criador do grupo pode excluí-lo."
+        );
+        return;
+    }
+
+    if (!window.confirm(
+        `Excluir o grupo \"${grupo.nomeGrupo}\"? Esta ação não pode ser desfeita.`
+    )) {
+        return;
+    }
+
+    try {
+        await banco
+            .collection("chats")
+            .doc(grupo.chatId)
+            .delete();
+
+        fecharSalaChat();
+        await carregarListaDeContatosChat();
+        window.alert("Grupo excluído com sucesso.");
+    } catch (erro) {
+        console.error(
+            "Erro ao excluir grupo:",
+            erro
+        );
+        window.alert(
+            `Não foi possível excluir o grupo.\n\n` +
+            `Código: ${String(erro && erro.code || "sem-codigo")}\n` +
+            `Detalhes: ${String(erro && erro.message || erro)}`
+        );
+    }
+}
+
 async function abrirSalaGrupoChat(chatId, nomeGrupo) {
     const id = String(chatId || "").trim();
     const usernameLogado = String(
@@ -2627,14 +3057,24 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                 nomeGrupo ||
                 "Grupo sem nome"
             ),
-            participantes
+            participantes,
+            fotoGrupoUrl: String(
+                dadosGrupo.fotoGrupoUrl || ""
+            ),
+            criadoPor: String(
+                dadosGrupo.criadoPor || ""
+            ).trim().toLowerCase()
         };
 
         abrirSalaChat(
             `__grupo__${id}`,
             _salaGrupoAtiva.nomeGrupo,
             `${participantes.length} participantes`,
-            window.AVATAR_USUARIO_PADRAO
+            _salaGrupoAtiva.fotoGrupoUrl ||
+                window.AVATAR_USUARIO_PADRAO
+        );
+        configurarAcoesGrupoChat(
+            _salaGrupoAtiva
         );
 
         if (unsubscribeChatAtivo) {
@@ -2645,8 +3085,7 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
         const container = document.getElementById(
             "chat-mensagens-container"
         );
-        const chatIdAtivo = id;
-        window._chatIdAtivo = chatIdAtivo;
+        window._chatIdAtivo = id;
         sincronizarEstadoChatComServiceWorker();
 
         const renderizarMensagens = snapshot => {
@@ -2740,6 +3179,7 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
     }
 }
 
+
 function fecharSalaChat() {
     const telaChat = document.getElementById(
         "tela-sala-chat"
@@ -2814,6 +3254,14 @@ function fecharSalaChat() {
 
     if (telaLista) {
         telaLista.style.display = "flex";
+    }
+
+    const acoesGrupo = document.getElementById(
+        "acoes-grupo-chat"
+    );
+
+    if (acoesGrupo) {
+        acoesGrupo.remove();
     }
 
     usuarioChatDestino = null;

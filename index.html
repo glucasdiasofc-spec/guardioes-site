@@ -1964,6 +1964,23 @@
                             >
                         </label>
 
+                        <label style="display: flex; flex-direction: column; gap: 7px; color: #a8a8a8; font-size: 12px;">
+                            Foto do grupo
+                            <input
+                                id="input-foto-grupo-chat"
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                onchange="mostrarPreviaImagemGrupoChat(this)"
+                                style="width: 100%; box-sizing: border-box; padding: 9px; background: #1c1c1c; border: 1px solid #363636; border-radius: 9px; color: #d7d9db; font-size: 12px;"
+                            >
+                            <img
+                                id="previa-foto-grupo-chat"
+                                alt="Prévia da foto do grupo"
+                                style="display: none; width: 76px; height: 76px; object-fit: cover; border-radius: 50%; border: 2px solid #0095f6; margin: 4px auto 0;"
+                            >
+                        </label>
+
+
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                                 <strong style="color: #fff; font-size: 13px;">Participantes</strong>
