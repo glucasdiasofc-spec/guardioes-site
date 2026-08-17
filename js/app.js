@@ -1442,27 +1442,40 @@ async function carregarListaDeContatosChat() {
         "lista-msg-outras"
     );
 
+    const listaJaRenderizada = Boolean(
+        container &&
+        container.querySelector(
+            "[data-tipo-chat]"
+        )
+    );
+
     if (carregando) {
-        carregando.style.display = "block";
+        carregando.style.display = listaJaRenderizada
+            ? "none"
+            : "block";
     }
     if (vazio) {
         vazio.style.display = "none";
     }
-    if (container) {
+    if (container && !listaJaRenderizada) {
         container.style.display = "none";
     }
 
-    [
-        divGrupos,
-        divSuporte,
-        divLideranca,
-        divUnidade,
-        divOutras
-    ].forEach(div => {
-        if (div) {
-            div.innerHTML = "";
-        }
-    });
+
+    const limparListaDepoisDaConsulta = () => {
+        [
+            divGrupos,
+            divSuporte,
+            divLideranca,
+            divUnidade,
+            divOutras
+        ].forEach(div => {
+            if (div) {
+                div.innerHTML = "";
+            }
+        });
+    };
+
 
     let minhaUnidade = "";
     const ultimaInteracaoPorContato = {};
@@ -1587,10 +1600,12 @@ async function carregarListaDeContatosChat() {
             );
         });
 
+        limparListaDepoisDaConsulta();
+
         if (divGrupos) {
-            divGrupos.innerHTML = "";
             divGrupos.style.display = "none";
         }
+
 
         if (tituloGrupos) {
             tituloGrupos.style.display = "none";
@@ -2907,6 +2922,260 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
 let _salaGrupoAtiva = null;
 
+function fecharVisualizadorMembrosGrupoChat() {
+    const modal = document.getElementById(
+        "modal-visualizar-membros-grupo-chat"
+    );
+
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function abrirVisualizadorMembrosGrupoChat() {
+    const grupo = _salaGrupoAtiva;
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+
+    if (
+        !grupo ||
+        !grupo.chatId ||
+        !Array.isArray(grupo.participantes) ||
+        !grupo.participantes.includes(usernameLogado) ||
+        !banco
+    ) {
+        return;
+    }
+
+    fecharVisualizadorMembrosGrupoChat();
+
+    const modal = document.createElement("div");
+    const caixa = document.createElement("div");
+    const topo = document.createElement("div");
+    const titulo = document.createElement("strong");
+    const fechar = document.createElement("button");
+    const lista = document.createElement("div");
+
+    modal.id = "modal-visualizar-membros-grupo-chat";
+    modal.style.position = "fixed";
+    modal.style.inset = "0";
+    modal.style.zIndex = "2147483647";
+    modal.style.display = "flex";
+    modal.style.alignItems = "center";
+    modal.style.justifyContent = "center";
+    modal.style.padding = "18px";
+    modal.style.boxSizing = "border-box";
+    modal.style.background = "rgba(0,0,0,.78)";
+
+    caixa.style.display = "flex";
+    caixa.style.flexDirection = "column";
+    caixa.style.width = "min(100%, 430px)";
+    caixa.style.maxHeight = "min(82vh, 600px)";
+    caixa.style.overflow = "hidden";
+    caixa.style.background = "#121212";
+    caixa.style.border = "1px solid #2f3336";
+    caixa.style.borderRadius = "16px";
+
+    topo.style.display = "flex";
+    topo.style.alignItems = "center";
+    topo.style.justifyContent = "space-between";
+    topo.style.gap = "10px";
+    topo.style.padding = "16px";
+    topo.style.borderBottom = "1px solid #2f3336";
+
+    titulo.textContent =
+        `Integrantes — ${grupo.nomeGrupo || "Grupo"}`;
+    titulo.style.color = "#fff";
+    titulo.style.fontSize = "16px";
+
+    fechar.type = "button";
+    fechar.textContent = "×";
+    fechar.setAttribute(
+        "aria-label",
+        "Fechar integrantes do grupo"
+    );
+    fechar.style.border = "none";
+    fechar.style.background = "transparent";
+    fechar.style.color = "#fff";
+    fechar.style.fontSize = "24px";
+    fechar.style.cursor = "pointer";
+    fechar.addEventListener(
+        "click",
+        fecharVisualizadorMembrosGrupoChat
+    );
+
+    lista.style.display = "flex";
+    lista.style.flexDirection = "column";
+    lista.style.gap = "8px";
+    lista.style.padding = "14px 16px";
+    lista.style.overflowY = "auto";
+
+    topo.appendChild(titulo);
+    topo.appendChild(fechar);
+    caixa.appendChild(topo);
+    caixa.appendChild(lista);
+    modal.appendChild(caixa);
+    document.body.appendChild(modal);
+
+    try {
+        const usuariosSnap = await banco
+            .collection("usuarios")
+            .get();
+        const perfis = new Map();
+
+        usuariosSnap.forEach(documento => {
+            const dados = documento.data() || {};
+            const username = String(
+                dados.username || ""
+            ).trim().toLowerCase();
+
+            if (username) {
+                perfis.set(username, dados);
+            }
+        });
+
+        const administradores = Array.isArray(
+            grupo.administradores
+        )
+            ? grupo.administradores.map(usuario => String(
+                usuario || ""
+            ).trim().toLowerCase()).filter(Boolean)
+            : [String(
+                grupo.criadoPor || ""
+            ).trim().toLowerCase()];
+
+        grupo.participantes.forEach(usuario => {
+            const username = String(
+                usuario || ""
+            ).trim().toLowerCase();
+            const perfil = perfis.get(username) || {};
+            const linha = document.createElement("div");
+            const avatar = document.createElement("div");
+            const textos = document.createElement("div");
+            const nome = document.createElement("strong");
+            const detalhe = document.createElement("span");
+            const selo = document.createElement("span");
+
+            linha.style.display = "flex";
+            linha.style.alignItems = "center";
+            linha.style.gap = "10px";
+            linha.style.padding = "10px";
+            linha.style.borderRadius = "10px";
+            linha.style.background = "#1c1c1c";
+
+            avatar.textContent = String(
+                perfil.nomeReal || username
+            ).charAt(0).toUpperCase();
+            avatar.style.display = "flex";
+            avatar.style.alignItems = "center";
+            avatar.style.justifyContent = "center";
+            avatar.style.width = "38px";
+            avatar.style.height = "38px";
+            avatar.style.flexShrink = "0";
+            avatar.style.borderRadius = "50%";
+            avatar.style.background = "#26384a";
+            avatar.style.color = "#58b7ff";
+            avatar.style.fontWeight = "700";
+
+            textos.style.display = "flex";
+            textos.style.flexDirection = "column";
+            textos.style.gap = "3px";
+            textos.style.flex = "1";
+            textos.style.minWidth = "0";
+
+            nome.textContent = String(
+                perfil.nomeReal || username
+            );
+            nome.style.color = "#fff";
+            nome.style.fontSize = "13px";
+            nome.style.overflow = "hidden";
+            nome.style.textOverflow = "ellipsis";
+            nome.style.whiteSpace = "nowrap";
+
+            detalhe.textContent =
+                `${perfil.cargo || perfil.tipo || "Membro"} · @${username}`;
+            detalhe.style.color = "#8e8e8e";
+            detalhe.style.fontSize = "11px";
+
+            if (administradores.includes(username)) {
+                selo.textContent = "Admin";
+                selo.style.color = "#c4a7ff";
+                selo.style.fontSize = "11px";
+                selo.style.fontWeight = "700";
+                selo.style.padding = "4px 7px";
+                selo.style.border = "1px solid #8b5cf6";
+                selo.style.borderRadius = "8px";
+            }
+
+            textos.appendChild(nome);
+            textos.appendChild(detalhe);
+            linha.appendChild(avatar);
+            linha.appendChild(textos);
+
+            if (selo.textContent) {
+                linha.appendChild(selo);
+            }
+
+            lista.appendChild(linha);
+        });
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar visualização dos integrantes:",
+            erro
+        );
+        lista.textContent =
+            "Não foi possível carregar os integrantes agora.";
+        lista.style.color = "#ff6b6b";
+    }
+}
+
+function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
+    const cabecalho = document.getElementById(
+        "cabecalho-sala-chat"
+    );
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+
+    if (
+        !cabecalho ||
+        !dadosGrupo ||
+        !Array.isArray(dadosGrupo.participantes) ||
+        !dadosGrupo.participantes.includes(usernameLogado)
+    ) {
+        return;
+    }
+
+    const antigo = document.getElementById(
+        "btn-ver-membros-grupo-chat"
+    );
+
+    if (antigo) {
+        antigo.remove();
+    }
+
+    const botao = document.createElement("button");
+    botao.id = "btn-ver-membros-grupo-chat";
+    botao.type = "button";
+    botao.textContent = "Ver membros";
+    botao.title = "Ver integrantes do grupo";
+    botao.style.border = "1px solid #3a3a3a";
+    botao.style.borderRadius = "7px";
+    botao.style.background = "transparent";
+    botao.style.color = "#d7d9db";
+    botao.style.padding = "5px 7px";
+    botao.style.fontSize = "11px";
+    botao.style.cursor = "pointer";
+    botao.addEventListener(
+        "click",
+        abrirVisualizadorMembrosGrupoChat
+    );
+    cabecalho.appendChild(botao);
+}
+
 function configurarAcoesGrupoChat(dadosGrupo) {
     const cabecalho = document.getElementById(
         "cabecalho-sala-chat"
@@ -3743,11 +4012,15 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
             _salaGrupoAtiva.fotoGrupoUrl ||
                 window.AVATAR_USUARIO_PADRAO
         );
+        configurarBotaoVisualizarMembrosGrupoChat(
+            _salaGrupoAtiva
+        );
         configurarAcoesGrupoChat(
             _salaGrupoAtiva
         );
 
         if (unsubscribeChatAtivo) {
+
             unsubscribeChatAtivo();
             unsubscribeChatAtivo = null;
         }
@@ -3856,11 +4129,15 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                     ).trim().toLowerCase();
 
                     atualizarCabecalhoGrupo();
+                    configurarBotaoVisualizarMembrosGrupoChat(
+                        _salaGrupoAtiva
+                    );
                     configurarAcoesGrupoChat(
                         _salaGrupoAtiva
                     );
 
                     if (
+
                         typeof agendarAtualizacaoOrdenacaoContatosChat ===
                         "function"
                     ) {
