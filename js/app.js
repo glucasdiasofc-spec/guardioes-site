@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.318.0 - versão alpha";
+const VERSAO_ATUAL = "v0.319.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -2725,15 +2725,91 @@ function criarCardContatoChat(
     fotoUrl,
     ultimaInteracao
 ) {
-    const img = String(
-        fotoUrl ||
+    const usernameNormalizado = String(
+        username || ""
+    ).trim().toLowerCase();
+    const avatarPadrao = String(
         window.AVATAR_USUARIO_PADRAO ||
         ""
     );
+    let img = String(
+        fotoUrl ||
+        avatarPadrao
+    );
+
+    if (
+        usernameNormalizado === "admin" &&
+        !fotoUrl
+    ) {
+        const fotoAdminJaCarregada = String(
+            window._fotoCentralSuporteChat ||
+            ""
+        ).trim();
+
+        if (fotoAdminJaCarregada) {
+            img = fotoAdminJaCarregada;
+        } else {
+            const banco = window.ClubeDB &&
+                window.ClubeDB.textoDB;
+
+            if (
+                banco &&
+                !window._fotoCentralSuporteChatPromise
+            ) {
+                window._fotoCentralSuporteChatPromise = banco
+                    .collection("usuarios")
+                    .where(
+                        "username",
+                        "==",
+                        "admin"
+                    )
+                    .limit(1)
+                    .get()
+                    .then(snapshot => {
+                        let fotoEncontrada = "";
+
+                        if (!snapshot.empty) {
+                            const dados = snapshot
+                                .docs[0]
+                                .data() || {};
+                            fotoEncontrada = String(
+                                dados.fotoUrl ||
+                                dados.foto ||
+                                ""
+                            ).trim();
+                        }
+
+                        window._fotoCentralSuporteChat =
+                            fotoEncontrada ||
+                            avatarPadrao;
+
+                        document
+                            .querySelectorAll(
+                                '[data-chat-username="admin"] img'
+                            )
+                            .forEach(imagem => {
+                                imagem.src =
+                                    window._fotoCentralSuporteChat;
+                            });
+
+                        return window._fotoCentralSuporteChat;
+                    })
+                    .catch(erro => {
+                        console.error(
+                            "Erro ao carregar a foto da Central de Suporte:",
+                            erro
+                        );
+                        window._fotoCentralSuporteChat =
+                            avatarPadrao;
+                        return avatarPadrao;
+                    });
+            }
+        }
+    }
 
     return `
         <div data-chat-username="${username}" data-tipo-chat="individual" data-ultima-interacao="${Number(ultimaInteracao || 0)}" onclick="abrirSalaChat('${username}', '${nome}', '${cargo}', '${img}' )" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; transition: background-color 0.2s ease;">
-            <img src="${img}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
+            <img src="${img}" alt="Foto de ${nome}" onerror="this.onerror=null; this.src='${avatarPadrao}';" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
             <div style="flex: 1; min-width: 0;">
                 <div style="display: flex; align-items: center; gap: 8px; color: #fff; font-size: 15px; font-weight: 600;">
                     <span>${nome}</span>
@@ -2745,6 +2821,7 @@ function criarCardContatoChat(
         </div>
     `;
 }
+
 
 
 // Cria um Hash único para as mensagens independentemente de quem enviou primeiro (Garante o P2P da mesma sala)
@@ -5167,12 +5244,6 @@ async function enviarMensagemChat() {
                     meuUsername
             )
             : [destinatarioIndividual];
-        const chatRef = banco
-            .collection("chats")
-            .doc(chatId);
-        const mensagemRef = chatRef
-            .collection("mensagens")
-            .doc();
 
         const dadosMensagem = {
             remetente: meuUsername,
@@ -5194,6 +5265,12 @@ async function enviarMensagemChat() {
                 firebase.firestore.FieldValue.serverTimestamp()
         };
 
+        const mensagemCriada = await banco
+            .collection("chats")
+            .doc(chatId)
+            .collection("mensagens")
+            .add(dadosMensagem);
+
         const dadosChat = {
             ultimoEnvio:
                 firebase.firestore.FieldValue.serverTimestamp(),
@@ -5210,20 +5287,15 @@ async function enviarMensagemChat() {
             dadosChat.nomeGrupo = grupoAtivo.nomeGrupo;
         }
 
-        const lote = banco.batch();
-        lote.set(mensagemRef, dadosMensagem);
-        lote.set(
-            chatRef,
-            dadosChat,
-            {
-                merge: true
-            }
-        );
-        await lote.commit();
-
-        const mensagemCriada = {
-            id: mensagemRef.id
-        };
+        await banco
+            .collection("chats")
+            .doc(chatId)
+            .set(
+                dadosChat,
+                {
+                    merge: true
+                }
+            );
 
         for (const destinatario of destinatariosPush) {
             if (!destinatario) {
@@ -5276,7 +5348,6 @@ async function enviarMensagemChat() {
 async function carregarPerfilDoUsuario() {
     const username = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado");
-
     const nomeEl = document.getElementById("perfil-usuario-nome");
     const cargoEl = document.getElementById("perfil-usuario-cargo");
     const unidadeEl = document.getElementById("perfil-usuario-unidade-status");
