@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.319.0 - versão alpha";
+const VERSAO_ATUAL = "v0.320.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -3466,9 +3466,276 @@ async function abrirVisualizadorMembrosGrupoChat() {
     }
 }
 
+function abrirMenuAcoesGrupoChat() {
+    const menu = document.getElementById(
+        "menu-acoes-grupo-chat"
+    );
+    const botao = document.getElementById(
+        "btn-menu-acoes-grupo-chat"
+    );
+    const painel = document.getElementById(
+        "painel-acoes-grupo-chat"
+    );
+    const identidade = document.getElementById(
+        "identidade-chat-atual"
+    );
+
+    if (!menu || !botao || !painel || !identidade) {
+        return;
+    }
+
+    window._menuAcoesGrupoChatAberto = true;
+    menu.style.display = "flex";
+    botao.textContent = "×";
+    botao.setAttribute("aria-label", "Fechar ações do grupo");
+    botao.setAttribute("aria-expanded", "true");
+    botao.style.transform = "rotate(90deg)";
+    botao.style.background = "#262626";
+    botao.style.borderColor = "#666";
+
+    painel.style.display = "flex";
+    painel.style.opacity = "0";
+    painel.style.transform = "translateX(10px) scale(.96)";
+    identidade.style.display = "flex";
+    identidade.style.opacity = "0";
+    identidade.style.transform = "translateX(-8px) scale(.96)";
+
+    window.requestAnimationFrame(() => {
+        painel.style.opacity = "1";
+        painel.style.transform = "translateX(0) scale(1)";
+        identidade.style.opacity = "0";
+        identidade.style.transform = "translateX(-8px) scale(.96)";
+    });
+
+    window.clearTimeout(
+        window._timerFecharIdentidadeChat
+    );
+    window._timerFecharIdentidadeChat = window.setTimeout(
+        () => {
+            if (window._menuAcoesGrupoChatAberto) {
+                identidade.style.display = "none";
+            }
+        },
+        220
+    );
+}
+
+function fecharMenuAcoesGrupoChat() {
+    const menu = document.getElementById(
+        "menu-acoes-grupo-chat"
+    );
+    const botao = document.getElementById(
+        "btn-menu-acoes-grupo-chat"
+    );
+    const painel = document.getElementById(
+        "painel-acoes-grupo-chat"
+    );
+    const identidade = document.getElementById(
+        "identidade-chat-atual"
+    );
+
+    if (!menu || !botao || !painel || !identidade) {
+        return;
+    }
+
+    window._menuAcoesGrupoChatAberto = false;
+    botao.textContent = "☰";
+    botao.setAttribute("aria-label", "Abrir ações do grupo");
+    botao.setAttribute("aria-expanded", "false");
+    botao.style.transform = "rotate(0deg)";
+    botao.style.background = "#121212";
+    botao.style.borderColor = "#3a3a3a";
+
+    identidade.style.display = "flex";
+    identidade.style.opacity = "0";
+    identidade.style.transform = "translateX(-8px) scale(.96)";
+    painel.style.opacity = "0";
+    painel.style.transform = "translateX(10px) scale(.96)";
+
+    window.clearTimeout(
+        window._timerFecharMenuAcoesGrupoChat
+    );
+    window._timerFecharMenuAcoesGrupoChat = window.setTimeout(
+        () => {
+            if (!window._menuAcoesGrupoChatAberto) {
+                painel.style.display = "none";
+                identidade.style.opacity = "1";
+                identidade.style.transform = "translateX(0) scale(1)";
+            }
+        },
+        220
+    );
+}
+
+function desativarMenuAcoesGrupoChat() {
+    const menu = document.getElementById(
+        "menu-acoes-grupo-chat"
+    );
+    const painel = document.getElementById(
+        "painel-acoes-grupo-chat"
+    );
+    const identidade = document.getElementById(
+        "identidade-chat-atual"
+    );
+
+    window._menuAcoesGrupoChatAberto = false;
+    window.clearTimeout(
+        window._timerFecharMenuAcoesGrupoChat
+    );
+    window.clearTimeout(
+        window._timerFecharIdentidadeChat
+    );
+
+    if (menu) {
+        menu.style.display = "none";
+    }
+    if (painel) {
+        painel.style.display = "none";
+        painel.style.opacity = "0";
+        painel.style.transform = "translateX(10px) scale(.96)";
+        painel.innerHTML = "";
+    }
+    if (identidade) {
+        identidade.style.display = "flex";
+        identidade.style.opacity = "1";
+        identidade.style.transform = "translateX(0) scale(1)";
+    }
+}
+
+function configurarMenuAcoesGrupoChat() {
+    const menu = document.getElementById(
+        "menu-acoes-grupo-chat"
+    );
+    const botao = document.getElementById(
+        "btn-menu-acoes-grupo-chat"
+    );
+
+    if (!menu || !botao) {
+        return;
+    }
+
+    menu.style.display = "flex";
+
+    if (botao.dataset.menuConfigurado === "true") {
+        return;
+    }
+
+    botao.dataset.menuConfigurado = "true";
+    botao.addEventListener("click", () => {
+        if (window._menuAcoesGrupoChatAberto) {
+            fecharMenuAcoesGrupoChat();
+        } else {
+            abrirMenuAcoesGrupoChat();
+        }
+    });
+}
+
+async function sairDoGrupoChat() {
+    const grupo = _salaGrupoAtiva;
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+
+    if (
+        !grupo ||
+        !grupo.chatId ||
+        !banco ||
+        !usernameLogado
+    ) {
+        return;
+    }
+
+    const criadoPor = String(
+        grupo.criadoPor || ""
+    ).trim().toLowerCase();
+
+    if (usernameLogado === criadoPor) {
+        window.alert(
+            "O criador não pode sair do grupo. Exclua o grupo ou transfira a administração antes de sair."
+        );
+        return;
+    }
+
+    const confirmou = window.confirm(
+        `Deseja realmente sair do grupo “${grupo.nomeGrupo || "Grupo"}”?`
+    );
+
+    if (!confirmou) {
+        return;
+    }
+
+    const participantes = Array.isArray(
+        grupo.participantes
+    )
+        ? grupo.participantes.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
+    const administradores = Array.isArray(
+        grupo.administradores
+    )
+        ? grupo.administradores.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(usuario => {
+            return usuario !== usernameLogado;
+        })
+        : [];
+    const participantesRestantes = participantes.filter(
+        usuario => usuario !== usernameLogado
+    );
+
+    if (!participantes.includes(usernameLogado)) {
+        return;
+    }
+
+    try {
+        await banco
+            .collection("chats")
+            .doc(grupo.chatId)
+            .update({
+                usuarios: participantesRestantes,
+                administradores
+            });
+
+        if (
+            typeof fecharMenuAcoesGrupoChat === "function"
+        ) {
+            fecharMenuAcoesGrupoChat();
+        }
+
+        if (typeof fecharSalaChat === "function") {
+            fecharSalaChat();
+        }
+
+        if (
+            typeof agendarAtualizacaoOrdenacaoContatosChat ===
+            "function"
+        ) {
+            agendarAtualizacaoOrdenacaoContatosChat();
+        }
+
+        window.alert(
+            "Você saiu do grupo."
+        );
+    } catch (erro) {
+        console.error(
+            "Erro ao sair do grupo:",
+            erro
+        );
+        window.alert(
+            "Não foi possível sair do grupo agora. Verifique sua conexão e tente novamente."
+        );
+    }
+}
+
 function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
     const cabecalho = document.getElementById(
         "cabecalho-sala-chat"
+    );
+    const painel = document.getElementById(
+        "painel-acoes-grupo-chat"
     );
     const usernameLogado = String(
         localStorage.getItem("usernameLogado") || ""
@@ -3490,9 +3757,19 @@ function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
             usuario || ""
         ).trim().toLowerCase()).filter(Boolean)
         : [];
+    const painel = document.getElementById(
+        "painel-acoes-grupo-chat"
+    );
     const antigo = document.getElementById(
         "btn-ver-membros-grupo-chat"
     );
+    const antigoSair = document.getElementById(
+        "btn-sair-grupo-chat"
+    );
+
+    if (antigoSair) {
+        antigoSair.remove();
+    }
 
     if (antigo) {
         antigo.remove();
@@ -3500,8 +3777,34 @@ function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
 
     if (
         !cabecalho ||
+        !painel ||
         !usernameLogado ||
-        !participantes.includes(usernameLogado) ||
+        !participantes.includes(usernameLogado)
+    ) {
+        return;
+    }
+
+    if (usernameLogado !== criadoPor) {
+        const botaoSair = document.createElement("button");
+        botaoSair.id = "btn-sair-grupo-chat";
+        botaoSair.type = "button";
+        botaoSair.textContent = "Sair";
+        botaoSair.title = "Sair deste grupo";
+        botaoSair.style.border = "1px solid #ff9f43";
+        botaoSair.style.borderRadius = "7px";
+        botaoSair.style.background = "transparent";
+        botaoSair.style.color = "#ffb86b";
+        botaoSair.style.padding = "5px 7px";
+        botaoSair.style.fontSize = "11px";
+        botaoSair.style.cursor = "pointer";
+        botaoSair.addEventListener(
+            "click",
+            sairDoGrupoChat
+        );
+        painel.appendChild(botaoSair);
+    }
+
+    if (
         usernameLogado === criadoPor ||
         administradores.includes(usernameLogado)
     ) {
@@ -3524,13 +3827,17 @@ function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
         "click",
         abrirVisualizadorMembrosGrupoChat
     );
-    cabecalho.appendChild(botao);
+    painel.appendChild(botao);
 }
+
 
 
 function configurarAcoesGrupoChat(dadosGrupo) {
     const cabecalho = document.getElementById(
         "cabecalho-sala-chat"
+    );
+    const painel = document.getElementById(
+        "painel-acoes-grupo-chat"
     );
     const usernameLogado = String(
         localStorage.getItem("usernameLogado") || ""
@@ -3557,7 +3864,7 @@ function configurarAcoesGrupoChat(dadosGrupo) {
             )
         );
 
-    if (!cabecalho) {
+    if (!cabecalho || !painel) {
         return;
     }
 
@@ -3567,6 +3874,16 @@ function configurarAcoesGrupoChat(dadosGrupo) {
 
     if (antigo) {
         antigo.remove();
+    }
+
+    if (podeGerenciar) {
+        const botaoVisualizar = document.getElementById(
+            "btn-ver-membros-grupo-chat"
+        );
+
+        if (botaoVisualizar) {
+            botaoVisualizar.remove();
+        }
     }
 
     if (
@@ -3594,6 +3911,9 @@ function configurarAcoesGrupoChat(dadosGrupo) {
                     ? dadosAtuais.administradores
                     : [];
                 configurarAcoesGrupoChat(dadosGrupo);
+                configurarBotaoVisualizarMembrosGrupoChat(
+                    dadosGrupo
+                );
             })
             .catch(erro => {
                 console.error(
@@ -3617,7 +3937,8 @@ function configurarAcoesGrupoChat(dadosGrupo) {
     acoes.style.display = "flex";
     acoes.style.alignItems = "center";
     acoes.style.gap = "6px";
-    acoes.style.marginLeft = "8px";
+    acoes.style.flexWrap = "wrap";
+    acoes.style.justifyContent = "flex-end";
 
     inputFoto.type = "file";
     inputFoto.accept = "image/png,image/jpeg,image/webp";
@@ -3676,7 +3997,7 @@ function configurarAcoesGrupoChat(dadosGrupo) {
     acoes.appendChild(botaoFoto);
     acoes.appendChild(botaoMembros);
     acoes.appendChild(botaoExcluir);
-    cabecalho.appendChild(acoes);
+    painel.appendChild(acoes);
 }
 
 
@@ -3817,6 +4138,129 @@ async function salvarGerenciamentoMembrosGrupoChat() {
     }
 }
 
+async function expulsarMembroDoGrupoChat(usuarioExpulso) {
+    const grupo = _salaGrupoAtiva;
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+    const alvo = String(
+        usuarioExpulso || ""
+    ).trim().toLowerCase();
+
+    if (!grupo || !grupo.chatId || !banco || !alvo) {
+        return;
+    }
+
+    const criadoPor = String(
+        grupo.criadoPor || ""
+    ).trim().toLowerCase();
+    const administradores = Array.isArray(
+        grupo.administradores
+    )
+        ? grupo.administradores.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
+    const podeGerenciar =
+        localStorage.getItem("usuarioLogado") === "admin" ||
+        usernameLogado === criadoPor ||
+        administradores.includes(usernameLogado);
+
+    if (!podeGerenciar) {
+        window.alert(
+            "Você não tem permissão para expulsar membros."
+        );
+        return;
+    }
+
+    if (alvo === criadoPor) {
+        window.alert(
+            "O criador não pode ser expulso do grupo."
+        );
+        return;
+    }
+
+    if (alvo === usernameLogado) {
+        window.alert(
+            "Para sair, use o botão Sair do menu do grupo."
+        );
+        return;
+    }
+
+    const confirmou = window.confirm(
+        `Expulsar @${alvo} do grupo “${grupo.nomeGrupo || "Grupo"}”?`
+    );
+
+    if (!confirmou) {
+        return;
+    }
+
+    const participantesAtuais = Array.isArray(
+        grupo.participantes
+    )
+        ? grupo.participantes.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
+    const participantesRestantes = participantesAtuais.filter(
+        usuario => usuario !== alvo
+    );
+    const administradoresRestantes = administradores.filter(
+        usuario => usuario !== alvo
+    );
+
+    if (
+        !participantesAtuais.includes(alvo) ||
+        participantesRestantes.length < 2
+    ) {
+        window.alert(
+            "O grupo precisa continuar com pelo menos dois participantes."
+        );
+        return;
+    }
+
+    try {
+        await banco
+            .collection("chats")
+            .doc(grupo.chatId)
+            .update({
+                usuarios: participantesRestantes,
+                administradores: administradoresRestantes
+            });
+
+        grupo.participantes = participantesRestantes;
+        grupo.administradores = administradoresRestantes;
+
+        fecharGerenciadorMembrosGrupoChat();
+        configurarAcoesGrupoChat(grupo);
+        configurarBotaoVisualizarMembrosGrupoChat(grupo);
+        configurarMenuAcoesGrupoChat();
+
+        if (
+            typeof agendarAtualizacaoOrdenacaoContatosChat ===
+            "function"
+        ) {
+            agendarAtualizacaoOrdenacaoContatosChat();
+        }
+
+        window.alert(
+            `@${alvo} foi expulso do grupo.`
+        );
+    } catch (erro) {
+        console.error(
+            "Erro ao expulsar membro do grupo:",
+            erro
+        );
+        window.alert(
+            `Não foi possível expulsar o membro.\n\n` +
+            `Código: ${String(erro && erro.code || "sem-codigo")}\n` +
+            `Detalhes: ${String(erro && erro.message || erro)}`
+        );
+    }
+}
+
 async function abrirGerenciadorMembrosGrupoChat() {
     const grupo = _salaGrupoAtiva;
     const banco = window.ClubeDB &&
@@ -3928,13 +4372,14 @@ async function abrirGerenciadorMembrosGrupoChat() {
 
     const cabecalhoLista = document.createElement("div");
     cabecalhoLista.style.display = "grid";
-    cabecalhoLista.style.gridTemplateColumns = "1fr 72px 72px";
+    cabecalhoLista.style.gridTemplateColumns =
+        "1fr 72px 72px 78px";
     cabecalhoLista.style.gap = "8px";
     cabecalhoLista.style.padding = "0 9px 5px";
     cabecalhoLista.style.color = "#8e8e8e";
     cabecalhoLista.style.fontSize = "11px";
     cabecalhoLista.innerHTML =
-        "<span>Usuário</span><span>Participa</span><span>Admin</span>";
+        "<span>Usuário</span><span>Participa</span><span>Admin</span><span>Ação</span>";
 
     const adicionarLinha = (
         usuario,
@@ -3950,9 +4395,11 @@ async function abrirGerenciadorMembrosGrupoChat() {
         const cargoEl = document.createElement("span");
         const participante = document.createElement("input");
         const admin = document.createElement("input");
+        const expulsar = document.createElement("button");
 
         linha.style.display = "grid";
-        linha.style.gridTemplateColumns = "1fr 72px 72px";
+        linha.style.gridTemplateColumns =
+            "1fr 72px 72px 78px";
         linha.style.alignItems = "center";
         linha.style.gap = "8px";
         linha.style.padding = "9px";
@@ -4003,10 +4450,37 @@ async function abrirGerenciadorMembrosGrupoChat() {
         admin.style.justifySelf = "center";
         admin.disabled = Boolean(eCriador || !participa);
 
+        expulsar.type = "button";
+        expulsar.textContent = "Expulsar";
+        expulsar.title = eCriador
+            ? "O criador não pode ser expulso"
+            : "Expulsar este membro do grupo";
+        expulsar.style.border = "1px solid #ff4d4d";
+        expulsar.style.borderRadius = "6px";
+        expulsar.style.background = "transparent";
+        expulsar.style.color = "#ff6b6b";
+        expulsar.style.padding = "4px 5px";
+        expulsar.style.fontSize = "10px";
+        expulsar.style.cursor = eCriador || !participa
+            ? "not-allowed"
+            : "pointer";
+        expulsar.style.opacity = eCriador || !participa
+            ? "0.45"
+            : "1";
+        expulsar.disabled = Boolean(eCriador || !participa);
+        expulsar.addEventListener(
+            "click",
+            evento => {
+                evento.stopPropagation();
+                expulsarMembroDoGrupoChat(usuario);
+            }
+        );
+
         if (eCriador) {
             participante.disabled = true;
             admin.disabled = true;
         }
+
 
         participante.addEventListener(
             "change",
@@ -4034,6 +4508,7 @@ async function abrirGerenciadorMembrosGrupoChat() {
         linha.appendChild(textos);
         linha.appendChild(participante);
         linha.appendChild(admin);
+        linha.appendChild(expulsar);
         lista.appendChild(linha);
     };
 
@@ -4370,6 +4845,10 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
         configurarAcoesGrupoChat(
             _salaGrupoAtiva
         );
+        configurarMenuAcoesGrupoChat();
+        configurarBotaoVisualizarMembrosGrupoChat(
+            _salaGrupoAtiva
+        );
 
         if (unsubscribeChatAtivo) {
 
@@ -4487,8 +4966,14 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                     configurarAcoesGrupoChat(
                         _salaGrupoAtiva
                     );
+                    configurarMenuAcoesGrupoChat();
+                    configurarBotaoVisualizarMembrosGrupoChat(
+                        _salaGrupoAtiva
+                    );
 
                     if (
+
+
 
                         typeof agendarAtualizacaoOrdenacaoContatosChat ===
                         "function"
