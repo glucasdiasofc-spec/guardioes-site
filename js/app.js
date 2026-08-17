@@ -3757,12 +3757,10 @@ function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
             usuario || ""
         ).trim().toLowerCase()).filter(Boolean)
         : [];
-    const painel = document.getElementById(
-        "painel-acoes-grupo-chat"
-    );
     const antigo = document.getElementById(
         "btn-ver-membros-grupo-chat"
     );
+
     const antigoSair = document.getElementById(
         "btn-sair-grupo-chat"
     );
