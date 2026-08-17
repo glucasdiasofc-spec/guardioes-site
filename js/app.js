@@ -934,7 +934,6 @@ async function atualizarOrdenacaoContatosChat() {
 
 
 function iniciarListenerGlobalMensagens() {
-
     const usernameLogado = String(
         localStorage.getItem("usernameLogado") || ""
     ).trim().toLowerCase();
@@ -965,18 +964,168 @@ function iniciarListenerGlobalMensagens() {
         window._unsubscribeGlobalMensagens();
     }
 
+    clearTimeout(_timerOrdenacaoContatosChat);
+
     const estado = {
         total: 0,
         porChat: {},
         porContato: {},
         contatosPorChat: {},
+        tipoPorChat: {},
         anteriores: {},
-        inicializado: false
+        assinaturasChats: {},
+        ultimaInteracaoPorChat: {},
+        inicializado: false,
+        chatsInicializados: false
     };
 
     window._estadoContadoresMensagens = estado;
     window._listenerGlobalMensagensAtivo = true;
     window._listenerGlobalMensagensUsuario = usernameLogado;
+
+    const converterTimestampParaMillis = valor => {
+        if (
+            valor &&
+            typeof valor.toMillis === "function"
+        ) {
+            return valor.toMillis();
+        }
+
+        if (
+            valor &&
+            typeof valor.toDate === "function"
+        ) {
+            return valor.toDate().getTime();
+        }
+
+        if (
+            typeof valor === "string" ||
+            typeof valor === "number"
+        ) {
+            const resultado = new Date(valor).getTime();
+            return Number.isNaN(resultado)
+                ? 0
+                : resultado;
+        }
+
+        return 0;
+    };
+
+    const obterListaVisivel = () => {
+        const lista = document.getElementById(
+            "lista-msg-outras"
+        );
+
+        if (!lista) {
+            return null;
+        }
+
+        return lista;
+    };
+
+    const obterCardsVisiveis = lista => {
+        if (!lista) {
+            return [];
+        }
+
+        return Array.from(lista.children).filter(card => {
+            return card && card.getAttribute(
+                "data-tipo-chat"
+            );
+        });
+    };
+
+    const reordenarCardsContatosChat = () => {
+        const lista = obterListaVisivel();
+        const cards = obterCardsVisiveis(lista);
+
+        if (!lista || cards.length < 2) {
+            return;
+        }
+
+        const ordemOriginal = new Map(
+            cards.map((card, indice) => [card, indice])
+        );
+
+        cards.sort((primeiro, segundo) => {
+            const diferenca = Number(
+                segundo.getAttribute(
+                    "data-ultima-interacao"
+                ) || 0
+            ) - Number(
+                primeiro.getAttribute(
+                    "data-ultima-interacao"
+                ) || 0
+            );
+
+            if (diferenca !== 0) {
+                return diferenca;
+            }
+
+            return Number(
+                ordemOriginal.get(primeiro) || 0
+            ) - Number(
+                ordemOriginal.get(segundo) || 0
+            );
+        });
+
+        const fragmento = document.createDocumentFragment();
+        cards.forEach(card => fragmento.appendChild(card));
+        lista.appendChild(fragmento);
+    };
+
+    const encontrarCardPorChatId = chatId => {
+        const lista = obterListaVisivel();
+        const cards = obterCardsVisiveis(lista);
+        const contato = String(
+            estado.contatosPorChat[chatId] || ""
+        ).trim().toLowerCase();
+
+        return cards.find(card => {
+            const idGrupo = String(
+                card.getAttribute("data-group-chat-id") || ""
+            );
+            const usernameContato = String(
+                card.getAttribute("data-chat-username") || ""
+            ).trim().toLowerCase();
+
+            return idGrupo === String(chatId) ||
+                Boolean(contato) &&
+                usernameContato === contato;
+        }) || null;
+    };
+
+    const moverCardParaTopo = (chatId, timestamp) => {
+        const card = encontrarCardPorChatId(chatId);
+        const valorNovo = Number(timestamp || 0);
+
+        if (!card || !valorNovo) {
+            return;
+        }
+
+        const valorAnterior = Number(
+            card.getAttribute(
+                "data-ultima-interacao"
+            ) || 0
+        );
+
+        if (valorNovo > valorAnterior) {
+            card.setAttribute(
+                "data-ultima-interacao",
+                String(valorNovo)
+            );
+        }
+
+        reordenarCardsContatosChat();
+    };
+
+    const listaJaFoiRenderizada = () => {
+        const lista = obterListaVisivel();
+        return Boolean(
+            lista &&
+            obterCardsVisiveis(lista).length
+        );
+    };
 
     const renderizar = () => {
         const badgeAba = criarOuAtualizarBadgeMensagens();
@@ -999,7 +1148,9 @@ function iniciarListenerGlobalMensagens() {
                     "[data-unread-badge]"
                 );
 
-                if (!badgeContato) return;
+                if (!badgeContato) {
+                    return;
+                }
 
                 const quantidade = Number(
                     estado.porContato[usernameContato] || 0
@@ -1017,20 +1168,96 @@ function iniciarListenerGlobalMensagens() {
         .collection("chats")
         .where("usuarios", "array-contains", usernameLogado)
         .onSnapshot(snapshot => {
+            const assinaturasAtuais = {};
+            const contatosAtuais = {};
+            const tiposAtuais = {};
+            let precisaReconstruir = !estado.chatsInicializados;
+
             snapshot.forEach(doc => {
                 const dados = doc.data() || {};
                 const usuarios = Array.isArray(dados.usuarios)
                     ? dados.usuarios
                     : [];
-                const outro = usuarios.find(usuario => {
-                    return String(usuario).trim().toLowerCase() !==
-                        usernameLogado;
+                const usuariosNormalizados = usuarios
+                    .map(usuario => String(
+                        usuario || ""
+                    ).trim().toLowerCase())
+                    .filter(Boolean)
+                    .sort();
+                const tipo = String(
+                    dados.tipo || "individual"
+                ).trim().toLowerCase();
+                const assinatura = JSON.stringify({
+                    tipo,
+                    usuarios: usuariosNormalizados,
+                    nomeGrupo: String(
+                        dados.nomeGrupo || ""
+                    ),
+                    fotoGrupoUrl: String(
+                        dados.fotoGrupoUrl || ""
+                    )
                 });
 
-                if (outro) {
-                    estado.contatosPorChat[doc.id] = outro;
+                assinaturasAtuais[doc.id] = assinatura;
+                tiposAtuais[doc.id] = tipo;
+
+                if (
+                    estado.assinaturasChats[doc.id] &&
+                    estado.assinaturasChats[doc.id] !== assinatura
+                ) {
+                    precisaReconstruir = true;
+                }
+
+                if (tipo !== "grupo") {
+                    const outro = usuarios.find(usuario => {
+                        return String(usuario || "")
+                            .trim()
+                            .toLowerCase() !== usernameLogado;
+                    });
+
+                    if (outro) {
+                        contatosAtuais[doc.id] = String(
+                            outro
+                        ).trim().toLowerCase();
+                    }
+                }
+
+                const ultimaInteracao =
+                    converterTimestampParaMillis(
+                        dados.ultimoEnvio
+                    );
+
+                if (ultimaInteracao > 0) {
+                    estado.ultimaInteracaoPorChat[doc.id] = Math.max(
+                        Number(
+                            estado.ultimaInteracaoPorChat[doc.id] || 0
+                        ),
+                        ultimaInteracao
+                    );
                 }
             });
+
+            Object.keys(estado.assinaturasChats).forEach(chatId => {
+                if (!assinaturasAtuais[chatId]) {
+                    precisaReconstruir = true;
+                    delete estado.contatosPorChat[chatId];
+                    delete estado.tipoPorChat[chatId];
+                    delete estado.ultimaInteracaoPorChat[chatId];
+                }
+            });
+
+            estado.assinaturasChats = assinaturasAtuais;
+            estado.contatosPorChat = contatosAtuais;
+            estado.tipoPorChat = tiposAtuais;
+            estado.chatsInicializados = true;
+
+            Object.keys(estado.ultimaInteracaoPorChat)
+                .forEach(chatId => {
+                    moverCardParaTopo(
+                        chatId,
+                        estado.ultimaInteracaoPorChat[chatId]
+                    );
+                });
 
             Object.keys(estado.porChat).forEach(chatId => {
                 const contato = estado.contatosPorChat[chatId];
@@ -1042,19 +1269,47 @@ function iniciarListenerGlobalMensagens() {
             });
 
             renderizar();
-            agendarAtualizacaoOrdenacaoContatosChat();
-        }, erro => {
-            console.error("Erro ao observar contatos do chat:", erro);
-        });
 
+            if (
+                precisaReconstruir ||
+                !listaJaFoiRenderizada()
+            ) {
+                agendarAtualizacaoOrdenacaoContatosChat();
+            } else {
+                reordenarCardsContatosChat();
+            }
+        }, erro => {
+            console.error(
+                "Erro ao observar contatos do chat:",
+                erro
+            );
+        });
 
     const unsubscribeMensagens = window.ClubeDB.textoDB
         .collectionGroup("mensagens")
         .onSnapshot(snapshot => {
             const novasContagens = {};
+            const ultimasMensagens = {};
 
             snapshot.forEach(doc => {
                 const mensagem = doc.data() || {};
+                const chatRef = doc.ref.parent.parent;
+                const chatId = chatRef
+                    ? chatRef.id
+                    : "";
+
+                if (chatId) {
+                    const timestampMensagem =
+                        converterTimestampParaMillis(
+                            mensagem.enviadoEm ||
+                            mensagem.timestamp
+                        ) || Date.now();
+                    ultimasMensagens[chatId] = Math.max(
+                        Number(ultimasMensagens[chatId] || 0),
+                        timestampMensagem
+                    );
+                }
+
                 const destinatario = String(
                     mensagem.destinatario || ""
                 ).trim().toLowerCase();
@@ -1066,8 +1321,9 @@ function iniciarListenerGlobalMensagens() {
                     return;
                 }
 
-                const chatRef = doc.ref.parent.parent;
-                if (!chatRef) return;
+                if (!chatRef) {
+                    return;
+                }
 
                 novasContagens[chatRef.id] =
                     (novasContagens[chatRef.id] || 0) + 1;
@@ -1078,7 +1334,9 @@ function iniciarListenerGlobalMensagens() {
                     const anterior = Number(
                         estado.anteriores[chatId] || 0
                     );
-                    const atual = Number(novasContagens[chatId] || 0);
+                    const atual = Number(
+                        novasContagens[chatId] || 0
+                    );
 
                     if (atual > anterior) {
                         mostrarNotificacaoNovaMensagem(
@@ -1089,6 +1347,23 @@ function iniciarListenerGlobalMensagens() {
                     }
                 });
             }
+
+            Object.keys(ultimasMensagens).forEach(chatId => {
+                const timestampMensagem =
+                    ultimasMensagens[chatId];
+                const timestampAnterior = Number(
+                    estado.ultimaInteracaoPorChat[chatId] || 0
+                );
+
+                if (timestampMensagem > timestampAnterior) {
+                    estado.ultimaInteracaoPorChat[chatId] =
+                        timestampMensagem;
+                    moverCardParaTopo(
+                        chatId,
+                        timestampMensagem
+                    );
+                }
+            });
 
             estado.porChat = novasContagens;
             estado.porContato = {};
@@ -1107,7 +1382,7 @@ function iniciarListenerGlobalMensagens() {
             });
 
             renderizar();
-            agendarAtualizacaoOrdenacaoContatosChat();
+            reordenarCardsContatosChat();
         }, erro => {
             console.error(
                 "Erro ao observar mensagens em tempo real:",
@@ -1115,12 +1390,12 @@ function iniciarListenerGlobalMensagens() {
             );
         });
 
-
     window._unsubscribeGlobalMensagens = () => {
         unsubscribeChats();
         unsubscribeMensagens();
     };
 }
+
 
 
 
@@ -2416,22 +2691,11 @@ function criarCardGrupoChat(
     const quantidade = Number(
         quantidadeParticipantes || 0
     );
-    let imagem = String(
+    const imagem = String(
         fotoGrupoUrl ||
         window.AVATAR_USUARIO_PADRAO ||
         ""
     );
-
-    if (
-        imagem &&
-        imagem !== window.AVATAR_USUARIO_PADRAO
-    ) {
-        imagem += (
-            imagem.includes("?")
-                ? "&"
-                : "?"
-        ) + "v=" + Date.now();
-    }
 
     return `
         <div
@@ -2461,19 +2725,11 @@ function criarCardContatoChat(
     fotoUrl,
     ultimaInteracao
 ) {
-    let img = fotoUrl ||
-        window.AVATAR_USUARIO_PADRAO;
-
-    if (
-        fotoUrl &&
-        fotoUrl !== window.AVATAR_USUARIO_PADRAO
-    ) {
-        img += (
-            img.includes("?")
-                ? "&"
-                : "?"
-        ) + "v=" + Date.now();
-    }
+    const img = String(
+        fotoUrl ||
+        window.AVATAR_USUARIO_PADRAO ||
+        ""
+    );
 
     return `
         <div data-chat-username="${username}" data-tipo-chat="individual" data-ultima-interacao="${Number(ultimaInteracao || 0)}" onclick="abrirSalaChat('${username}', '${nome}', '${cargo}', '${img}' )" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; transition: background-color 0.2s ease;">
@@ -2489,6 +2745,7 @@ function criarCardContatoChat(
         </div>
     `;
 }
+
 
 // Cria um Hash único para as mensagens independentemente de quem enviou primeiro (Garante o P2P da mesma sala)
 
@@ -3139,22 +3396,39 @@ function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
     const usernameLogado = String(
         localStorage.getItem("usernameLogado") || ""
     ).trim().toLowerCase();
-
-    if (
-        !cabecalho ||
-        !dadosGrupo ||
-        !Array.isArray(dadosGrupo.participantes) ||
-        !dadosGrupo.participantes.includes(usernameLogado)
-    ) {
-        return;
-    }
-
+    const criadoPor = String(
+        dadosGrupo && dadosGrupo.criadoPor || ""
+    ).trim().toLowerCase();
+    const administradores = Array.isArray(
+        dadosGrupo && dadosGrupo.administradores
+    )
+        ? dadosGrupo.administradores.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
+    const participantes = Array.isArray(
+        dadosGrupo && dadosGrupo.participantes
+    )
+        ? dadosGrupo.participantes.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
     const antigo = document.getElementById(
         "btn-ver-membros-grupo-chat"
     );
 
     if (antigo) {
         antigo.remove();
+    }
+
+    if (
+        !cabecalho ||
+        !usernameLogado ||
+        !participantes.includes(usernameLogado) ||
+        usernameLogado === criadoPor ||
+        administradores.includes(usernameLogado)
+    ) {
+        return;
     }
 
     const botao = document.createElement("button");
@@ -3175,6 +3449,7 @@ function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
     );
     cabecalho.appendChild(botao);
 }
+
 
 function configurarAcoesGrupoChat(dadosGrupo) {
     const cabecalho = document.getElementById(
@@ -4892,6 +5167,12 @@ async function enviarMensagemChat() {
                     meuUsername
             )
             : [destinatarioIndividual];
+        const chatRef = banco
+            .collection("chats")
+            .doc(chatId);
+        const mensagemRef = chatRef
+            .collection("mensagens")
+            .doc();
 
         const dadosMensagem = {
             remetente: meuUsername,
@@ -4913,12 +5194,6 @@ async function enviarMensagemChat() {
                 firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        const mensagemCriada = await banco
-            .collection("chats")
-            .doc(chatId)
-            .collection("mensagens")
-            .add(dadosMensagem);
-
         const dadosChat = {
             ultimoEnvio:
                 firebase.firestore.FieldValue.serverTimestamp(),
@@ -4935,15 +5210,20 @@ async function enviarMensagemChat() {
             dadosChat.nomeGrupo = grupoAtivo.nomeGrupo;
         }
 
-        await banco
-            .collection("chats")
-            .doc(chatId)
-            .set(
-                dadosChat,
-                {
-                    merge: true
-                }
-            );
+        const lote = banco.batch();
+        lote.set(mensagemRef, dadosMensagem);
+        lote.set(
+            chatRef,
+            dadosChat,
+            {
+                merge: true
+            }
+        );
+        await lote.commit();
+
+        const mensagemCriada = {
+            id: mensagemRef.id
+        };
 
         for (const destinatario of destinatariosPush) {
             if (!destinatario) {
@@ -4988,6 +5268,7 @@ async function enviarMensagemChat() {
         });
     }
 }
+
 
 
 
