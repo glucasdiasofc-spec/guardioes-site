@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.326.0 - versão alpha";
+const VERSAO_ATUAL = "v0.327.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -3685,6 +3685,10 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
 
     usuarioChatDestino = usernameAlvoNormalizado;
 
+    if (typeof limparRespostaMensagemChat === "function") {
+        limparRespostaMensagemChat();
+    }
+
     const telaLista = document.getElementById("tela-lista-mensagens");
     const telaChat = document.getElementById("tela-sala-chat");
     const container = document.getElementById("chat-mensagens-container");
@@ -5983,6 +5987,10 @@ async function excluirGrupoChat() {
 }
 
 async function abrirSalaGrupoChat(chatId, nomeGrupo) {
+    if (typeof limparRespostaMensagemChat === "function") {
+        limparRespostaMensagemChat();
+    }
+
     const id = String(chatId || "").trim();
     const usernameLogado = String(
         localStorage.getItem("usernameLogado") || ""
@@ -6204,6 +6212,47 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
         const container = document.getElementById(
             "chat-mensagens-container"
         );
+        const perfisGrupoChat = {};
+
+        try {
+            const usuariosSnap = await banco
+                .collection("usuarios")
+                .get();
+
+            usuariosSnap.forEach(documentoUsuario => {
+                const dadosUsuario = documentoUsuario.data() || {};
+                const usernameUsuario = String(
+                    dadosUsuario.username || ""
+                ).trim().toLowerCase();
+
+                if (!usernameUsuario) {
+                    return;
+                }
+
+                perfisGrupoChat[usernameUsuario] = {
+                    nome: String(
+                        dadosUsuario.nomeReal ||
+                        usernameUsuario
+                    ).trim(),
+                    cargo: String(
+                        dadosUsuario.cargo ||
+                        dadosUsuario.tipo ||
+                        "Membro"
+                    ).trim(),
+                    fotoUrl: String(
+                        dadosUsuario.fotoUrl ||
+                        dadosUsuario.foto ||
+                        ""
+                    ).trim()
+                };
+            });
+        } catch (erroPerfis) {
+            console.error(
+                "Erro ao carregar perfis dos integrantes:",
+                erroPerfis
+            );
+        }
+
         window._chatIdAtivo = id;
         sincronizarEstadoChatComServiceWorker();
 
@@ -6244,23 +6293,38 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                     return;
                 }
 
-                const minha = String(
+                const remetenteMensagem = String(
                     mensagem.remetente || ""
-                ).trim().toLowerCase() ===
+                ).trim().toLowerCase();
+                const minha = remetenteMensagem ===
                     usernameLogado;
+                const perfilRemetente =
+                    perfisGrupoChat[remetenteMensagem] || {};
                 const linha = document.createElement("div");
                 const balao = document.createElement("div");
+                const cabecalhoRemetente =
+                    document.createElement("div");
+                const avatarRemetente =
+                    document.createElement("img");
+                const nomeRemetente =
+                    document.createElement("span");
                 const texto = document.createElement("div");
                 const horario = document.createElement("span");
+                const dadosResposta =
+                    mensagem.respostaMensagem || {};
                 const respostaId = String(
-                    mensagem.respostaMensagemId || ""
+                    mensagem.respostaMensagemId ||
+                    dadosResposta.id ||
+                    ""
                 ).trim();
                 const respostaRemetente = String(
                     mensagem.respostaMensagemRemetente ||
+                    dadosResposta.remetente ||
                     ""
                 ).trim().toLowerCase();
                 const respostaTexto = String(
                     mensagem.respostaMensagemTexto ||
+                    dadosResposta.texto ||
                     ""
                 ).trim();
 
@@ -6289,6 +6353,56 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                 balao.style.borderBottomLeftRadius = minha
                     ? "18px"
                     : "4px";
+
+                const fotoRemetente = String(
+                    perfilRemetente.fotoUrl ||
+                    window.AVATAR_USUARIO_PADRAO ||
+                    ""
+                );
+
+                cabecalhoRemetente.style.display = "flex";
+                cabecalhoRemetente.style.alignItems = "center";
+                cabecalhoRemetente.style.gap = "6px";
+                cabecalhoRemetente.style.marginBottom = "2px";
+
+                avatarRemetente.src = fotoRemetente;
+                avatarRemetente.alt = "Foto do remetente";
+                avatarRemetente.style.width = "24px";
+                avatarRemetente.style.height = "24px";
+                avatarRemetente.style.flex = "0 0 24px";
+                avatarRemetente.style.borderRadius = "50%";
+                avatarRemetente.style.objectFit = "cover";
+                avatarRemetente.style.border =
+                    "1px solid rgba(255,255,255,.22)";
+                avatarRemetente.onerror = () => {
+                    avatarRemetente.onerror = null;
+                    avatarRemetente.src =
+                        window.AVATAR_USUARIO_PADRAO;
+                };
+
+                nomeRemetente.textContent = minha
+                    ? "Você"
+                    : String(
+                        perfilRemetente.nome ||
+                        remetenteMensagem ||
+                        "Membro"
+                    );
+                nomeRemetente.style.color = minha
+                    ? "#9edcff"
+                    : "#fff";
+                nomeRemetente.style.fontSize = "11px";
+                nomeRemetente.style.fontWeight = "700";
+                nomeRemetente.style.overflow = "hidden";
+                nomeRemetente.style.textOverflow = "ellipsis";
+                nomeRemetente.style.whiteSpace = "nowrap";
+
+                cabecalhoRemetente.appendChild(
+                    avatarRemetente
+                );
+                cabecalhoRemetente.appendChild(
+                    nomeRemetente
+                );
+                balao.appendChild(cabecalhoRemetente);
 
                 if (
                     respostaId &&
@@ -6441,6 +6555,11 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
 
 function fecharSalaChat() {
     cancelarSelecaoMensagensChat();
+
+    if (typeof limparRespostaMensagemChat === "function") {
+        limparRespostaMensagemChat();
+    }
+
     const telaChat = document.getElementById(
         "tela-sala-chat"
     );
@@ -7286,6 +7405,13 @@ async function enviarMensagemChat() {
             respostaMensagemTexto: resposta
                 ? resposta.texto
                 : "",
+            respostaMensagem: resposta
+                ? {
+                    id: resposta.id,
+                    remetente: resposta.remetente,
+                    texto: resposta.texto
+                }
+                : null,
             enviadoEm:
                 firebase.firestore.FieldValue.serverTimestamp(),
             lido: false,
