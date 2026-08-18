@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.327.0 - versão alpha";
+const VERSAO_ATUAL = "v0.328.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -3904,14 +3904,38 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
         .collection("mensagens")
         .orderBy("timestamp", "asc")
         .onSnapshot(snapshot => {
-            if (!container) return;
+            if (!container) {
+                return;
+            }
 
             container.innerHTML = "";
 
             snapshot.forEach(doc => {
-                const msg = doc.data();
-                const isMinha = msg.remetente === meuUsername;
+                const msg = doc.data() || {};
+                const remetenteMensagem = String(
+                    msg.remetente || ""
+                ).trim().toLowerCase();
+                const isMinha =
+                    remetenteMensagem === meuUsername;
                 const div = document.createElement("div");
+                const balao = document.createElement("div");
+                const dadosResposta =
+                    msg.respostaMensagem || {};
+                const respostaId = String(
+                    msg.respostaMensagemId ||
+                    dadosResposta.id ||
+                    ""
+                ).trim();
+                const respostaRemetente = String(
+                    msg.respostaMensagemRemetente ||
+                    dadosResposta.remetente ||
+                    ""
+                ).trim().toLowerCase();
+                const respostaTexto = String(
+                    msg.respostaMensagemTexto ||
+                    dadosResposta.texto ||
+                    ""
+                ).trim();
 
                 div.style.display = "flex";
                 div.style.width = "100%";
@@ -3920,14 +3944,122 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                     ? "flex-end"
                     : "flex-start";
 
-                const balao = document.createElement("div");
                 balao.style.display = "flex";
                 balao.style.flexDirection = "column";
                 balao.style.gap = "4px";
                 balao.style.textAlign = "left";
+                balao.style.maxWidth = "75%";
+                balao.style.padding = "10px 14px";
+                balao.style.borderRadius = "18px";
+                balao.style.fontSize = "14px";
+                balao.style.wordBreak = "break-word";
+                balao.style.background = isMinha
+                    ? "#0095f6"
+                    : "#262626";
+                balao.style.color = "#fff";
+
+                if (isMinha) {
+                    balao.style.borderBottomRightRadius = "4px";
+                } else {
+                    balao.style.borderBottomLeftRadius = "4px";
+                }
+
+                if (
+                    respostaId &&
+                    (respostaTexto || respostaRemetente)
+                ) {
+                    const blocoResposta = document.createElement(
+                        "button"
+                    );
+                    const tituloResposta = document.createElement(
+                        "span"
+                    );
+                    const textoResposta = document.createElement(
+                        "span"
+                    );
+
+                    blocoResposta.type = "button";
+                    blocoResposta.title =
+                        "Ir para a mensagem respondida";
+                    blocoResposta.style.display = "flex";
+                    blocoResposta.style.flexDirection = "column";
+                    blocoResposta.style.alignItems = "stretch";
+                    blocoResposta.style.width = "100%";
+                    blocoResposta.style.boxSizing = "border-box";
+                    blocoResposta.style.padding = "6px 8px";
+                    blocoResposta.style.marginBottom = "2px";
+                    blocoResposta.style.border = "none";
+                    blocoResposta.style.borderLeft =
+                        "3px solid #58b7ff";
+                    blocoResposta.style.borderRadius = "6px";
+                    blocoResposta.style.background = isMinha
+                        ? "rgba(0, 0, 0, .18)"
+                        : "#1f3b46";
+                    blocoResposta.style.color = "#d7d9db";
+                    blocoResposta.style.textAlign = "left";
+                    blocoResposta.style.cursor = "pointer";
+
+                    tituloResposta.textContent =
+                        respostaRemetente
+                            ? `@${respostaRemetente}`
+                            : "Mensagem respondida";
+                    tituloResposta.style.color = "#8bd3ff";
+                    tituloResposta.style.fontSize = "11px";
+                    tituloResposta.style.fontWeight = "700";
+                    tituloResposta.style.marginBottom = "2px";
+
+                    textoResposta.textContent = respostaTexto ||
+                        "Mensagem";
+                    textoResposta.style.display = "block";
+                    textoResposta.style.overflow = "hidden";
+                    textoResposta.style.textOverflow = "ellipsis";
+                    textoResposta.style.whiteSpace = "nowrap";
+                    textoResposta.style.color = "#d7d9db";
+                    textoResposta.style.fontSize = "12px";
+
+                    blocoResposta.appendChild(tituloResposta);
+                    blocoResposta.appendChild(textoResposta);
+                    blocoResposta.addEventListener(
+                        "click",
+                        eventoResposta => {
+                            eventoResposta.preventDefault();
+                            eventoResposta.stopPropagation();
+
+                            const original = Array.from(
+                                container.querySelectorAll(
+                                    "[data-mensagem-id]"
+                                )
+                            ).find(elementoMensagem => {
+                                return elementoMensagem.getAttribute(
+                                    "data-mensagem-id"
+                                ) === respostaId;
+                            });
+
+                            if (!original) {
+                                return;
+                            }
+
+                            original.scrollIntoView({
+                                behavior: "smooth",
+                                block: "center"
+                            });
+                            original.style.outline =
+                                "2px solid #58b7ff";
+                            original.style.outlineOffset = "4px";
+
+                            window.setTimeout(() => {
+                                original.style.outline = "none";
+                                original.style.outlineOffset = "0";
+                            }, 1200);
+                        }
+                    );
+                    balao.appendChild(blocoResposta);
+                }
 
                 const textoMensagem = document.createElement("div");
-                textoMensagem.textContent = msg.texto || "";
+                textoMensagem.textContent = String(
+                    msg.texto || ""
+                );
                 balao.appendChild(textoMensagem);
 
                 const horarioEnvio = document.createElement("span");
@@ -3950,22 +4082,6 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                     balao.appendChild(statusLeitura);
                 }
 
-                balao.style.maxWidth = "75%";
-                balao.style.padding = "10px 14px";
-                balao.style.borderRadius = "18px";
-                balao.style.fontSize = "14px";
-                balao.style.wordBreak = "break-word";
-                balao.style.background = isMinha
-                    ? "#0095f6"
-                    : "#262626";
-                balao.style.color = "#fff";
-
-                if (isMinha) {
-                    balao.style.borderBottomRightRadius = "4px";
-                } else {
-                    balao.style.borderBottomLeftRadius = "4px";
-                }
-
                 div.appendChild(balao);
                 configurarPressaoProlongadaMensagem(
                     div,
@@ -3973,13 +4089,13 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                     msg
                 );
                 container.appendChild(div);
-
             });
 
             container.scrollTop = container.scrollHeight;
             marcarMensagensComoLidas(chatId, meuUsername);
             atualizarIndicadorAbaMensagens();
         });
+
 }
 
 
