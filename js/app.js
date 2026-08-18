@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.323.0 - versão alpha";
+const VERSAO_ATUAL = "v0.324.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -6198,7 +6198,7 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
         window._chatIdAtivo = id;
         sincronizarEstadoChatComServiceWorker();
 
-        const renderizarMensagens = snapshot => {
+                const renderizarMensagens = snapshot => {
             if (!container) {
                 return;
             }
@@ -6243,6 +6243,17 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                 const balao = document.createElement("div");
                 const texto = document.createElement("div");
                 const horario = document.createElement("span");
+                const respostaId = String(
+                    mensagem.respostaMensagemId || ""
+                ).trim();
+                const respostaRemetente = String(
+                    mensagem.respostaMensagemRemetente ||
+                    ""
+                ).trim().toLowerCase();
+                const respostaTexto = String(
+                    mensagem.respostaMensagemTexto ||
+                    ""
+                ).trim();
 
                 linha.style.display = "flex";
                 linha.style.width = "100%";
@@ -6270,6 +6281,101 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                     ? "18px"
                     : "4px";
 
+                if (
+                    respostaId &&
+                    (respostaTexto || respostaRemetente)
+                ) {
+                    const blocoResposta = document.createElement(
+                        "button"
+                    );
+                    const tituloResposta = document.createElement(
+                        "span"
+                    );
+                    const textoResposta = document.createElement(
+                        "span"
+                    );
+
+                    blocoResposta.type = "button";
+                    blocoResposta.title =
+                        "Ir para a mensagem respondida";
+                    blocoResposta.style.display = "flex";
+                    blocoResposta.style.flexDirection = "column";
+                    blocoResposta.style.alignItems = "stretch";
+                    blocoResposta.style.width = "100%";
+                    blocoResposta.style.boxSizing = "border-box";
+                    blocoResposta.style.padding = "6px 8px";
+                    blocoResposta.style.marginBottom = "2px";
+                    blocoResposta.style.border = "none";
+                    blocoResposta.style.borderLeft = "3px solid #58b7ff";
+                    blocoResposta.style.borderRadius = "6px";
+                    blocoResposta.style.background = minha
+                        ? "rgba(0, 0, 0, .18)"
+                        : "#1f3b46";
+                    blocoResposta.style.color = "#d7d9db";
+                    blocoResposta.style.textAlign = "left";
+                    blocoResposta.style.cursor = "pointer";
+
+                    tituloResposta.textContent = respostaRemetente
+                        ? `@${respostaRemetente}`
+                        : "Mensagem respondida";
+                    tituloResposta.style.color = "#8bd3ff";
+                    tituloResposta.style.fontSize = "11px";
+                    tituloResposta.style.fontWeight = "700";
+                    tituloResposta.style.marginBottom = "2px";
+
+                    textoResposta.textContent = respostaTexto ||
+                        "Mensagem";
+                    textoResposta.style.display = "block";
+                    textoResposta.style.overflow = "hidden";
+                    textoResposta.style.textOverflow = "ellipsis";
+                    textoResposta.style.whiteSpace = "nowrap";
+                    textoResposta.style.color = "#d7d9db";
+                    textoResposta.style.fontSize = "12px";
+
+                    blocoResposta.appendChild(tituloResposta);
+                    blocoResposta.appendChild(textoResposta);
+                    blocoResposta.addEventListener(
+                        "click",
+                        eventoResposta => {
+                            eventoResposta.preventDefault();
+                            eventoResposta.stopPropagation();
+
+                            const mensagens = Array.from(
+                                container.querySelectorAll(
+                                    "[data-mensagem-id]"
+                                )
+                            );
+                            const original = mensagens.find(
+                                elementoMensagem => {
+                                    return elementoMensagem.getAttribute(
+                                        "data-mensagem-id"
+                                    ) === respostaId;
+                                }
+                            );
+
+                            if (!original) {
+                                return;
+                            }
+
+                            original.scrollIntoView({
+                                behavior: "smooth",
+                                block: "center"
+                            });
+                            original.style.transition =
+                                "filter .2s ease, outline .2s ease";
+                            original.style.outline =
+                                "2px solid #58b7ff";
+                            original.style.outlineOffset = "4px";
+
+                            window.setTimeout(() => {
+                                original.style.outline = "none";
+                                original.style.outlineOffset = "0";
+                            }, 1200);
+                        }
+                    );
+                    balao.appendChild(blocoResposta);
+                }
+
                 texto.textContent = String(
                     mensagem.texto || ""
                 );
@@ -6291,7 +6397,6 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                     mensagem
                 );
                 container.appendChild(linha);
-
             });
 
             container.scrollTop = container.scrollHeight;
@@ -6901,7 +7006,7 @@ async function marcarMensagensComoLidas(chatId, usernameLogado) {
 
 
 
-window._respostaMensagemChat =
+    window._respostaMensagemChat =
     window._respostaMensagemChat || null;
 
 function limparRespostaMensagemChat() {
@@ -6914,6 +7019,31 @@ function limparRespostaMensagemChat() {
     if (barra) {
         barra.remove();
     }
+
+    if (window._reposicionarBarraResposta) {
+        window.removeEventListener(
+            "resize",
+            window._reposicionarBarraResposta
+        );
+        window.removeEventListener(
+            "scroll",
+            window._reposicionarBarraResposta,
+            true
+        );
+
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener(
+                "resize",
+                window._reposicionarBarraResposta
+            );
+            window.visualViewport.removeEventListener(
+                "scroll",
+                window._reposicionarBarraResposta
+            );
+        }
+    }
+
+    window._reposicionarBarraResposta = null;
 }
 
 function prepararRespostaMensagemChat(
@@ -6949,35 +7079,49 @@ function prepararRespostaMensagemChat(
     if (!barra) {
         barra = document.createElement("div");
         barra.id = "barra-resposta-mensagem-chat";
+        barra.style.position = "fixed";
+        barra.style.zIndex = "2147483646";
         barra.style.display = "flex";
         barra.style.alignItems = "center";
         barra.style.gap = "8px";
-        barra.style.width = "100%";
-        barra.style.boxSizing = "border-box";
+        barra.style.minHeight = "44px";
         barra.style.padding = "7px 10px";
-        barra.style.marginBottom = "6px";
+        barra.style.boxSizing = "border-box";
+        barra.style.border = "1px solid #3a3a3a";
         barra.style.borderLeft = "3px solid #58b7ff";
-        barra.style.borderRadius = "8px";
+        barra.style.borderRadius = "9px";
         barra.style.background = "#1c1c1c";
+        barra.style.boxShadow = "0 6px 18px rgba(0,0,0,.4)";
+        barra.style.transition =
+            "left .12s ease, top .12s ease, width .12s ease";
 
-        const textoBarra = document.createElement("div");
-        textoBarra.id = "texto-resposta-mensagem-chat";
-        textoBarra.style.flex = "1";
-        textoBarra.style.minWidth = "0";
-        textoBarra.style.overflow = "hidden";
-        textoBarra.style.textOverflow = "ellipsis";
-        textoBarra.style.whiteSpace = "nowrap";
-        textoBarra.style.color = "#d7d9db";
-        textoBarra.style.fontSize = "11px";
+        const conteudo = document.createElement("div");
+        conteudo.id = "texto-resposta-mensagem-chat";
+        conteudo.style.flex = "1";
+        conteudo.style.minWidth = "0";
+        conteudo.style.overflow = "hidden";
+        conteudo.style.textOverflow = "ellipsis";
+        conteudo.style.whiteSpace = "nowrap";
+        conteudo.style.color = "#d7d9db";
+        conteudo.style.fontSize = "12px";
+        conteudo.style.lineHeight = "1.3";
 
         const fechar = document.createElement("button");
         fechar.type = "button";
         fechar.textContent = "×";
         fechar.title = "Cancelar resposta";
+        fechar.setAttribute(
+            "aria-label",
+            "Cancelar resposta"
+        );
+        fechar.style.flex = "0 0 auto";
+        fechar.style.width = "30px";
+        fechar.style.height = "30px";
         fechar.style.border = "none";
+        fechar.style.borderRadius = "7px";
         fechar.style.background = "transparent";
         fechar.style.color = "#fff";
-        fechar.style.fontSize = "20px";
+        fechar.style.fontSize = "22px";
         fechar.style.lineHeight = "1";
         fechar.style.cursor = "pointer";
         fechar.addEventListener(
@@ -6985,34 +7129,109 @@ function prepararRespostaMensagemChat(
             limparRespostaMensagemChat
         );
 
-        barra.appendChild(textoBarra);
+        barra.appendChild(conteudo);
         barra.appendChild(fechar);
+        document.body.appendChild(barra);
+    }
 
-        const pai = input.parentElement;
-        if (pai) {
-            pai.insertBefore(barra, input);
-        } else {
-            input.insertAdjacentElement(
-                "beforebegin",
-                barra
+    const conteudo = document.getElementById(
+        "texto-resposta-mensagem-chat"
+    );
+
+    if (conteudo) {
+        conteudo.textContent = remetente
+            ? `Respondendo a @${remetente}: ${texto}`
+            : `Respondendo: ${texto}`;
+    }
+
+    const posicionar = () => {
+        const elementoInput = document.getElementById(
+            "input-nova-mensagem"
+        );
+        const elementoBarra = document.getElementById(
+            "barra-resposta-mensagem-chat"
+        );
+
+        if (!elementoInput || !elementoBarra) {
+            return;
+        }
+
+        const retangulo = elementoInput.getBoundingClientRect();
+        const largura = Math.min(
+            Math.max(retangulo.width, 180),
+            window.innerWidth - 24
+        );
+        const esquerda = Math.max(
+            12,
+            Math.min(
+                retangulo.left,
+                window.innerWidth - largura - 12
+            )
+        );
+        const topo = Math.max(
+            12,
+            retangulo.top - 52
+        );
+
+        elementoBarra.style.left = `${esquerda}px`;
+        elementoBarra.style.top = `${topo}px`;
+        elementoBarra.style.width = `${largura}px`;
+    };
+
+    if (window._reposicionarBarraResposta) {
+        window.removeEventListener(
+            "resize",
+            window._reposicionarBarraResposta
+        );
+        window.removeEventListener(
+            "scroll",
+            window._reposicionarBarraResposta,
+            true
+        );
+
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener(
+                "resize",
+                window._reposicionarBarraResposta
+            );
+            window.visualViewport.removeEventListener(
+                "scroll",
+                window._reposicionarBarraResposta
             );
         }
     }
 
-    const textoBarra = document.getElementById(
-        "texto-resposta-mensagem-chat"
+    window._reposicionarBarraResposta = posicionar;
+    window.addEventListener(
+        "resize",
+        posicionar
+    );
+    window.addEventListener(
+        "scroll",
+        posicionar,
+        true
     );
 
-    if (textoBarra) {
-        textoBarra.textContent = remetente
-            ? `Respondendo a @${remetente}: ${texto}`
-            : `Respondendo: ${texto}`;
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener(
+            "resize",
+            posicionar
+        );
+        window.visualViewport.addEventListener(
+            "scroll",
+            posicionar
+        );
     }
 
     input.focus({
         preventScroll: true
     });
+
+    window.requestAnimationFrame(posicionar);
+    window.setTimeout(posicionar, 120);
+    window.setTimeout(posicionar, 400);
 }
+
 
 async function enviarMensagemChat() {
     const input = document.getElementById(
