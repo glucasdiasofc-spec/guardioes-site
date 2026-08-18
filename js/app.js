@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.328.0 - versão alpha";
+const VERSAO_ATUAL = "v0.329.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -7617,6 +7617,1119 @@ async function enviarMensagemChat() {
 
 
 // Carrega as informações dinâmicas do membro logado diretamente no perfil
+function fecharPainelUnidade() {
+    const painel = document.getElementById(
+        "modal-painel-unidade"
+    );
+
+    if (painel) {
+        painel.remove();
+    }
+}
+
+function criarIdUnidadeParaPainel(nomeUnidade) {
+    return String(nomeUnidade || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+function criarLinhaFrequenciaUnidade(membro, selecionado, aoMudar) {
+    const linha = document.createElement("label");
+    const avatar = document.createElement("img");
+    const textos = document.createElement("span");
+    const nome = document.createElement("strong");
+    const detalhe = document.createElement("small");
+    const checkbox = document.createElement("input");
+
+    linha.style.display = "flex";
+    linha.style.alignItems = "center";
+    linha.style.gap = "10px";
+    linha.style.padding = "9px 10px";
+    linha.style.border = "1px solid #262626";
+    linha.style.borderRadius = "10px";
+    linha.style.background = "#121212";
+    linha.style.cursor = "pointer";
+
+    avatar.src = String(
+        membro.fotoUrl ||
+        window.AVATAR_USUARIO_PADRAO ||
+        ""
+    );
+    avatar.alt = `Foto de ${membro.nome}`;
+    avatar.style.width = "38px";
+    avatar.style.height = "38px";
+    avatar.style.flex = "0 0 38px";
+    avatar.style.objectFit = "cover";
+    avatar.style.borderRadius = "50%";
+    avatar.style.border = "1px solid #3a3a3a";
+    avatar.onerror = () => {
+        avatar.onerror = null;
+        avatar.src = window.AVATAR_USUARIO_PADRAO;
+    };
+
+    textos.style.display = "flex";
+    textos.style.flexDirection = "column";
+    textos.style.gap = "2px";
+    textos.style.flex = "1";
+    textos.style.minWidth = "0";
+
+    nome.textContent = membro.nome;
+    nome.style.color = "#fff";
+    nome.style.fontSize = "13px";
+    nome.style.overflow = "hidden";
+    nome.style.textOverflow = "ellipsis";
+    nome.style.whiteSpace = "nowrap";
+
+    detalhe.textContent = `${membro.cargo || "Membro"} · @${membro.username}`;
+    detalhe.style.color = "#8e8e8e";
+    detalhe.style.fontSize = "10px";
+    detalhe.style.overflow = "hidden";
+    detalhe.style.textOverflow = "ellipsis";
+    detalhe.style.whiteSpace = "nowrap";
+
+    checkbox.type = "checkbox";
+    checkbox.checked = Boolean(selecionado);
+    checkbox.setAttribute(
+        "data-frequencia-username",
+        membro.username
+    );
+    checkbox.style.width = "19px";
+    checkbox.style.height = "19px";
+    checkbox.style.flex = "0 0 19px";
+    checkbox.style.accentColor = "#20c997";
+    checkbox.addEventListener(
+        "change",
+        () => aoMudar(membro.username, checkbox.checked)
+    );
+
+    textos.appendChild(nome);
+    textos.appendChild(detalhe);
+    linha.appendChild(avatar);
+    linha.appendChild(textos);
+    linha.appendChild(checkbox);
+    return linha;
+}
+
+async function renderizarPainelSecretarioFrequencia(
+    container,
+    unidadeId,
+    nomeUnidade,
+    banco,
+    usernameLogado
+) {
+    const secao = document.createElement("section");
+    const titulo = document.createElement("h2");
+    const descricao = document.createElement("p");
+    const controles = document.createElement("div");
+    const dataLabel = document.createElement("label");
+    const dataInput = document.createElement("input");
+    const tipoLabel = document.createElement("label");
+    const tipoSelect = document.createElement("select");
+    const listaTitulo = document.createElement("h3");
+    const lista = document.createElement("div");
+    const mensagem = document.createElement("p");
+    const salvar = document.createElement("button");
+    const membros = [];
+    const presentes = new Set();
+    const hoje = new Date();
+    const dataHoje = [
+        hoje.getFullYear(),
+        String(hoje.getMonth() + 1).padStart(2, "0"),
+        String(hoje.getDate()).padStart(2, "0")
+    ].join("-");
+
+    secao.id = "secao-frequencia-unidade";
+    secao.style.display = "flex";
+    secao.style.flexDirection = "column";
+    secao.style.gap = "10px";
+
+    titulo.textContent = "Controle de frequência";
+    titulo.style.margin = "18px 0 0";
+    titulo.style.fontSize = "17px";
+
+    descricao.textContent =
+        `Registre a presença dos desbravadores da unidade ${nomeUnidade}.`;
+    descricao.style.margin = "0 0 4px";
+    descricao.style.color = "#8e8e8e";
+    descricao.style.fontSize = "12px";
+    descricao.style.lineHeight = "1.45";
+
+    controles.style.display = "grid";
+    controles.style.gridTemplateColumns =
+        "repeat(auto-fit, minmax(160px, 1fr))";
+    controles.style.gap = "9px";
+
+    dataLabel.textContent = "Data da reunião ou atividade";
+    dataLabel.style.display = "flex";
+    dataLabel.style.flexDirection = "column";
+    dataLabel.style.gap = "5px";
+    dataLabel.style.color = "#d7d9db";
+    dataLabel.style.fontSize = "11px";
+
+    dataInput.type = "date";
+    dataInput.value = dataHoje;
+    dataInput.style.width = "100%";
+    dataInput.style.boxSizing = "border-box";
+    dataInput.style.padding = "10px";
+    dataInput.style.border = "1px solid #3a3a3a";
+    dataInput.style.borderRadius = "9px";
+    dataInput.style.background = "#1c1c1c";
+    dataInput.style.color = "#fff";
+
+    tipoLabel.textContent = "Tipo de atividade";
+    tipoLabel.style.display = "flex";
+    tipoLabel.style.flexDirection = "column";
+    tipoLabel.style.gap = "5px";
+    tipoLabel.style.color = "#d7d9db";
+    tipoLabel.style.fontSize = "11px";
+
+    tipoSelect.innerHTML = `
+        <option value="reuniao">Reunião regular</option>
+        <option value="acampamento">Acampamento</option>
+        <option value="outra_atividade">Outra atividade</option>
+    `;
+    tipoSelect.style.width = "100%";
+    tipoSelect.style.boxSizing = "border-box";
+    tipoSelect.style.padding = "10px";
+    tipoSelect.style.border = "1px solid #3a3a3a";
+    tipoSelect.style.borderRadius = "9px";
+    tipoSelect.style.background = "#1c1c1c";
+    tipoSelect.style.color = "#fff";
+
+    dataLabel.appendChild(dataInput);
+    tipoLabel.appendChild(tipoSelect);
+    controles.appendChild(dataLabel);
+    controles.appendChild(tipoLabel);
+
+    listaTitulo.textContent = "Desbravadores da unidade";
+    listaTitulo.style.margin = "10px 0 0";
+    listaTitulo.style.fontSize = "14px";
+
+    lista.style.display = "flex";
+    lista.style.flexDirection = "column";
+    lista.style.gap = "7px";
+    lista.style.maxHeight = "min(52vh, 480px)";
+    lista.style.overflowY = "auto";
+    lista.style.padding = "2px";
+
+    mensagem.style.margin = "4px 0";
+    mensagem.style.color = "#8e8e8e";
+    mensagem.style.fontSize = "12px";
+    mensagem.style.textAlign = "center";
+
+    salvar.type = "button";
+    salvar.textContent = "Salvar chamada";
+    salvar.style.width = "100%";
+    salvar.style.padding = "12px";
+    salvar.style.border = "none";
+    salvar.style.borderRadius = "10px";
+    salvar.style.background = "#20c997";
+    salvar.style.color = "#071b16";
+    salvar.style.fontWeight = "700";
+    salvar.style.cursor = "pointer";
+
+    secao.appendChild(titulo);
+    secao.appendChild(descricao);
+    secao.appendChild(controles);
+    secao.appendChild(listaTitulo);
+    secao.appendChild(lista);
+    secao.appendChild(mensagem);
+    secao.appendChild(salvar);
+    container.appendChild(secao);
+
+    const renderizarMembros = () => {
+        lista.innerHTML = "";
+
+        if (!membros.length) {
+            mensagem.textContent =
+                "Nenhum desbravador encontrado nesta unidade.";
+            return;
+        }
+
+        mensagem.textContent =
+            `${presentes.size} de ${membros.length} presentes`;
+
+        membros.forEach(membro => {
+            lista.appendChild(
+                criarLinhaFrequenciaUnidade(
+                    membro,
+                    presentes.has(membro.username),
+                    (username, marcado) => {
+                        if (marcado) {
+                            presentes.add(username);
+                        } else {
+                            presentes.delete(username);
+                        }
+                        mensagem.textContent =
+                            `${presentes.size} de ${membros.length} presentes`;
+                    }
+                )
+            );
+        });
+    };
+
+    const carregarRegistro = async () => {
+        const data = dataInput.value;
+
+        if (!data) {
+            return;
+        }
+
+        presentes.clear();
+        tipoSelect.value = "reuniao";
+        mensagem.textContent = "Carregando chamada...";
+
+        try {
+            const registro = await banco
+                .collection("frequencias_unidades")
+                .doc(unidadeId)
+                .collection("registros")
+                .doc(data)
+                .get();
+
+            if (registro.exists) {
+                const dadosRegistro = registro.data() || {};
+                const listaPresentes = Array.isArray(
+                    dadosRegistro.presentes
+                )
+                    ? dadosRegistro.presentes
+                    : [];
+
+                listaPresentes.forEach(username => {
+                    presentes.add(String(
+                        username || ""
+                    ).trim().toLowerCase());
+                });
+
+                tipoSelect.value =
+                    dadosRegistro.tipoAtividade || "reuniao";
+            }
+
+            renderizarMembros();
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar frequência:",
+                erro
+            );
+            mensagem.textContent =
+                "Não foi possível carregar esta chamada.";
+        }
+    };
+
+    dataInput.addEventListener(
+        "change",
+        carregarRegistro
+    );
+
+    salvar.addEventListener(
+        "click",
+        async () => {
+            const data = dataInput.value;
+
+            if (!data || !membros.length) {
+                window.alert(
+                    "Escolha uma data e confirme que há membros na unidade."
+                );
+                return;
+            }
+
+            const presentesLista = membros
+                .filter(membro => presentes.has(membro.username))
+                .map(membro => membro.username);
+            const faltasLista = membros
+                .filter(membro => !presentes.has(membro.username))
+                .map(membro => membro.username);
+
+            salvar.disabled = true;
+            salvar.textContent = "Salvando...";
+
+            try {
+                await banco
+                    .collection("frequencias_unidades")
+                    .doc(unidadeId)
+                    .collection("registros")
+                    .doc(data)
+                    .set({
+                        data,
+                        unidade: nomeUnidade,
+                        unidadeId,
+                        tipoAtividade: tipoSelect.value,
+                        presentes: presentesLista,
+                        faltas: faltasLista,
+                        atualizadoPor: usernameLogado,
+                        atualizadoEm:
+                            firebase.firestore.FieldValue.serverTimestamp()
+                    }, {
+                        merge: true
+                    });
+
+                window.alert(
+                    "Chamada salva com sucesso."
+                );
+            } catch (erro) {
+                console.error(
+                    "Erro ao salvar frequência:",
+                    erro
+                );
+                window.alert(
+                    "Não foi possível salvar a chamada. Verifique as regras do Firestore."
+                );
+            } finally {
+                salvar.disabled = false;
+                salvar.textContent = "Salvar chamada";
+            }
+        }
+    );
+
+    try {
+        const membrosSnap = await banco
+            .collection("usuarios")
+            .where("unidade", "==", nomeUnidade)
+            .get();
+
+        membrosSnap.forEach(documento => {
+            const dados = documento.data() || {};
+            const usernameMembro = String(
+                dados.username || ""
+            ).trim().toLowerCase();
+
+            if (
+                !usernameMembro ||
+                String(dados.tipo || "")
+                    .trim()
+                    .toLowerCase() === "liderança"
+            ) {
+                return;
+            }
+
+            membros.push({
+                username: usernameMembro,
+                nome: String(
+                    dados.nomeReal || usernameMembro
+                ).trim(),
+                cargo: String(
+                    dados.cargo || "Desbravador"
+                ).trim(),
+                fotoUrl: String(
+                    dados.fotoUrl || ""
+                ).trim()
+            });
+        });
+
+        membros.sort((a, b) => a.nome.localeCompare(
+            b.nome,
+            "pt-BR"
+        ));
+        await carregarRegistro();
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar membros da unidade:",
+            erro
+        );
+        mensagem.textContent =
+            "Não foi possível carregar os membros desta unidade.";
+    }
+}
+
+async function renderizarPainelSecretarioRelatorios(
+    container,
+    unidadeId,
+    nomeUnidade,
+    banco,
+    usernameLogado
+) {
+    const secao = document.createElement("section");
+    const titulo = document.createElement("h2");
+    const descricao = document.createElement("p");
+    const formulario = document.createElement("div");
+    const dataInput = document.createElement("input");
+    const tipoSelect = document.createElement("select");
+    const tituloInput = document.createElement("input");
+    const textoArea = document.createElement("textarea");
+    const botoes = document.createElement("div");
+    const chamada = document.createElement("button");
+    const salvar = document.createElement("button");
+    const listaTitulo = document.createElement("h3");
+    const lista = document.createElement("div");
+    const status = document.createElement("p");
+    const hoje = new Date();
+    const dataHoje = [
+        hoje.getFullYear(),
+        String(hoje.getMonth() + 1).padStart(2, "0"),
+        String(hoje.getDate()).padStart(2, "0")
+    ].join("-");
+    const modelos = {
+        reuniao: {
+            titulo: "Relatório de reunião regular",
+            texto: "Objetivo da reunião:\n\nConteúdos e atividades realizadas:\n\nEncaminhamentos e observações:\n"
+        },
+        acampamento: {
+            titulo: "Relatório de acampamento",
+            texto: "Local e período do acampamento:\n\nObjetivos da atividade:\n\nAtividades realizadas:\n\nOcorrências, aprendizados e observações:\n"
+        },
+        atividade_externa: {
+            titulo: "Relatório de atividade externa",
+            texto: "Local da atividade externa:\n\nObjetivo e organização:\n\nAtividades realizadas:\n\nAvaliação e observações:\n"
+        },
+        diretoria: {
+            titulo: "Relatório de reunião de diretoria",
+            texto: "Pauta da reunião:\n\nDecisões tomadas:\n\nResponsáveis e prazos:\n\nObservações:\n"
+        }
+    };
+
+    const aplicarEstiloCampo = campo => {
+        campo.style.width = "100%";
+        campo.style.boxSizing = "border-box";
+        campo.style.padding = "10px";
+        campo.style.border = "1px solid #3a3a3a";
+        campo.style.borderRadius = "9px";
+        campo.style.background = "#1c1c1c";
+        campo.style.color = "#fff";
+        campo.style.fontSize = "12px";
+        campo.style.outline = "none";
+    };
+
+    const criarLabel = (texto, campo) => {
+        const label = document.createElement("label");
+        label.textContent = texto;
+        label.style.display = "flex";
+        label.style.flexDirection = "column";
+        label.style.gap = "5px";
+        label.style.color = "#d7d9db";
+        label.style.fontSize = "11px";
+        label.appendChild(campo);
+        return label;
+    };
+
+    const formatarDataRelatorio = data => {
+        const partes = String(data || "").split("-");
+        return partes.length === 3
+            ? `${partes[2]}/${partes[1]}/${partes[0]}`
+            : String(data || "");
+    };
+
+    secao.id = "secao-relatorios-unidade";
+    secao.style.display = "flex";
+    secao.style.flexDirection = "column";
+    secao.style.gap = "10px";
+    secao.style.marginTop = "24px";
+
+    titulo.textContent = "Relatórios de atividades";
+    titulo.style.margin = "0";
+    titulo.style.fontSize = "17px";
+
+    descricao.textContent =
+        "Escolha um modelo, registre a atividade e vincule a chamada da mesma data.";
+    descricao.style.margin = "0";
+    descricao.style.color = "#8e8e8e";
+    descricao.style.fontSize = "12px";
+    descricao.style.lineHeight = "1.45";
+
+    formulario.style.display = "flex";
+    formulario.style.flexDirection = "column";
+    formulario.style.gap = "9px";
+    formulario.style.padding = "14px";
+    formulario.style.border = "1px solid #262626";
+    formulario.style.borderRadius = "12px";
+    formulario.style.background = "#0d0d0d";
+
+    dataInput.type = "date";
+    dataInput.value = dataHoje;
+    aplicarEstiloCampo(dataInput);
+
+    tipoSelect.innerHTML = `
+        <option value="reuniao">Reunião regular</option>
+        <option value="acampamento">Acampamento</option>
+        <option value="atividade_externa">Atividade externa</option>
+        <option value="diretoria">Reunião de diretoria</option>
+    `;
+    aplicarEstiloCampo(tipoSelect);
+
+    tituloInput.type = "text";
+    tituloInput.maxLength = 120;
+    tituloInput.placeholder = "Título do relatório";
+    aplicarEstiloCampo(tituloInput);
+
+    textoArea.rows = 10;
+    textoArea.placeholder = "Escreva o relatório da atividade...";
+    textoArea.style.resize = "vertical";
+    textoArea.style.lineHeight = "1.5";
+    aplicarEstiloCampo(textoArea);
+
+    const atualizarModelo = () => {
+        const modelo = modelos[tipoSelect.value] ||
+            modelos.reuniao;
+        tituloInput.value = modelo.titulo;
+        textoArea.value = modelo.texto;
+    };
+
+    tipoSelect.addEventListener(
+        "change",
+        atualizarModelo
+    );
+
+    chamada.type = "button";
+    chamada.textContent = "Inserir chamada da data";
+    chamada.style.flex = "1";
+    chamada.style.padding = "10px";
+    chamada.style.border = "1px solid #20c997";
+    chamada.style.borderRadius = "9px";
+    chamada.style.background = "transparent";
+    chamada.style.color = "#65e6bf";
+    chamada.style.fontSize = "11px";
+    chamada.style.cursor = "pointer";
+
+    salvar.type = "button";
+    salvar.textContent = "Salvar relatório";
+    salvar.style.flex = "1";
+    salvar.style.padding = "10px";
+    salvar.style.border = "none";
+    salvar.style.borderRadius = "9px";
+    salvar.style.background = "#0095f6";
+    salvar.style.color = "#fff";
+    salvar.style.fontWeight = "700";
+    salvar.style.fontSize = "11px";
+    salvar.style.cursor = "pointer";
+
+    botoes.style.display = "flex";
+    botoes.style.flexWrap = "wrap";
+    botoes.style.gap = "8px";
+
+    formulario.appendChild(criarLabel("Data da atividade", dataInput));
+    formulario.appendChild(criarLabel("Modelo", tipoSelect));
+    formulario.appendChild(criarLabel("Título", tituloInput));
+    formulario.appendChild(criarLabel("Conteúdo", textoArea));
+    botoes.appendChild(chamada);
+    botoes.appendChild(salvar);
+    formulario.appendChild(botoes);
+
+    listaTitulo.textContent = "Relatórios salvos";
+    listaTitulo.style.margin = "12px 0 0";
+    listaTitulo.style.fontSize = "14px";
+
+    lista.style.display = "flex";
+    lista.style.flexDirection = "column";
+    lista.style.gap = "8px";
+
+    status.textContent = "Carregando relatórios...";
+    status.style.margin = "0";
+    status.style.color = "#8e8e8e";
+    status.style.fontSize = "12px";
+
+    secao.appendChild(titulo);
+    secao.appendChild(descricao);
+    secao.appendChild(formulario);
+    secao.appendChild(listaTitulo);
+    secao.appendChild(status);
+    secao.appendChild(lista);
+    container.appendChild(secao);
+
+    const carregarMembrosDaUnidade = async () => {
+        const resultado = {};
+        const membrosSnap = await banco
+            .collection("usuarios")
+            .where("unidade", "==", nomeUnidade)
+            .get();
+
+        membrosSnap.forEach(documento => {
+            const dados = documento.data() || {};
+            const username = String(
+                dados.username || ""
+            ).trim().toLowerCase();
+
+            if (username) {
+                resultado[username] = String(
+                    dados.nomeReal || username
+                ).trim();
+            }
+        });
+
+        return resultado;
+    };
+
+    chamada.addEventListener(
+        "click",
+        async () => {
+            const data = dataInput.value;
+
+            if (!data) {
+                window.alert("Escolha a data da atividade.");
+                return;
+            }
+
+            chamada.disabled = true;
+            chamada.textContent = "Carregando chamada...";
+
+            try {
+                const [registro, nomes] = await Promise.all([
+                    banco
+                        .collection("frequencias_unidades")
+                        .doc(unidadeId)
+                        .collection("registros")
+                        .doc(data)
+                        .get(),
+                    carregarMembrosDaUnidade()
+                ]);
+
+                if (!registro.exists) {
+                    window.alert(
+                        "Não existe chamada salva para esta data. Faça a chamada antes de inserir no relatório."
+                    );
+                    return;
+                }
+
+                const dados = registro.data() || {};
+                const presentes = Array.isArray(
+                    dados.presentes
+                )
+                    ? dados.presentes
+                    : [];
+                const faltas = Array.isArray(
+                    dados.faltas
+                )
+                    ? dados.faltas
+                    : [];
+                const nomesPresentes = presentes.map(username => {
+                    const normalizado = String(
+                        username || ""
+                    ).trim().toLowerCase();
+                    return nomes[normalizado] || normalizado;
+                });
+                const nomesFaltas = faltas.map(username => {
+                    const normalizado = String(
+                        username || ""
+                    ).trim().toLowerCase();
+                    return nomes[normalizado] || normalizado;
+                });
+                const blocoChamada = [
+                    "\n\n--- CHAMADA DA ATIVIDADE ---",
+                    `Data: ${formatarDataRelatorio(data)}`,
+                    `Tipo: ${dados.tipoAtividade || tipoSelect.value}`,
+                    `Presentes (${nomesPresentes.length}): ${nomesPresentes.join(", ") || "Nenhum"}`,
+                    `Faltas (${nomesFaltas.length}): ${nomesFaltas.join(", ") || "Nenhuma"}`,
+                    "--- FIM DA CHAMADA ---\n"
+                ].join("\n");
+
+                if (!textoArea.value.includes(
+                    "--- CHAMADA DA ATIVIDADE ---"
+                )) {
+                    textoArea.value += blocoChamada;
+                }
+            } catch (erro) {
+                console.error(
+                    "Erro ao inserir chamada no relatório:",
+                    erro
+                );
+                window.alert(
+                    "Não foi possível inserir a chamada desta data."
+                );
+            } finally {
+                chamada.disabled = false;
+                chamada.textContent =
+                    "Inserir chamada da data";
+            }
+        }
+    );
+
+    salvar.addEventListener(
+        "click",
+        async () => {
+            const data = dataInput.value;
+            const tituloRelatorio = String(
+                tituloInput.value || ""
+            ).trim();
+            const textoRelatorio = String(
+                textoArea.value || ""
+            ).trim();
+
+            if (!data || !tituloRelatorio || !textoRelatorio) {
+                window.alert(
+                    "Preencha a data, o título e o conteúdo do relatório."
+                );
+                return;
+            }
+
+            salvar.disabled = true;
+            salvar.textContent = "Salvando...";
+
+            try {
+                await banco
+                    .collection("relatorios_unidades")
+                    .doc(unidadeId)
+                    .collection("itens")
+                    .add({
+                        unidadeId,
+                        unidade: nomeUnidade,
+                        data,
+                        tipoAtividade: tipoSelect.value,
+                        titulo: tituloRelatorio,
+                        texto: textoRelatorio,
+                        criadoPor: usernameLogado,
+                        criadoEm:
+                            firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                window.alert("Relatório salvo com sucesso.");
+                await carregarRelatorios();
+            } catch (erro) {
+                console.error(
+                    "Erro ao salvar relatório:",
+                    erro
+                );
+                window.alert(
+                    "Não foi possível salvar o relatório. Verifique as regras do Firestore."
+                );
+            } finally {
+                salvar.disabled = false;
+                salvar.textContent = "Salvar relatório";
+            }
+        }
+    );
+
+    async function carregarRelatorios() {
+        lista.innerHTML = "";
+        status.textContent = "Carregando relatórios...";
+
+        try {
+            const relatoriosSnap = await banco
+                .collection("relatorios_unidades")
+                .doc(unidadeId)
+                .collection("itens")
+                .get();
+            const relatorios = relatoriosSnap.docs
+                .map(documento => ({
+                    id: documento.id,
+                    dados: documento.data() || {}
+                }))
+                .sort((a, b) => String(
+                    b.dados.data || ""
+                ).localeCompare(String(
+                    a.dados.data || ""
+                )));
+
+            if (!relatorios.length) {
+                status.textContent =
+                    "Nenhum relatório salvo ainda.";
+                return;
+            }
+
+            status.textContent = "";
+
+            relatorios.forEach(relatorio => {
+                const dados = relatorio.dados;
+                const card = document.createElement("article");
+                const tituloCard = document.createElement("strong");
+                const meta = document.createElement("small");
+                const resumo = document.createElement("p");
+
+                card.style.padding = "12px";
+                card.style.border = "1px solid #262626";
+                card.style.borderRadius = "10px";
+                card.style.background = "#121212";
+
+                tituloCard.textContent = dados.titulo ||
+                    "Relatório sem título";
+                tituloCard.style.color = "#fff";
+                tituloCard.style.fontSize = "13px";
+
+                meta.textContent =
+                    `${formatarDataRelatorio(dados.data)} · ${dados.tipoAtividade || "Atividade"}`;
+                meta.style.display = "block";
+                meta.style.marginTop = "4px";
+                meta.style.color = "#58b7ff";
+                meta.style.fontSize = "10px";
+
+                resumo.textContent = String(
+                    dados.texto || ""
+                ).slice(0, 260);
+                resumo.style.margin = "8px 0 0";
+                resumo.style.color = "#a8a8a8";
+                resumo.style.fontSize = "11px";
+                resumo.style.lineHeight = "1.45";
+                resumo.style.whiteSpace = "pre-wrap";
+
+                card.appendChild(tituloCard);
+                card.appendChild(meta);
+                card.appendChild(resumo);
+                lista.appendChild(card);
+            });
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar relatórios:",
+                erro
+            );
+            status.textContent =
+                "Não foi possível carregar os relatórios.";
+        }
+    }
+
+    atualizarModelo();
+    await carregarRelatorios();
+}
+
+async function abrirPainelUnidade() {
+    const username = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+
+    if (!username || !banco) {
+        return;
+    }
+
+    fecharPainelUnidade();
+
+    try {
+        const usuarioSnap = await banco
+            .collection("usuarios")
+            .where("username", "==", username)
+            .limit(1)
+            .get();
+
+        if (usuarioSnap.empty) {
+            window.alert(
+                "Não foi possível localizar seu perfil."
+            );
+            return;
+        }
+
+        const dadosUsuario = usuarioSnap.docs[0].data() || {};
+        const nomeUnidade = String(
+            dadosUsuario.unidade || ""
+        ).trim();
+
+        if (!nomeUnidade) {
+            window.alert(
+                "Você ainda não está vinculado a uma unidade."
+            );
+            return;
+        }
+
+        const unidadeId = criarIdUnidadeParaPainel(
+            nomeUnidade
+        );
+        let unidadeSnap = await banco
+            .collection("unidades")
+            .doc(unidadeId)
+            .get();
+
+        if (!unidadeSnap.exists) {
+            unidadeSnap = await banco
+                .collection("unidades")
+                .where("nome", "==", nomeUnidade)
+                .limit(1)
+                .get();
+        }
+
+        const dadosUnidade = unidadeSnap &&
+            unidadeSnap.docs
+            ? (
+                unidadeSnap.empty
+                    ? {}
+                    : unidadeSnap.docs[0].data() || {}
+            )
+            : (
+                unidadeSnap && unidadeSnap.exists
+                    ? unidadeSnap.data() || {}
+                    : {}
+            );
+        const nomeExibicao = String(
+            dadosUnidade.nome || nomeUnidade
+        ).trim();
+        const fotoUnidade = String(
+            dadosUnidade.fotoUrl ||
+            window.AVATAR_USUARIO_PADRAO ||
+            ""
+        );
+        const cargo = String(
+            dadosUsuario.cargo || ""
+        ).trim();
+        const cargoFuncao = String(
+            dadosUsuario.cargoFuncao ||
+            dadosUsuario.funcao ||
+            ""
+        ).trim().toLowerCase();
+        const ehSecretario =
+            cargoFuncao.includes("secret") ||
+            cargo.toLowerCase().includes("secret");
+
+        const painel = document.createElement("div");
+        const cabecalho = document.createElement("div");
+        const identidade = document.createElement("div");
+        const logo = document.createElement("img");
+        const textos = document.createElement("div");
+        const titulo = document.createElement("strong");
+        const subtitulo = document.createElement("span");
+        const fechar = document.createElement("button");
+        const conteudo = document.createElement("div");
+
+        painel.id = "modal-painel-unidade";
+        painel.style.position = "fixed";
+        painel.style.inset = "0";
+        painel.style.zIndex = "2147483640";
+        painel.style.display = "flex";
+        painel.style.flexDirection = "column";
+        painel.style.overflowY = "auto";
+        painel.style.background = "#000";
+        painel.style.color = "#fff";
+
+        cabecalho.style.position = "sticky";
+        cabecalho.style.top = "0";
+        cabecalho.style.zIndex = "1";
+        cabecalho.style.display = "flex";
+        cabecalho.style.alignItems = "center";
+        cabecalho.style.justifyContent = "space-between";
+        cabecalho.style.gap = "12px";
+        cabecalho.style.padding = "12px 16px";
+        cabecalho.style.background = "#080808";
+        cabecalho.style.borderBottom = "1px solid #262626";
+
+        identidade.style.display = "flex";
+        identidade.style.alignItems = "center";
+        identidade.style.gap = "10px";
+        identidade.style.minWidth = "0";
+
+        logo.src = fotoUnidade;
+        logo.alt = `Logo da unidade ${nomeExibicao}`;
+        logo.style.width = "44px";
+        logo.style.height = "44px";
+        logo.style.flex = "0 0 44px";
+        logo.style.objectFit = "cover";
+        logo.style.borderRadius = "12px";
+        logo.style.border = "1px solid #26384a";
+        logo.onerror = () => {
+            logo.onerror = null;
+            logo.src = window.AVATAR_USUARIO_PADRAO;
+        };
+
+        textos.style.display = "flex";
+        textos.style.flexDirection = "column";
+        textos.style.gap = "3px";
+        textos.style.minWidth = "0";
+
+        titulo.textContent = nomeExibicao;
+        titulo.style.fontSize = "16px";
+        titulo.style.overflow = "hidden";
+        titulo.style.textOverflow = "ellipsis";
+        titulo.style.whiteSpace = "nowrap";
+
+        subtitulo.textContent = ehSecretario
+            ? "Painel do secretário(a)"
+            : "Painel da unidade";
+        subtitulo.style.color = "#8e8e8e";
+        subtitulo.style.fontSize = "12px";
+
+        fechar.type = "button";
+        fechar.textContent = "×";
+        fechar.setAttribute(
+            "aria-label",
+            "Fechar painel da unidade"
+        );
+        fechar.style.width = "38px";
+        fechar.style.height = "38px";
+        fechar.style.border = "1px solid #3a3a3a";
+        fechar.style.borderRadius = "10px";
+        fechar.style.background = "transparent";
+        fechar.style.color = "#fff";
+        fechar.style.fontSize = "24px";
+        fechar.style.cursor = "pointer";
+        fechar.addEventListener(
+            "click",
+            fecharPainelUnidade
+        );
+
+        conteudo.style.width = "min(100%, 760px)";
+        conteudo.style.margin = "0 auto";
+        conteudo.style.padding = "18px 16px 40px";
+        conteudo.style.boxSizing = "border-box";
+
+        const cartaoUnidade = document.createElement("div");
+        cartaoUnidade.style.display = "flex";
+        cartaoUnidade.style.alignItems = "center";
+        cartaoUnidade.style.gap = "14px";
+        cartaoUnidade.style.padding = "16px";
+        cartaoUnidade.style.marginBottom = "14px";
+        cartaoUnidade.style.border = "1px solid #26384a";
+        cartaoUnidade.style.borderRadius = "14px";
+        cartaoUnidade.style.background =
+            "linear-gradient(135deg, #101820, #111";
+        cartaoUnidade.style.boxSizing = "border-box";
+
+        const logoCartao = logo.cloneNode(true);
+        const nomeCartao = document.createElement("div");
+        nomeCartao.textContent = nomeExibicao;
+        nomeCartao.style.fontSize = "17px";
+        nomeCartao.style.fontWeight = "700";
+
+        cartaoUnidade.appendChild(logoCartao);
+        cartaoUnidade.appendChild(nomeCartao);
+        conteudo.appendChild(cartaoUnidade);
+
+        if (ehSecretario) {
+            const tituloFuncoes = document.createElement("h2");
+            tituloFuncoes.textContent = "Responsabilidades do secretário(a)";
+            tituloFuncoes.style.margin = "18px 0 10px";
+            tituloFuncoes.style.fontSize = "16px";
+
+            const aviso = document.createElement("p");
+            aviso.textContent =
+                "O controle de frequência e os relatórios da unidade serão organizados aqui.";
+            aviso.style.color = "#a8a8a8";
+            aviso.style.fontSize = "13px";
+            aviso.style.lineHeight = "1.5";
+
+            conteudo.appendChild(tituloFuncoes);
+            conteudo.appendChild(aviso);
+            await renderizarPainelSecretarioFrequencia(
+                conteudo,
+                unidadeId,
+                nomeExibicao,
+                banco,
+                username
+            );
+            await renderizarPainelSecretarioRelatorios(
+                conteudo,
+                unidadeId,
+                nomeExibicao,
+                banco,
+                username
+            );
+
+        } else {
+            const vazio = document.createElement("p");
+            vazio.textContent =
+                "Nenhuma função adicional foi liberada para este cargo ainda.";
+            vazio.style.margin = "14px 0 0";
+            vazio.style.color = "#8e8e8e";
+            vazio.style.fontSize = "13px";
+            vazio.style.textAlign = "center";
+            conteudo.appendChild(vazio);
+        }
+
+        identidade.appendChild(logo);
+        identidade.appendChild(textos);
+        textos.appendChild(titulo);
+        textos.appendChild(subtitulo);
+        cabecalho.appendChild(identidade);
+        cabecalho.appendChild(fechar);
+        painel.appendChild(cabecalho);
+        painel.appendChild(conteudo);
+        document.body.appendChild(painel);
+    } catch (erro) {
+        console.error(
+            "Erro ao abrir Painel da Unidade:",
+            erro
+        );
+        window.alert(
+            "Não foi possível abrir o Painel da Unidade agora."
+        );
+    }
+}
+
 async function carregarPerfilDoUsuario() {
     const username = localStorage.getItem("usernameLogado");
     const tipoUsuario = localStorage.getItem("usuarioLogado");
@@ -7634,9 +8747,26 @@ async function carregarPerfilDoUsuario() {
     const tMestrados = document.getElementById("titulo-conquistas-mestrados");
     const gridEl = document.getElementById("perfil-usuario-grid");
     const vazioEl = document.getElementById("perfil-publicacoes-vazio");
-    const avatarPadrao = window.AVATAR_USUARIO_PADRAO;
+        const avatarPadrao = window.AVATAR_USUARIO_PADRAO;
+    const painelUnidadeAcesso = document.getElementById(
+        "perfil-painel-unidade-acesso"
+    );
+    const botaoPainelUnidade = document.getElementById(
+        "btn-painel-unidade"
+    );
+    const subtituloPainelUnidade = document.getElementById(
+        "btn-painel-unidade-subtitulo"
+    );
+
+    if (painelUnidadeAcesso) {
+        painelUnidadeAcesso.style.display = "none";
+    }
+    if (botaoPainelUnidade) {
+        botaoPainelUnidade.style.display = "none";
+    }
 
     mudarSubTabPerfil("publicacoes");
+
 
     if (tipoUsuario === "admin") {
         if (nomeEl) nomeEl.textContent = "Administrador";
@@ -7677,6 +8807,27 @@ async function carregarPerfilDoUsuario() {
         if (nomeEl) nomeEl.textContent = dados.nomeReal || dados.username || username;
         if (cargoEl) cargoEl.textContent = dados.cargo || "Membro";
         if (unidadeEl) unidadeEl.textContent = dados.unidade || "Sem Unidade";
+
+        if (dados.unidade && botaoPainelUnidade) {
+            botaoPainelUnidade.style.display = "block";
+            botaoPainelUnidade.setAttribute(
+                "data-unidade",
+                String(dados.unidade)
+            );
+            if (subtituloPainelUnidade) {
+                subtituloPainelUnidade.textContent =
+                    dados.cargoFuncao &&
+                    String(dados.cargoFuncao)
+                        .toLowerCase()
+                        .includes("secret")
+                        ? "Frequência e relatórios da unidade"
+                        : "Informações e atividades da unidade";
+            }
+            if (painelUnidadeAcesso) {
+                painelUnidadeAcesso.style.display = "block";
+            }
+        }
+
 
         if (nascimentoEl) {
             if (dados.dataNascimento) {
