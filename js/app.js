@@ -4509,6 +4509,9 @@ async function salvarGerenciamentoMembrosGrupoChat() {
     const grupo = _salaGrupoAtiva;
     const banco = window.ClubeDB &&
         window.ClubeDB.textoDB;
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
 
     if (!modal || !grupo || !grupo.chatId || !banco) {
         return;
@@ -4517,6 +4520,20 @@ async function salvarGerenciamentoMembrosGrupoChat() {
     const criadoPor = String(
         grupo.criadoPor || ""
     ).trim().toLowerCase();
+    const participantesAnteriores = Array.isArray(
+        grupo.participantes
+    )
+        ? grupo.participantes.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
+    const administradoresAnteriores = Array.isArray(
+        grupo.administradores
+    )
+        ? grupo.administradores.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
     const participantes = Array.from(
         modal.querySelectorAll(
             "[data-membro-grupo]:checked"
@@ -4602,6 +4619,35 @@ async function salvarGerenciamentoMembrosGrupoChat() {
         grupo.administradores = Array.from(
             new Set(administradores)
         );
+
+        const novosParticipantes = grupo.participantes
+            .filter(usuario => {
+                return !participantesAnteriores.includes(
+                    usuario
+                );
+            });
+        const novosAdministradores = grupo.administradores
+            .filter(usuario => {
+                return !administradoresAnteriores.includes(
+                    usuario
+                ) && participantesAnteriores.includes(usuario);
+            });
+
+        for (const usuario of novosParticipantes) {
+            await registrarEventoSistemaGrupoChat(
+                `@${usernameLogado} adicionou @${usuario} ao grupo.`,
+                grupo.chatId,
+                grupo.participantes
+            );
+        }
+
+        for (const usuario of novosAdministradores) {
+            await registrarEventoSistemaGrupoChat(
+                `@${usernameLogado} promoveu @${usuario} a administrador.`,
+                grupo.chatId,
+                grupo.participantes
+            );
+        }
 
         fecharGerenciadorMembrosGrupoChat();
         configurarAcoesGrupoChat(grupo);
