@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.331.0 - versão alpha";
+const VERSAO_ATUAL = "v0.332.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -7723,268 +7723,204 @@ async function renderizarPainelSecretarioFrequencia(
     const secao = document.createElement("section");
     const titulo = document.createElement("h2");
     const descricao = document.createElement("p");
-    const controles = document.createElement("div");
-    const dataLabel = document.createElement("label");
-    const dataInput = document.createElement("input");
-    const tipoLabel = document.createElement("label");
-    const tipoSelect = document.createElement("select");
-    const listaTitulo = document.createElement("h3");
-    const lista = document.createElement("div");
-    const mensagem = document.createElement("p");
-    const salvar = document.createElement("button");
-    const membros = [];
-    const presentes = new Set();
+    const barraMes = document.createElement("div");
+    const voltarMes = document.createElement("button");
+    const avancarMes = document.createElement("button");
+    const tituloMes = document.createElement("strong");
+    const diasSemana = document.createElement("div");
+    const calendario = document.createElement("div");
+    const detalhe = document.createElement("div");
+    const status = document.createElement("p");
     const hoje = new Date();
-    const dataHoje = [
+    const membros = [];
+    const eventosPorData = new Map();
+    let mesAtual = new Date(
         hoje.getFullYear(),
-        String(hoje.getMonth() + 1).padStart(2, "0"),
-        String(hoje.getDate()).padStart(2, "0")
-    ].join("-");
+        hoje.getMonth(),
+        1
+    );
+
+    const tiposAtividade = {
+        reuniao: "📌 Reunião",
+        acao: "🔷 Ação",
+        acampamento: "🏕️ Acampamento",
+        agenda: "⏳ Agenda",
+        outra_atividade: "📅 Atividade"
+    };
+
+    const nomesMeses = [
+        "JANEIRO",
+        "FEVEREIRO",
+        "MARÇO",
+        "ABRIL",
+        "MAIO",
+        "JUNHO",
+        "JULHO",
+        "AGOSTO",
+        "SETEMBRO",
+        "OUTUBRO",
+        "NOVEMBRO",
+        "DEZEMBRO"
+    ];
+
+    const nomesDias = [
+        "DOM",
+        "SEG",
+        "TER",
+        "QUA",
+        "QUI",
+        "SEX",
+        "SÁB"
+    ];
+
+    const criarDataId = data => {
+        const ano = data.getFullYear();
+        const mes = String(data.getMonth() + 1)
+            .padStart(2, "0");
+        const dia = String(data.getDate())
+            .padStart(2, "0");
+        return `${ano}-${mes}-${dia}`;
+    };
+
+    const formatarData = dataId => {
+        const partes = String(dataId || "").split("-");
+        return partes.length === 3
+            ? `${partes[2]}/${partes[1]}/${partes[0]}`
+            : String(dataId || "");
+    };
+
+    const estiloBotaoMes = botao => {
+        botao.type = "button";
+        botao.style.width = "36px";
+        botao.style.height = "36px";
+        botao.style.border = "1px solid #3a3a3a";
+        botao.style.borderRadius = "8px";
+        botao.style.background = "#1c1c1c";
+        botao.style.color = "#fff";
+        botao.style.fontSize = "18px";
+        botao.style.cursor = "pointer";
+    };
+
+    const criarBotaoStatus = (
+        texto,
+        valor,
+        statusAtual,
+        aoSelecionar
+    ) => {
+        const botao = document.createElement("button");
+        botao.type = "button";
+        botao.textContent = texto;
+        botao.style.minWidth = "38px";
+        botao.style.padding = "7px 8px";
+        botao.style.border = "1px solid #3a3a3a";
+        botao.style.borderRadius = "7px";
+        botao.style.background = statusAtual === valor
+            ? valor === "P"
+                ? "#20c997"
+                : valor === "A"
+                    ? "#ff4d4d"
+                    : "#f0ad4e"
+            : "#1c1c1c";
+        botao.style.color = statusAtual === valor
+            ? "#071b16"
+            : "#d7d9db";
+        botao.style.fontSize = "11px";
+        botao.style.fontWeight = "700";
+        botao.style.cursor = "pointer";
+        botao.addEventListener(
+            "click",
+            () => aoSelecionar(valor)
+        );
+        return botao;
+    };
 
     secao.id = "secao-frequencia-unidade";
     secao.style.display = "flex";
     secao.style.flexDirection = "column";
     secao.style.gap = "10px";
+    secao.style.marginTop = "22px";
 
     titulo.textContent = "Controle de frequência";
-    titulo.style.margin = "18px 0 0";
+    titulo.style.margin = "0";
     titulo.style.fontSize = "17px";
 
     descricao.textContent =
-        `Registre a presença dos desbravadores da unidade ${nomeUnidade}.`;
-    descricao.style.margin = "0 0 4px";
+        `Calendário de reuniões e atividades da unidade ${nomeUnidade}.`;
+    descricao.style.margin = "0";
     descricao.style.color = "#8e8e8e";
     descricao.style.fontSize = "12px";
     descricao.style.lineHeight = "1.45";
 
-    controles.style.display = "grid";
-    controles.style.gridTemplateColumns =
-        "repeat(auto-fit, minmax(160px, 1fr))";
-    controles.style.gap = "9px";
+    barraMes.style.display = "flex";
+    barraMes.style.alignItems = "center";
+    barraMes.style.justifyContent = "space-between";
+    barraMes.style.gap = "8px";
+    barraMes.style.padding = "8px 0";
 
-    dataLabel.textContent = "Data da reunião ou atividade";
-    dataLabel.style.display = "flex";
-    dataLabel.style.flexDirection = "column";
-    dataLabel.style.gap = "5px";
-    dataLabel.style.color = "#d7d9db";
-    dataLabel.style.fontSize = "11px";
+    estiloBotaoMes(voltarMes);
+    estiloBotaoMes(avancarMes);
+    voltarMes.textContent = "‹";
+    avancarMes.textContent = "›";
 
-    dataInput.type = "date";
-    dataInput.value = dataHoje;
-    dataInput.style.width = "100%";
-    dataInput.style.boxSizing = "border-box";
-    dataInput.style.padding = "10px";
-    dataInput.style.border = "1px solid #3a3a3a";
-    dataInput.style.borderRadius = "9px";
-    dataInput.style.background = "#1c1c1c";
-    dataInput.style.color = "#fff";
+    tituloMes.style.flex = "1";
+    tituloMes.style.color = "#fff";
+    tituloMes.style.fontSize = "14px";
+    tituloMes.style.textAlign = "center";
 
-    tipoLabel.textContent = "Tipo de atividade";
-    tipoLabel.style.display = "flex";
-    tipoLabel.style.flexDirection = "column";
-    tipoLabel.style.gap = "5px";
-    tipoLabel.style.color = "#d7d9db";
-    tipoLabel.style.fontSize = "11px";
+    barraMes.appendChild(voltarMes);
+    barraMes.appendChild(tituloMes);
+    barraMes.appendChild(avancarMes);
 
-    tipoSelect.innerHTML = `
-        <option value="reuniao">Reunião regular</option>
-        <option value="acampamento">Acampamento</option>
-        <option value="outra_atividade">Outra atividade</option>
-    `;
-    tipoSelect.style.width = "100%";
-    tipoSelect.style.boxSizing = "border-box";
-    tipoSelect.style.padding = "10px";
-    tipoSelect.style.border = "1px solid #3a3a3a";
-    tipoSelect.style.borderRadius = "9px";
-    tipoSelect.style.background = "#1c1c1c";
-    tipoSelect.style.color = "#fff";
+    diasSemana.style.display = "grid";
+    diasSemana.style.gridTemplateColumns =
+        "repeat(7, minmax(0, 1fr))";
+    diasSemana.style.gap = "3px";
 
-    dataLabel.appendChild(dataInput);
-    tipoLabel.appendChild(tipoSelect);
-    controles.appendChild(dataLabel);
-    controles.appendChild(tipoLabel);
+    nomesDias.forEach(nomeDia => {
+        const celula = document.createElement("div");
+        celula.textContent = nomeDia;
+        celula.style.padding = "6px 2px";
+        celula.style.color = "#8e8e8e";
+        celula.style.fontSize = "9px";
+        celula.style.fontWeight = "700";
+        celula.style.textAlign = "center";
+        diasSemana.appendChild(celula);
+    });
 
-    listaTitulo.textContent = "Desbravadores da unidade";
-    listaTitulo.style.margin = "10px 0 0";
-    listaTitulo.style.fontSize = "14px";
+    calendario.style.display = "grid";
+    calendario.style.gridTemplateColumns =
+        "repeat(7, minmax(0, 1fr))";
+    calendario.style.gap = "3px";
+    calendario.style.padding = "3px";
+    calendario.style.border = "1px solid #262626";
+    calendario.style.borderRadius = "12px";
+    calendario.style.background = "#0b0b0b";
 
-    lista.style.display = "flex";
-    lista.style.flexDirection = "column";
-    lista.style.gap = "7px";
-    lista.style.maxHeight = "min(52vh, 480px)";
-    lista.style.overflowY = "auto";
-    lista.style.padding = "2px";
+    detalhe.style.display = "none";
+    detalhe.style.flexDirection = "column";
+    detalhe.style.gap = "10px";
+    detalhe.style.marginTop = "10px";
+    detalhe.style.padding = "14px";
+    detalhe.style.border = "1px solid #26384a";
+    detalhe.style.borderRadius = "12px";
+    detalhe.style.background = "#101820";
 
-    mensagem.style.margin = "4px 0";
-    mensagem.style.color = "#8e8e8e";
-    mensagem.style.fontSize = "12px";
-    mensagem.style.textAlign = "center";
-
-    salvar.type = "button";
-    salvar.textContent = "Salvar chamada";
-    salvar.style.width = "100%";
-    salvar.style.padding = "12px";
-    salvar.style.border = "none";
-    salvar.style.borderRadius = "10px";
-    salvar.style.background = "#20c997";
-    salvar.style.color = "#071b16";
-    salvar.style.fontWeight = "700";
-    salvar.style.cursor = "pointer";
+    status.style.margin = "0";
+    status.style.color = "#8e8e8e";
+    status.style.fontSize = "11px";
+    status.style.textAlign = "center";
 
     secao.appendChild(titulo);
     secao.appendChild(descricao);
-    secao.appendChild(controles);
-    secao.appendChild(listaTitulo);
-    secao.appendChild(lista);
-    secao.appendChild(mensagem);
-    secao.appendChild(salvar);
+    secao.appendChild(barraMes);
+    secao.appendChild(diasSemana);
+    secao.appendChild(calendario);
+    secao.appendChild(detalhe);
+    secao.appendChild(status);
     container.appendChild(secao);
 
-    const renderizarMembros = () => {
-        lista.innerHTML = "";
-
-        if (!membros.length) {
-            mensagem.textContent =
-                "Nenhum desbravador encontrado nesta unidade.";
-            return;
-        }
-
-        mensagem.textContent =
-            `${presentes.size} de ${membros.length} presentes`;
-
-        membros.forEach(membro => {
-            lista.appendChild(
-                criarLinhaFrequenciaUnidade(
-                    membro,
-                    presentes.has(membro.username),
-                    (username, marcado) => {
-                        if (marcado) {
-                            presentes.add(username);
-                        } else {
-                            presentes.delete(username);
-                        }
-                        mensagem.textContent =
-                            `${presentes.size} de ${membros.length} presentes`;
-                    }
-                )
-            );
-        });
-    };
-
-    const carregarRegistro = async () => {
-        const data = dataInput.value;
-
-        if (!data) {
-            return;
-        }
-
-        presentes.clear();
-        tipoSelect.value = "reuniao";
-        mensagem.textContent = "Carregando chamada...";
-
-        try {
-            const registro = await banco
-                .collection("frequencias_unidades")
-                .doc(unidadeId)
-                .collection("registros")
-                .doc(data)
-                .get();
-
-            if (registro.exists) {
-                const dadosRegistro = registro.data() || {};
-                const listaPresentes = Array.isArray(
-                    dadosRegistro.presentes
-                )
-                    ? dadosRegistro.presentes
-                    : [];
-
-                listaPresentes.forEach(username => {
-                    presentes.add(String(
-                        username || ""
-                    ).trim().toLowerCase());
-                });
-
-                tipoSelect.value =
-                    dadosRegistro.tipoAtividade || "reuniao";
-            }
-
-            renderizarMembros();
-        } catch (erro) {
-            console.error(
-                "Erro ao carregar frequência:",
-                erro
-            );
-            mensagem.textContent =
-                "Não foi possível carregar esta chamada.";
-        }
-    };
-
-    dataInput.addEventListener(
-        "change",
-        carregarRegistro
-    );
-
-    salvar.addEventListener(
-        "click",
-        async () => {
-            const data = dataInput.value;
-
-            if (!data || !membros.length) {
-                window.alert(
-                    "Escolha uma data e confirme que há membros na unidade."
-                );
-                return;
-            }
-
-            const presentesLista = membros
-                .filter(membro => presentes.has(membro.username))
-                .map(membro => membro.username);
-            const faltasLista = membros
-                .filter(membro => !presentes.has(membro.username))
-                .map(membro => membro.username);
-
-            salvar.disabled = true;
-            salvar.textContent = "Salvando...";
-
-            try {
-                await banco
-                    .collection("frequencias_unidades")
-                    .doc(unidadeId)
-                    .collection("registros")
-                    .doc(data)
-                    .set({
-                        data,
-                        unidade: nomeUnidade,
-                        unidadeId,
-                        tipoAtividade: tipoSelect.value,
-                        presentes: presentesLista,
-                        faltas: faltasLista,
-                        atualizadoPor: usernameLogado,
-                        atualizadoEm:
-                            firebase.firestore.FieldValue.serverTimestamp()
-                    }, {
-                        merge: true
-                    });
-
-                window.alert(
-                    "Chamada salva com sucesso."
-                );
-            } catch (erro) {
-                console.error(
-                    "Erro ao salvar frequência:",
-                    erro
-                );
-                window.alert(
-                    "Não foi possível salvar a chamada. Verifique as regras do Firestore."
-                );
-            } finally {
-                salvar.disabled = false;
-                salvar.textContent = "Salvar chamada";
-            }
-        }
-    );
-
-    try {
+    const carregarMembros = async () => {
+        membros.length = 0;
         const membrosSnap = await banco
             .collection("usuarios")
             .where("unidade", "==", nomeUnidade)
@@ -7992,23 +7928,21 @@ async function renderizarPainelSecretarioFrequencia(
 
         membrosSnap.forEach(documento => {
             const dados = documento.data() || {};
-            const usernameMembro = String(
+            const username = String(
                 dados.username || ""
             ).trim().toLowerCase();
+            const tipo = String(
+                dados.tipo || ""
+            ).trim().toLowerCase();
 
-            if (
-                !usernameMembro ||
-                String(dados.tipo || "")
-                    .trim()
-                    .toLowerCase() === "liderança"
-            ) {
+            if (!username || tipo === "liderança") {
                 return;
             }
 
             membros.push({
-                username: usernameMembro,
+                username,
                 nome: String(
-                    dados.nomeReal || usernameMembro
+                    dados.nomeReal || username
                 ).trim(),
                 cargo: String(
                     dados.cargo || "Desbravador"
@@ -8023,16 +7957,477 @@ async function renderizarPainelSecretarioFrequencia(
             b.nome,
             "pt-BR"
         ));
-        await carregarRegistro();
+    };
+
+    const carregarEventos = async () => {
+        status.textContent = "Carregando eventos...";
+        eventosPorData.clear();
+
+        const registrosSnap = await banco
+            .collection("frequencias_unidades")
+            .doc(unidadeId)
+            .collection("registros")
+            .get();
+
+        registrosSnap.forEach(documento => {
+            const dados = documento.data() || {};
+            const data = String(
+                dados.data || documento.id || ""
+            ).trim();
+
+            if (data) {
+                eventosPorData.set(data, {
+                    ...dados,
+                    data
+                });
+            }
+        });
+
+        status.textContent = "";
+    };
+
+    const abrirChamada = (dataId, registro) => {
+        detalhe.innerHTML = "";
+        detalhe.style.display = "flex";
+
+        const topo = document.createElement("div");
+        const voltar = document.createElement("button");
+        const tituloDetalhe = document.createElement("strong");
+        const seletorTodos = document.createElement("button");
+        const lista = document.createElement("div");
+        const salvar = document.createElement("button");
+        const tipo = document.createElement("select");
+        const estados = {};
+
+        topo.style.display = "flex";
+        topo.style.alignItems = "center";
+        topo.style.gap = "8px";
+
+        voltar.type = "button";
+        voltar.textContent = "‹ Voltar";
+        voltar.style.border = "none";
+        voltar.style.background = "transparent";
+        voltar.style.color = "#d7d9db";
+        voltar.style.cursor = "pointer";
+        voltar.addEventListener(
+            "click",
+            () => {
+                detalhe.style.display = "none";
+                detalhe.innerHTML = "";
+            }
+        );
+
+        tituloDetalhe.textContent =
+            `Frequência — ${formatarData(dataId)}`;
+        tituloDetalhe.style.flex = "1";
+        tituloDetalhe.style.color = "#fff";
+        tituloDetalhe.style.fontSize = "14px";
+        tituloDetalhe.style.textAlign = "center";
+
+        topo.appendChild(voltar);
+        topo.appendChild(tituloDetalhe);
+        detalhe.appendChild(topo);
+
+        tipo.innerHTML = `
+            <option value="reuniao">📌 Reunião</option>
+            <option value="acao">🔷 Ação</option>
+            <option value="acampamento">🏕️ Acampamento</option>
+            <option value="agenda">⏳ Agenda</option>
+            <option value="outra_atividade">📅 Outra atividade</option>
+        `;
+        tipo.value = registro && registro.tipoAtividade
+            ? registro.tipoAtividade
+            : "reuniao";
+        tipo.style.width = "100%";
+        tipo.style.padding = "9px";
+        tipo.style.border = "1px solid #3a3a3a";
+        tipo.style.borderRadius = "8px";
+        tipo.style.background = "#1c1c1c";
+        tipo.style.color = "#fff";
+        detalhe.appendChild(tipo);
+
+        const estadosSalvos = registro &&
+            registro.statusPorMembro ||
+            {};
+        const presentesAntigos = new Set(
+            Array.isArray(registro && registro.presentes)
+                ? registro.presentes
+                : []
+        );
+        const faltasAntigas = new Set(
+            Array.isArray(registro && registro.faltas)
+                ? registro.faltas
+                : []
+        );
+        const justificadosAntigos = new Set(
+            Array.isArray(registro && registro.justificados)
+                ? registro.justificados
+                : []
+        );
+
+        membros.forEach(membro => {
+            estados[membro.username] =
+                estadosSalvos[membro.username] ||
+                (presentesAntigos.has(membro.username)
+                    ? "P"
+                    : faltasAntigas.has(membro.username)
+                        ? "A"
+                        : justificadosAntigos.has(membro.username)
+                            ? "J"
+                            : "");
+        });
+
+        seletorTodos.type = "button";
+        seletorTodos.textContent =
+            "Selecionar todos como presentes";
+        seletorTodos.style.width = "100%";
+        seletorTodos.style.padding = "9px";
+        seletorTodos.style.border = "1px solid #20c997";
+        seletorTodos.style.borderRadius = "8px";
+        seletorTodos.style.background = "transparent";
+        seletorTodos.style.color = "#65e6bf";
+        seletorTodos.style.fontSize = "11px";
+        seletorTodos.style.cursor = "pointer";
+        seletorTodos.addEventListener(
+            "click",
+            () => {
+                membros.forEach(membro => {
+                    estados[membro.username] = "P";
+                });
+                renderizarLista();
+            }
+        );
+        detalhe.appendChild(seletorTodos);
+
+        lista.style.display = "flex";
+        lista.style.flexDirection = "column";
+        lista.style.gap = "7px";
+        lista.style.maxHeight = "min(52vh, 480px)";
+        lista.style.overflowY = "auto";
+
+        const renderizarLista = () => {
+            lista.innerHTML = "";
+
+            membros.forEach(membro => {
+                const linha = document.createElement("div");
+                const avatar = document.createElement("img");
+                const textos = document.createElement("div");
+                const nome = document.createElement("strong");
+                const cargo = document.createElement("small");
+                const botoes = document.createElement("div");
+                const estadoAtual = estados[membro.username] || "";
+
+                linha.style.display = "flex";
+                linha.style.alignItems = "center";
+                linha.style.gap = "8px";
+                linha.style.padding = "8px";
+                linha.style.border = "1px solid #26384a";
+                linha.style.borderRadius = "9px";
+                linha.style.background = "#121212";
+
+                avatar.src = membro.fotoUrl ||
+                    window.AVATAR_USUARIO_PADRAO;
+                avatar.alt = `Foto de ${membro.nome}`;
+                avatar.style.width = "36px";
+                avatar.style.height = "36px";
+                avatar.style.flex = "0 0 36px";
+                avatar.style.objectFit = "cover";
+                avatar.style.borderRadius = "50%";
+                avatar.onerror = () => {
+                    avatar.onerror = null;
+                    avatar.src =
+                        window.AVATAR_USUARIO_PADRAO;
+                };
+
+                textos.style.display = "flex";
+                textos.style.flexDirection = "column";
+                textos.style.gap = "2px";
+                textos.style.flex = "1";
+                textos.style.minWidth = "0";
+
+                nome.textContent = membro.nome;
+                nome.style.color = "#fff";
+                nome.style.fontSize = "12px";
+                nome.style.overflow = "hidden";
+                nome.style.textOverflow = "ellipsis";
+                nome.style.whiteSpace = "nowrap";
+
+                cargo.textContent =
+                    `${membro.cargo} · ${estadoAtual || "Não marcado"}`;
+                cargo.style.color = "#8e8e8e";
+                cargo.style.fontSize = "10px";
+
+                botoes.style.display = "flex";
+                botoes.style.gap = "4px";
+
+                [
+                    ["P", "P"],
+                    ["A", "A"],
+                    ["J", "J"]
+                ].forEach(([texto, valor]) => {
+                    botoes.appendChild(
+                        criarBotaoStatus(
+                            texto,
+                            valor,
+                            estadoAtual,
+                            novoEstado => {
+                                estados[membro.username] =
+                                    novoEstado;
+                                renderizarLista();
+                            }
+                        )
+                    );
+                });
+
+                textos.appendChild(nome);
+                textos.appendChild(cargo);
+                linha.appendChild(avatar);
+                linha.appendChild(textos);
+                linha.appendChild(botoes);
+                lista.appendChild(linha);
+            });
+        };
+
+        detalhe.appendChild(lista);
+
+        salvar.type = "button";
+        salvar.textContent = "Salvar frequência";
+        salvar.style.width = "100%";
+        salvar.style.padding = "11px";
+        salvar.style.border = "none";
+        salvar.style.borderRadius = "9px";
+        salvar.style.background = "#20c997";
+        salvar.style.color = "#071b16";
+        salvar.style.fontWeight = "700";
+        salvar.style.cursor = "pointer";
+        salvar.addEventListener(
+            "click",
+            async () => {
+                const faltando = membros.some(membro => {
+                    return !estados[membro.username];
+                });
+
+                if (faltando) {
+                    window.alert(
+                        "Marque P, A ou J para todos os participantes antes de salvar."
+                    );
+                    return;
+                }
+
+                salvar.disabled = true;
+                salvar.textContent = "Salvando...";
+
+                try {
+                    const presentes = membros
+                        .filter(membro => estados[membro.username] === "P")
+                        .map(membro => membro.username);
+                    const faltas = membros
+                        .filter(membro => estados[membro.username] === "A")
+                        .map(membro => membro.username);
+                    const justificados = membros
+                        .filter(membro => estados[membro.username] === "J")
+                        .map(membro => membro.username);
+
+                    await banco
+                        .collection("frequencias_unidades")
+                        .doc(unidadeId)
+                        .collection("registros")
+                        .doc(dataId)
+                        .set({
+                            data: dataId,
+                            unidade: nomeUnidade,
+                            unidadeId,
+                            tipoAtividade: tipo.value,
+                            statusPorMembro: estados,
+                            presentes,
+                            faltas,
+                            justificados,
+                            atualizadoPor: usernameLogado,
+                            atualizadoEm:
+                                firebase.firestore.FieldValue.serverTimestamp()
+                        }, {
+                            merge: true
+                        });
+
+                    eventosPorData.set(dataId, {
+                        data: dataId,
+                        tipoAtividade: tipo.value,
+                        presentes,
+                        faltas,
+                        justificados,
+                        statusPorMembro: estados
+                    });
+                    renderizarCalendario();
+                    window.alert(
+                        "Frequência salva com sucesso."
+                    );
+                } catch (erro) {
+                    console.error(
+                        "Erro ao salvar frequência:",
+                        erro
+                    );
+                    window.alert(
+                        "Não foi possível salvar a frequência. Verifique as regras do Firestore."
+                    );
+                } finally {
+                    salvar.disabled = false;
+                    salvar.textContent = "Salvar frequência";
+                }
+            }
+        );
+        detalhe.appendChild(salvar);
+        renderizarLista();
+    };
+
+    const renderizarCalendario = () => {
+        calendario.innerHTML = "";
+        tituloMes.textContent =
+            `${nomesMeses[mesAtual.getMonth()]} ${mesAtual.getFullYear()}`;
+
+        const primeiroDia = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth(),
+            1
+        );
+        const deslocamento = primeiroDia.getDay();
+        const totalDias = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth() + 1,
+            0
+        ).getDate();
+        const hojeId = criarDataId(new Date());
+
+        for (let indice = 0; indice < deslocamento; indice += 1) {
+            const vazio = document.createElement("div");
+            vazio.style.minHeight = "76px";
+            calendario.appendChild(vazio);
+        }
+
+        for (let dia = 1; dia <= totalDias; dia += 1) {
+            const data = new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth(),
+                dia
+            );
+            const dataId = criarDataId(data);
+            const evento = eventosPorData.get(dataId);
+            const celula = document.createElement("button");
+            const numero = document.createElement("strong");
+            const listaEventos = document.createElement("span");
+
+            celula.type = "button";
+            celula.style.display = "flex";
+            celula.style.flexDirection = "column";
+            celula.style.alignItems = "stretch";
+            celula.style.justifyContent = "flex-start";
+            celula.style.gap = "4px";
+            celula.style.minHeight = "76px";
+            celula.style.padding = "6px 4px";
+            celula.style.border = dataId === hojeId
+                ? "1px solid #58b7ff"
+                : "1px solid #262626";
+            celula.style.borderRadius = "6px";
+            celula.style.background = evento
+                ? "#172b3b"
+                : "#121212";
+            celula.style.color = "#fff";
+            celula.style.textAlign = "left";
+            celula.style.cursor = "pointer";
+
+            numero.textContent = dataId === hojeId
+                ? `${dia} · HOJE`
+                : String(dia);
+            numero.style.fontSize = "11px";
+            numero.style.color = dataId === hojeId
+                ? "#58b7ff"
+                : "#d7d9db";
+
+            listaEventos.style.display = "flex";
+            listaEventos.style.flexDirection = "column";
+            listaEventos.style.gap = "2px";
+            listaEventos.style.minWidth = "0";
+            listaEventos.style.color = "#d7d9db";
+            listaEventos.style.fontSize = "9px";
+            listaEventos.style.lineHeight = "1.2";
+            listaEventos.style.overflow = "hidden";
+
+            if (evento) {
+                const eventoTexto = document.createElement("span");
+                const totalPresentes = Array.isArray(
+                    evento.presentes
+                )
+                    ? evento.presentes.length
+                    : 0;
+                const totalFaltas = Array.isArray(
+                    evento.faltas
+                )
+                    ? evento.faltas.length
+                    : 0;
+
+                eventoTexto.textContent =
+                    tiposAtividade[evento.tipoAtividade] ||
+                    tiposAtividade.outra_atividade;
+                eventoTexto.style.overflow = "hidden";
+                eventoTexto.style.textOverflow = "ellipsis";
+                eventoTexto.style.whiteSpace = "nowrap";
+                listaEventos.appendChild(eventoTexto);
+
+                const resumo = document.createElement("span");
+                resumo.textContent =
+                    `✓ ${totalPresentes} · F ${totalFaltas}`;
+                resumo.style.color = "#8e8e8e";
+                listaEventos.appendChild(resumo);
+            }
+
+            celula.appendChild(numero);
+            celula.appendChild(listaEventos);
+            celula.addEventListener(
+                "click",
+                () => abrirChamada(dataId, evento)
+            );
+            calendario.appendChild(celula);
+        }
+    };
+
+    voltarMes.addEventListener(
+        "click",
+        async () => {
+            mesAtual = new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth() - 1,
+                1
+            );
+            renderizarCalendario();
+        }
+    );
+
+    avancarMes.addEventListener(
+        "click",
+        async () => {
+            mesAtual = new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth() + 1,
+                1
+            );
+            renderizarCalendario();
+        }
+    );
+
+    try {
+        await carregarMembros();
+        await carregarEventos();
+        renderizarCalendario();
     } catch (erro) {
         console.error(
-            "Erro ao carregar membros da unidade:",
+            "Erro ao iniciar calendário de frequência:",
             erro
         );
-        mensagem.textContent =
-            "Não foi possível carregar os membros desta unidade.";
+        status.textContent =
+            "Não foi possível carregar o calendário.";
     }
 }
+
+
 
 async function renderizarPainelSecretarioRelatorios(
     container,
