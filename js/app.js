@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.325.0 - versão alpha";
+const VERSAO_ATUAL = "v0.326.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -3120,11 +3120,14 @@ function abrirMenuContextualMensagemChat(
         "Responder",
         "#58b7ff",
         () => {
-            prepararRespostaMensagemChat(
-                mensagemId,
-                dadosMensagem
-            );
             cancelarSelecaoMensagensChat();
+
+            window.setTimeout(() => {
+                prepararRespostaMensagemChat(
+                    mensagemId,
+                    dadosMensagem
+                );
+            }, 0);
         }
     );
     configurarBotao(
@@ -3612,11 +3615,17 @@ function renderizarBarraSelecaoMensagens() {
                     return;
                 }
 
-                prepararRespostaMensagemChat(
-                    selecionadas[0].id,
-                    selecionadas[0]
-                );
+                const mensagemParaResponder =
+                    selecionadas[0];
+
                 cancelarSelecaoMensagensChat();
+
+                window.setTimeout(() => {
+                    prepararRespostaMensagemChat(
+                        mensagemParaResponder.id,
+                        mensagemParaResponder
+                    );
+                }, 0);
             }
         );
 
@@ -7090,20 +7099,24 @@ function prepararRespostaMensagemChat(
         if (!barra) {
             barra = document.createElement("div");
             barra.id = "barra-resposta-mensagem-chat";
-            barra.style.position = "fixed";
-            barra.style.zIndex = "2147483646";
+            barra.style.position = "relative";
+            barra.style.zIndex = "1";
             barra.style.display = "flex";
             barra.style.alignItems = "center";
             barra.style.gap = "8px";
+            barra.style.flex = "0 0 100%";
+            barra.style.width = "100%";
             barra.style.minHeight = "44px";
             barra.style.padding = "7px 10px";
+            barra.style.margin = "0 0 2px";
             barra.style.boxSizing = "border-box";
             barra.style.border = "1px solid #3a3a3a";
             barra.style.borderLeft = "3px solid #58b7ff";
             barra.style.borderRadius = "9px";
             barra.style.background = "#1c1c1c";
             barra.style.boxShadow =
-                "0 6px 18px rgba(0,0,0,.4)";
+                "0 2px 8px rgba(0,0,0,.25)";
+            barra.style.order = "-1";
 
             const conteudo = document.createElement("div");
             conteudo.id = "texto-resposta-mensagem-chat";
@@ -7141,7 +7154,28 @@ function prepararRespostaMensagemChat(
 
             barra.appendChild(conteudo);
             barra.appendChild(fechar);
-            document.body.appendChild(barra);
+        }
+
+        const paiCompositor = input.parentElement;
+
+        if (paiCompositor) {
+            paiCompositor.style.display = "flex";
+            paiCompositor.style.flexWrap = "wrap";
+            paiCompositor.style.alignItems = "center";
+            paiCompositor.style.alignContent = "center";
+            paiCompositor.style.rowGap = "6px";
+
+            if (barra.parentElement !== paiCompositor) {
+                paiCompositor.insertBefore(
+                    barra,
+                    input
+                );
+            }
+        } else if (barra.parentElement !== input.parentElement) {
+            input.insertAdjacentElement(
+                "beforebegin",
+                barra
+            );
         }
 
         const conteudo = document.getElementById(
@@ -7154,96 +7188,14 @@ function prepararRespostaMensagemChat(
                 : `Respondendo: ${texto}`;
         }
 
-        const posicionar = () => {
-            const elementoInput = document.getElementById(
-                "input-nova-mensagem"
-            );
-            const elementoBarra = document.getElementById(
-                "barra-resposta-mensagem-chat"
-            );
-
-            if (!elementoInput || !elementoBarra) {
-                return;
-            }
-
-            const retangulo =
-                elementoInput.getBoundingClientRect();
-            const largura = Math.min(
-                Math.max(retangulo.width, 180),
-                window.innerWidth - 24
-            );
-            const esquerda = Math.max(
-                12,
-                Math.min(
-                    retangulo.left,
-                    window.innerWidth - largura - 12
-                )
-            );
-            const topo = Math.max(
-                12,
-                retangulo.top - 52
-            );
-
-            elementoBarra.style.left = `${esquerda}px`;
-            elementoBarra.style.top = `${topo}px`;
-            elementoBarra.style.width = `${largura}px`;
-        };
-
-        if (window._reposicionarBarraResposta) {
-            window.removeEventListener(
-                "resize",
-                window._reposicionarBarraResposta
-            );
-            window.removeEventListener(
-                "scroll",
-                window._reposicionarBarraResposta,
-                true
-            );
-
-            if (window.visualViewport) {
-                window.visualViewport.removeEventListener(
-                    "resize",
-                    window._reposicionarBarraResposta
-                );
-                window.visualViewport.removeEventListener(
-                    "scroll",
-                    window._reposicionarBarraResposta
-                );
-            }
-        }
-
-        window._reposicionarBarraResposta = posicionar;
-        window.addEventListener(
-            "resize",
-            posicionar
-        );
-        window.addEventListener(
-            "scroll",
-            posicionar,
-            true
-        );
-
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener(
-                "resize",
-                posicionar
-            );
-            window.visualViewport.addEventListener(
-                "scroll",
-                posicionar
-            );
-        }
-
         input.focus({
             preventScroll: true
         });
-        window.requestAnimationFrame(posicionar);
-        window.setTimeout(posicionar, 120);
-        window.setTimeout(posicionar, 400);
     };
 
     tentarExibirPrevia(0);
 }
+
 
 async function enviarMensagemChat() {
     const input = document.getElementById(
