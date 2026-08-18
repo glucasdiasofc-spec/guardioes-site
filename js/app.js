@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.332.0 - versão alpha";
+const VERSAO_ATUAL = "v0.333.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -12090,10 +12090,523 @@ let cargosAdminCache = [];
 function nomeFuncaoCargo(funcao) {
     const nomes = {
         nenhuma: "Nenhuma função adicional",
-        secretario_unidade: "Secretário(a) de Unidade"
+        secretario_unidade: "Secretário(a) de Unidade",
+        secretario_clube: "Secretário(a) do Clube"
     };
     return nomes[funcao] || "Função personalizada";
 }
+
+async function renderizarPainelSecretarioClubeEventos(
+    container,
+    banco,
+    usernameLogado
+) {
+    const secao = document.createElement("section");
+    const mesTitulo = document.createElement("strong");
+    const calendario = document.createElement("div");
+    const detalhe = document.createElement("div");
+    const tiposBox = document.createElement("div");
+    const aviso = document.createElement("p");
+    const nomesMeses = [
+        "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL",
+        "MAIO", "JUNHO", "JULHO", "AGOSTO",
+        "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
+    ];
+    const nomesDias = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+    const tiposPadrao = [
+        { id: "reuniao", nome: "Reunião" },
+        { id: "acao", nome: "Ação" },
+        { id: "acampamento", nome: "Acampamento" },
+        { id: "agenda", nome: "Agenda" },
+        { id: "outra_atividade", nome: "Outra atividade" }
+    ];
+    let mesAtual = new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        1
+    );
+    let diaSelecionado = "";
+    let eventos = [];
+    let tipos = [];
+
+    const normalizar = texto => String(texto || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+
+    const escapar = texto => String(texto || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    const dataId = data => [
+        data.getFullYear(),
+        String(data.getMonth() + 1).padStart(2, "0"),
+        String(data.getDate()).padStart(2, "0")
+    ].join("-");
+
+    const dataLegivel = data => {
+        const partes = String(data || "").split("-");
+        return partes.length === 3
+            ? `${partes[2]}/${partes[1]}/${partes[0]}`
+            : data;
+    };
+
+    const tipoAtual = id => tipos.find(tipo => tipo.id === id) || {
+        id: id || "outra_atividade",
+        nome: "Outra atividade"
+    };
+
+    const botao = (texto, classe = "") => {
+        return `<button type="button" class="${classe}">${texto}</button>`;
+    };
+
+    const mostrarAviso = texto => {
+        aviso.textContent = texto || "";
+    };
+
+    const carregarTipos = async () => {
+        const ref = banco
+            .collection("configuracoes_clube")
+            .doc("tipos_eventos");
+        const snap = await ref.get();
+        const dados = snap.exists ? snap.data() || {} : {};
+        tipos = Array.isArray(dados.tipos)
+            ? dados.tipos
+                .filter(tipo => tipo && tipo.ativo !== false)
+                .map(tipo => ({
+                    id: String(tipo.id || "").trim(),
+                    nome: String(tipo.nome || "").trim()
+                }))
+                .filter(tipo => tipo.id && tipo.nome)
+            : [];
+        if (!tipos.length) {
+            tipos = tiposPadrao.map(tipo => ({ ...tipo }));
+        }
+    };
+
+    const salvarTipos = async () => {
+        await banco
+            .collection("configuracoes_clube")
+            .doc("tipos_eventos")
+            .set({
+                tipos,
+                atualizadoPor: usernameLogado,
+                atualizadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+    };
+
+    const carregarEventos = async () => {
+        const snap = await banco.collection("eventos_clube").get();
+        eventos = snap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+    };
+
+    const abrirFormulario = evento => {
+        detalhe.insertAdjacentHTML("beforeend", `
+            <form class="calendario-clube-formulario">
+                <strong>${evento ? "Editar evento" : "Novo evento"}</strong>
+                <input name="data" type="date" value="${escapar(
+                    evento && evento.data || diaSelecionado || dataId(new Date())
+                )}" required>
+                <select name="tipo">${tipos.map(tipo => `
+                    <option value="${escapar(tipo.id)}" ${
+                        evento && evento.tipo === tipo.id ? "selected" : ""
+                    }>${escapar(tipo.nome)}</option>
+                `).join("")}</select>
+                <input name="titulo" type="text" placeholder="Título do evento" value="${escapar(
+                    evento && evento.titulo
+                )}" required>
+                <textarea name="descricao" rows="3" placeholder="Descrição opcional">${escapar(
+                    evento && evento.descricao
+                )}</textarea>
+                <select name="status">
+                    <option value="ativo" ${
+                        !evento || evento.status !== "cancelado" ? "selected" : ""
+                    }>Evento ativo</option>
+                    <option value="cancelado" ${
+                        evento && evento.status === "cancelado" ? "selected" : ""
+                    }>Evento cancelado</option>
+                </select>
+                <div class="calendario-clube-formulario-acoes">
+                    ${botao("Cancelar", "calendario-clube-btn-secundario")}
+                    ${botao(
+                        evento ? "Salvar alterações" : "Criar evento",
+                        "calendario-clube-btn-principal"
+                    )}
+                </div>
+            </form>
+        `);
+        const formulario = detalhe.lastElementChild;
+        formulario.addEventListener("submit", async eventoSubmit => {
+            eventoSubmit.preventDefault();
+            const dados = new FormData(formulario);
+            const data = String(dados.get("data") || "").trim();
+            const tipo = String(dados.get("tipo") || "").trim();
+            const titulo = String(dados.get("titulo") || "").trim();
+            const descricao = String(dados.get("descricao") || "").trim();
+            const status = dados.get("status") === "cancelado"
+                ? "cancelado"
+                : "ativo";
+            if (!data || !tipo || !titulo) {
+                window.alert("Preencha a data, o tipo e o título do evento.");
+                return;
+            }
+            const dadosEvento = {
+                data,
+                tipo,
+                titulo,
+                descricao,
+                status,
+                atualizadoPor: usernameLogado,
+                atualizadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp()
+            };
+            const enviar = formulario.querySelector(
+                ".calendario-clube-btn-principal"
+            );
+            enviar.disabled = true;
+            try {
+                if (evento && evento.id) {
+                    await banco.collection("eventos_clube")
+                        .doc(evento.id).set(dadosEvento, { merge: true });
+                } else {
+                    await banco.collection("eventos_clube").add({
+                        ...dadosEvento,
+                        criadoPor: usernameLogado,
+                        criadoEm:
+                            firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                diaSelecionado = data;
+                await carregarEventos();
+                renderizarCalendario();
+                renderizarDetalhe();
+                mostrarAviso("Evento salvo com sucesso.");
+            } catch (erro) {
+                console.error("Erro ao salvar evento central:", erro);
+                window.alert("Não foi possível salvar o evento.");
+                enviar.disabled = false;
+            }
+        });
+        formulario.querySelector(
+            ".calendario-clube-btn-secundario"
+        ).addEventListener("click", () => formulario.remove());
+    };
+
+    const alterarStatus = async evento => {
+        const novoStatus = evento.status === "cancelado"
+            ? "ativo"
+            : "cancelado";
+        const pergunta = novoStatus === "cancelado"
+            ? "Marcar este evento como cancelado?"
+            : "Reativar este evento?";
+        if (!window.confirm(pergunta)) {
+            return;
+        }
+        await banco.collection("eventos_clube").doc(evento.id).set({
+            status: novoStatus,
+            atualizadoPor: usernameLogado,
+            atualizadoEm:
+                firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        await carregarEventos();
+        renderizarCalendario();
+        renderizarDetalhe();
+    };
+
+    const apagarEvento = async evento => {
+        if (!window.confirm("Apagar definitivamente este evento?")) {
+            return;
+        }
+        await banco.collection("eventos_clube").doc(evento.id).delete();
+        await carregarEventos();
+        renderizarCalendario();
+        renderizarDetalhe();
+        mostrarAviso("Evento apagado.");
+    };
+
+    const renderizarDetalhe = () => {
+        detalhe.innerHTML = "";
+        if (!diaSelecionado) {
+            detalhe.style.display = "none";
+            return;
+        }
+        detalhe.style.display = "flex";
+        detalhe.insertAdjacentHTML("beforeend", `
+            <div class="calendario-clube-detalhe-cabecalho">
+                <strong>Eventos de ${dataLegivel(diaSelecionado)}</strong>
+                ${botao("+ Novo evento", "calendario-clube-btn-principal")}
+            </div>
+        `);
+        detalhe.querySelector(".calendario-clube-btn-principal")
+            .addEventListener("click", () => abrirFormulario(null));
+        const eventosDoDia = eventos.filter(evento => {
+            return String(evento.data || "") === diaSelecionado;
+        });
+        if (!eventosDoDia.length) {
+            detalhe.insertAdjacentHTML(
+                "beforeend",
+                "<p>Nenhum evento registrado para este dia.</p>"
+            );
+        }
+        eventosDoDia.forEach(evento => {
+            const tipo = tipoAtual(evento.tipo);
+            const card = document.createElement("article");
+            card.className = "calendario-clube-evento-card";
+            card.innerHTML = `
+                <div class="calendario-clube-evento-cabecalho">
+                    <strong></strong>
+                    <span>${escapar(
+                        evento.status === "cancelado"
+                            ? "CANCELADO"
+                            : tipo.nome
+                    )}</span>
+                </div>
+                <p></p>
+                <div class="calendario-clube-evento-acoes">
+                    ${botao("Editar", "calendario-clube-btn-secundario")}
+                    ${botao(
+                        evento.status === "cancelado"
+                            ? "Reativar"
+                            : "Cancelar evento",
+                        "calendario-clube-btn-secundario"
+                    )}
+                    ${botao("Apagar", "calendario-clube-btn-perigo")}
+                </div>
+            `;
+            card.querySelector("strong").textContent =
+                evento.titulo || tipo.nome;
+            card.querySelector("p").textContent =
+                evento.descricao || "Sem descrição adicional.";
+            const acoes = card.querySelectorAll("button");
+            acoes[0].addEventListener(
+                "click",
+                () => abrirFormulario(evento)
+            );
+            acoes[1].addEventListener(
+                "click",
+                () => alterarStatus(evento).catch(erro => {
+                    console.error("Erro ao alterar evento:", erro);
+                    window.alert("Não foi possível alterar o evento.");
+                })
+            );
+            acoes[2].addEventListener(
+                "click",
+                () => apagarEvento(evento).catch(erro => {
+                    console.error("Erro ao apagar evento:", erro);
+                    window.alert("Não foi possível apagar o evento.");
+                })
+            );
+            detalhe.appendChild(card);
+        });
+    };
+
+    const renderizarTipos = () => {
+        tiposBox.innerHTML = `
+            <div class="calendario-clube-detalhe-cabecalho">
+                <strong>Tipos de evento</strong>
+                ${botao("+ Nova tag", "calendario-clube-btn-secundario")}
+            </div>
+            <div class="calendario-clube-tipos-lista"></div>
+        `;
+        tiposBox.querySelector("button").addEventListener(
+            "click",
+            async () => {
+                const nome = String(window.prompt("Nome da nova tag:") || "")
+                    .trim();
+                if (!nome) {
+                    return;
+                }
+                tipos.push({
+                    id: `${normalizar(nome).replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
+                    nome
+                });
+                await salvarTipos();
+                renderizarTipos();
+            }
+        );
+        const lista = tiposBox.querySelector(".calendario-clube-tipos-lista");
+        tipos.forEach(tipo => {
+            const linha = document.createElement("div");
+            linha.className = "calendario-clube-tipo-linha";
+            linha.innerHTML = `
+                <span></span>
+                ${botao("Editar", "calendario-clube-btn-secundario")}
+                ${botao("Apagar", "calendario-clube-btn-perigo")}
+            `;
+            linha.querySelector("span").textContent = tipo.nome;
+            const botoes = linha.querySelectorAll("button");
+            botoes[0].addEventListener("click", async () => {
+                const nome = String(window.prompt(
+                    "Novo nome da tag:",
+                    tipo.nome
+                ) || "").trim();
+                if (!nome) {
+                    return;
+                }
+                tipo.nome = nome;
+                await salvarTipos();
+                renderizarTipos();
+                renderizarDetalhe();
+            });
+            botoes[1].addEventListener("click", async () => {
+                if (!window.confirm(`Apagar a tag “${tipo.nome}”?`)) {
+                    return;
+                }
+                tipos = tipos.filter(item => item.id !== tipo.id);
+                await salvarTipos();
+                renderizarTipos();
+                mostrarAviso("Tag apagada com sucesso.");
+            });
+            lista.appendChild(linha);
+        });
+    };
+
+    const renderizarCalendario = () => {
+        calendario.innerHTML = "";
+        mesTitulo.textContent =
+            `${nomesMeses[mesAtual.getMonth()]} ${mesAtual.getFullYear()}`;
+        const primeiroDia = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth(),
+            1
+        ).getDay();
+        const totalDias = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth() + 1,
+            0
+        ).getDate();
+        const hoje = dataId(new Date());
+        for (let vazio = 0; vazio < primeiroDia; vazio += 1) {
+            calendario.insertAdjacentHTML(
+                "beforeend",
+                "<span class=\"calendario-clube-dia-vazio\"></span>"
+            );
+        }
+        for (let dia = 1; dia <= totalDias; dia += 1) {
+            const atual = dataId(new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth(),
+                dia
+            ));
+            const doDia = eventos.filter(evento => {
+                return String(evento.data || "") === atual;
+            });
+            const celula = document.createElement("button");
+            celula.type = "button";
+            celula.className = "calendario-clube-dia";
+            if (atual === hoje) {
+                celula.classList.add("hoje");
+            }
+            if (atual === diaSelecionado) {
+                celula.classList.add("selecionado");
+            }
+            celula.innerHTML = `
+                <strong>${dia}</strong>
+                <small>${doDia.length ? `${doDia.length} evento(s)` : ""}</small>
+            `;
+            celula.addEventListener("click", () => {
+                diaSelecionado = atual;
+                renderizarCalendario();
+                renderizarDetalhe();
+            });
+            calendario.appendChild(celula);
+        }
+    };
+
+    const cabecalho = document.createElement("div");
+    const voltar = document.createElement("button");
+    const avancar = document.createElement("button");
+    const titulo = document.createElement("h2");
+    const descricao = document.createElement("p");
+    const dias = document.createElement("div");
+
+    secao.id = "secao-calendario-clube-eventos";
+    secao.className = "painel-calendario-clube";
+    titulo.textContent = "Calendário do Clube";
+    descricao.textContent =
+        "Somente o Secretário(a) do Clube pode registrar e administrar os eventos centrais.";
+    cabecalho.className = "calendario-clube-cabecalho";
+    voltar.type = "button";
+    voltar.textContent = "‹";
+    avancar.type = "button";
+    avancar.textContent = "›";
+    mesTitulo.textContent = "";
+    dias.className = "calendario-clube-dias-semana";
+    dias.innerHTML = nomesDias.map(nome => `<span>${nome}</span>`).join("");
+    calendario.className = "calendario-clube-grade";
+    detalhe.className = "calendario-clube-detalhe";
+    tiposBox.className = "calendario-clube-tipos";
+    aviso.className = "calendario-clube-aviso";
+
+    voltar.addEventListener("click", () => {
+        mesAtual = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth() - 1,
+            1
+        );
+        renderizarCalendario();
+    });
+    avancar.addEventListener("click", () => {
+        mesAtual = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth() + 1,
+            1
+        );
+        renderizarCalendario();
+    });
+
+    cabecalho.appendChild(voltar);
+    cabecalho.appendChild(mesTitulo);
+    cabecalho.appendChild(avancar);
+    secao.appendChild(titulo);
+    secao.appendChild(descricao);
+    secao.appendChild(cabecalho);
+    secao.appendChild(dias);
+    secao.appendChild(calendario);
+    secao.appendChild(detalhe);
+    secao.appendChild(tiposBox);
+    secao.appendChild(aviso);
+    container.appendChild(secao);
+
+    try {
+        const usuarioSnap = await banco.collection("usuarios")
+            .where("username", "==", usernameLogado)
+            .limit(1)
+            .get();
+        const usuario = usuarioSnap.empty
+            ? {}
+            : usuarioSnap.docs[0].data() || {};
+        const funcao = normalizar(
+            usuario.cargoFuncao || usuario.funcao || ""
+        ).replace(/[()]/g, "");
+        if (!funcao.includes("secretario_clube") &&
+            !funcao.includes("secretario do clube")) {
+            secao.innerHTML = "";
+            secao.insertAdjacentHTML(
+                "beforeend",
+                "<p>Este calendário é exclusivo do Secretário(a) do Clube.</p>"
+            );
+            return;
+        }
+        await carregarTipos();
+        await carregarEventos();
+        renderizarCalendario();
+        renderizarTipos();
+    } catch (erro) {
+        console.error("Erro ao carregar calendário central:", erro);
+        mostrarAviso("Não foi possível carregar o calendário central.");
+    }
+}
+
+
 
 
 async function carregarCargosAdmin() {
