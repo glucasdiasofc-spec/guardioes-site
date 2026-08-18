@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.320.0 - versão alpha";
+const VERSAO_ATUAL = "v0.321.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -3782,32 +3782,31 @@ function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
         return;
     }
 
-    if (usernameLogado !== criadoPor) {
-        const botaoSair = document.createElement("button");
-        botaoSair.id = "btn-sair-grupo-chat";
-        botaoSair.type = "button";
-        botaoSair.textContent = "Sair";
-        botaoSair.title = "Sair deste grupo";
-        botaoSair.style.border = "1px solid #ff9f43";
-        botaoSair.style.borderRadius = "7px";
-        botaoSair.style.background = "transparent";
-        botaoSair.style.color = "#ffb86b";
-        botaoSair.style.padding = "5px 7px";
-        botaoSair.style.fontSize = "11px";
-        botaoSair.style.cursor = "pointer";
-        botaoSair.addEventListener(
-            "click",
-            sairDoGrupoChat
-        );
-        painel.appendChild(botaoSair);
-    }
-
     if (
         usernameLogado === criadoPor ||
         administradores.includes(usernameLogado)
     ) {
         return;
     }
+
+    const botaoSair = document.createElement("button");
+    botaoSair.id = "btn-sair-grupo-chat";
+    botaoSair.type = "button";
+    botaoSair.textContent = "Sair";
+    botaoSair.title = "Sair deste grupo";
+    botaoSair.style.border = "1px solid #ff9f43";
+    botaoSair.style.borderRadius = "7px";
+    botaoSair.style.background = "transparent";
+    botaoSair.style.color = "#ffb86b";
+    botaoSair.style.padding = "5px 7px";
+    botaoSair.style.fontSize = "11px";
+    botaoSair.style.cursor = "pointer";
+    botaoSair.addEventListener(
+        "click",
+        sairDoGrupoChat
+    );
+    painel.appendChild(botaoSair);
+
 
     const botao = document.createElement("button");
     botao.id = "btn-ver-membros-grupo-chat";
@@ -3935,7 +3934,9 @@ function configurarAcoesGrupoChat(dadosGrupo) {
     acoes.style.display = "flex";
     acoes.style.alignItems = "center";
     acoes.style.gap = "6px";
-    acoes.style.flexWrap = "wrap";
+    acoes.style.flexWrap = "nowrap";
+    acoes.style.whiteSpace = "nowrap";
+    acoes.style.flexShrink = "0";
     acoes.style.justifyContent = "flex-end";
 
     inputFoto.type = "file";
@@ -3995,6 +3996,10 @@ function configurarAcoesGrupoChat(dadosGrupo) {
     acoes.appendChild(botaoFoto);
     acoes.appendChild(botaoMembros);
     acoes.appendChild(botaoExcluir);
+    painel.style.flexWrap = "nowrap";
+    painel.style.whiteSpace = "nowrap";
+    painel.style.overflowX = "auto";
+    painel.style.overflowY = "hidden";
     painel.appendChild(acoes);
 }
 
@@ -4389,11 +4394,18 @@ async function abrirGerenciadorMembrosGrupoChat() {
     ) => {
         const linha = document.createElement("div");
         const textos = document.createElement("div");
+        const nomeLinha = document.createElement("div");
         const nomeEl = document.createElement("strong");
+        const voceEl = document.createElement("span");
         const cargoEl = document.createElement("span");
         const participante = document.createElement("input");
         const admin = document.createElement("input");
-        const expulsar = document.createElement("button");
+        const acao = document.createElement("button");
+        const usuarioNormalizado = String(
+            usuario || ""
+        ).trim().toLowerCase();
+        const souEu = usuarioNormalizado === usernameLogado;
+        const souAdmin = Boolean(eAdmin || eCriador);
 
         linha.style.display = "grid";
         linha.style.gridTemplateColumns =
@@ -4409,12 +4421,31 @@ async function abrirGerenciadorMembrosGrupoChat() {
         textos.style.gap = "3px";
         textos.style.minWidth = "0";
 
+        nomeLinha.style.display = "flex";
+        nomeLinha.style.alignItems = "center";
+        nomeLinha.style.gap = "6px";
+        nomeLinha.style.minWidth = "0";
+
         nomeEl.textContent = String(nome || usuario);
         nomeEl.style.color = "#fff";
         nomeEl.style.fontSize = "13px";
         nomeEl.style.overflow = "hidden";
         nomeEl.style.textOverflow = "ellipsis";
         nomeEl.style.whiteSpace = "nowrap";
+
+        voceEl.textContent = souEu
+            ? "Você"
+            : "";
+        voceEl.style.display = souEu
+            ? "inline-flex"
+            : "none";
+        voceEl.style.alignItems = "center";
+        voceEl.style.padding = "3px 6px";
+        voceEl.style.borderRadius = "6px";
+        voceEl.style.background = "#26384a";
+        voceEl.style.color = "#58b7ff";
+        voceEl.style.fontSize = "10px";
+        voceEl.style.fontWeight = "700";
 
         cargoEl.textContent = `${cargo || "Membro"} · @${usuario}`;
         cargoEl.style.color = "#8e8e8e";
@@ -4448,37 +4479,59 @@ async function abrirGerenciadorMembrosGrupoChat() {
         admin.style.justifySelf = "center";
         admin.disabled = Boolean(eCriador || !participa);
 
-        expulsar.type = "button";
-        expulsar.textContent = "Expulsar";
-        expulsar.title = eCriador
-            ? "O criador não pode ser expulso"
-            : "Expulsar este membro do grupo";
-        expulsar.style.border = "1px solid #ff4d4d";
-        expulsar.style.borderRadius = "6px";
-        expulsar.style.background = "transparent";
-        expulsar.style.color = "#ff6b6b";
-        expulsar.style.padding = "4px 5px";
-        expulsar.style.fontSize = "10px";
-        expulsar.style.cursor = eCriador || !participa
-            ? "not-allowed"
-            : "pointer";
-        expulsar.style.opacity = eCriador || !participa
-            ? "0.45"
-            : "1";
-        expulsar.disabled = Boolean(eCriador || !participa);
-        expulsar.addEventListener(
-            "click",
-            evento => {
-                evento.stopPropagation();
-                expulsarMembroDoGrupoChat(usuario);
-            }
-        );
+        acao.type = "button";
+        acao.style.borderRadius = "6px";
+        acao.style.padding = "4px 5px";
+        acao.style.fontSize = "10px";
+        acao.style.cursor = "pointer";
+
+        if (souEu && souAdmin && !eCriador) {
+            acao.id = "btn-sair-grupo-chat-membros";
+            acao.textContent = "Sair";
+            acao.title = "Sair deste grupo";
+            acao.style.border = "1px solid #ff9f43";
+            acao.style.background = "transparent";
+            acao.style.color = "#ffb86b";
+            acao.addEventListener(
+                "click",
+                sairDoGrupoChat
+            );
+        } else if (souEu && eCriador) {
+            acao.textContent = "Você";
+            acao.title = "Você é o criador deste grupo";
+            acao.style.border = "1px solid #3a3a3a";
+            acao.style.background = "transparent";
+            acao.style.color = "#8e8e8e";
+            acao.disabled = true;
+            acao.style.cursor = "default";
+        } else {
+            acao.textContent = "Expulsar";
+            acao.title = eCriador
+                ? "O criador não pode ser expulso"
+                : "Expulsar este membro do grupo";
+            acao.style.border = "1px solid #ff4d4d";
+            acao.style.background = "transparent";
+            acao.style.color = "#ff6b6b";
+            acao.disabled = Boolean(eCriador || !participa);
+            acao.style.cursor = acao.disabled
+                ? "not-allowed"
+                : "pointer";
+            acao.style.opacity = acao.disabled
+                ? "0.45"
+                : "1";
+            acao.addEventListener(
+                "click",
+                evento => {
+                    evento.stopPropagation();
+                    expulsarMembroDoGrupoChat(usuario);
+                }
+            );
+        }
 
         if (eCriador) {
             participante.disabled = true;
             admin.disabled = true;
         }
-
 
         participante.addEventListener(
             "change",
@@ -4501,12 +4554,16 @@ async function abrirGerenciadorMembrosGrupoChat() {
             }
         );
 
-        textos.appendChild(nomeEl);
+        nomeLinha.appendChild(nomeEl);
+        if (souEu) {
+            nomeLinha.appendChild(voceEl);
+        }
+        textos.appendChild(nomeLinha);
         textos.appendChild(cargoEl);
         linha.appendChild(textos);
         linha.appendChild(participante);
         linha.appendChild(admin);
-        linha.appendChild(expulsar);
+        linha.appendChild(acao);
         lista.appendChild(linha);
     };
 
