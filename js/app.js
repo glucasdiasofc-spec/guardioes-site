@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.329.0 - versão alpha";
+const VERSAO_ATUAL = "v0.330.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -11643,15 +11643,11 @@ let cargosAdminCache = [];
 function nomeFuncaoCargo(funcao) {
     const nomes = {
         nenhuma: "Nenhuma função adicional",
-        publicar: "Pode publicar no feed",
-        gerenciar_membros: "Pode gerenciar membros",
-        gerenciar_conquistas: "Pode gerenciar conquistas",
-        gerenciar_unidades: "Pode gerenciar unidades",
-        acesso_total: "Acesso administrativo total"
+        secretario_unidade: "Secretário(a) de Unidade"
     };
-
     return nomes[funcao] || "Função personalizada";
 }
+
 
 async function carregarCargosAdmin() {
     if (!window.ClubeDB || !window.ClubeDB.textoDB) return;
