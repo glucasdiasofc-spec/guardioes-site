@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.322.0 - versão alpha";
+const VERSAO_ATUAL = "v0.323.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -3037,6 +3037,148 @@ function alternarSelecaoMensagem(
     );
 }
 
+function fecharMenuContextualMensagemChat() {
+    const menu = document.getElementById(
+        "menu-contextual-mensagem-chat"
+    );
+
+    if (menu) {
+        menu.remove();
+    }
+}
+
+function abrirMenuContextualMensagemChat(
+    elemento,
+    mensagemId,
+    dadosMensagem,
+    evento
+) {
+    fecharMenuContextualMensagemChat();
+
+    const menu = document.createElement("div");
+    const selecionar = document.createElement("button");
+    const responder = document.createElement("button");
+    const apagar = document.createElement("button");
+    const cancelar = document.createElement("button");
+    const x = Number(evento && evento.clientX || 0);
+    const y = Number(evento && evento.clientY || 0);
+
+    menu.id = "menu-contextual-mensagem-chat";
+    menu.style.position = "fixed";
+    menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - 178))}px`;
+    menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - 190))}px`;
+    menu.style.zIndex = "2147483647";
+    menu.style.display = "flex";
+    menu.style.flexDirection = "column";
+    menu.style.gap = "4px";
+    menu.style.minWidth = "170px";
+    menu.style.padding = "7px";
+    menu.style.border = "1px solid #3a3a3a";
+    menu.style.borderRadius = "10px";
+    menu.style.background = "#1c1c1c";
+    menu.style.boxShadow = "0 10px 28px rgba(0,0,0,.45)";
+
+    const configurarBotao = (
+        botao,
+        texto,
+        cor,
+        acao
+    ) => {
+        botao.type = "button";
+        botao.textContent = texto;
+        botao.style.width = "100%";
+        botao.style.padding = "8px 10px";
+        botao.style.border = "1px solid #3a3a3a";
+        botao.style.borderRadius = "7px";
+        botao.style.background = "transparent";
+        botao.style.color = cor;
+        botao.style.textAlign = "left";
+        botao.style.fontSize = "12px";
+        botao.style.cursor = "pointer";
+        botao.addEventListener("click", eventoBotao => {
+            eventoBotao.stopPropagation();
+            acao();
+            fecharMenuContextualMensagemChat();
+        });
+        menu.appendChild(botao);
+    };
+
+    configurarBotao(
+        selecionar,
+        "Selecionar",
+        "#d7d9db",
+        () => {
+            alternarSelecaoMensagem(
+                elemento,
+                mensagemId,
+                dadosMensagem
+            );
+        }
+    );
+    configurarBotao(
+        responder,
+        "Responder",
+        "#58b7ff",
+        () => {
+            prepararRespostaMensagemChat(
+                mensagemId,
+                dadosMensagem
+            );
+            cancelarSelecaoMensagensChat();
+        }
+    );
+    configurarBotao(
+        apagar,
+        "Apagar",
+        "#ff6b6b",
+        () => {
+            window._mensagensSelecionadasChat.clear();
+            window._mensagensSelecionadasChat.set(
+                String(mensagemId),
+                {
+                    id: String(mensagemId),
+                    remetente: String(
+                        dadosMensagem &&
+                        dadosMensagem.remetente ||
+                        ""
+                    ).trim().toLowerCase(),
+                    texto: String(
+                        dadosMensagem &&
+                        dadosMensagem.texto ||
+                        ""
+                    )
+                }
+            );
+            window._modoSelecaoMensagens = true;
+            apagarMensagensSelecionadasChat();
+        }
+    );
+    configurarBotao(
+        cancelar,
+        "Cancelar",
+        "#d7d9db",
+        () => {
+            cancelarSelecaoMensagensChat();
+        }
+    );
+
+    menu.addEventListener(
+        "click",
+        eventoMenu => eventoMenu.stopPropagation()
+    );
+    document.body.appendChild(menu);
+
+    window.setTimeout(() => {
+        document.addEventListener(
+            "click",
+            fecharMenuContextualMensagemChat,
+            {
+                once: true
+            }
+        );
+    }, 0);
+}
+
 function configurarPressaoProlongadaMensagem(
     elemento,
     mensagemId,
@@ -3049,6 +3191,9 @@ function configurarPressaoProlongadaMensagem(
     const id = String(mensagemId);
     let timerPressao = null;
     let cliqueSuprimido = false;
+    let inicioX = 0;
+    let inicioY = 0;
+    let arrastoResposta = false;
 
     const iniciarPressao = evento => {
         if (
@@ -3058,6 +3203,15 @@ function configurarPressaoProlongadaMensagem(
             return;
         }
 
+        const toque = evento.touches &&
+            evento.touches[0];
+        inicioX = toque
+            ? toque.clientX
+            : Number(evento.clientX || 0);
+        inicioY = toque
+            ? toque.clientY
+            : Number(evento.clientY || 0);
+        arrastoResposta = false;
         window.clearTimeout(timerPressao);
         cliqueSuprimido = false;
         timerPressao = window.setTimeout(() => {
@@ -3070,6 +3224,58 @@ function configurarPressaoProlongadaMensagem(
         }, 600);
     };
 
+    const moverToque = evento => {
+        const toque = evento.touches &&
+            evento.touches[0];
+
+        if (!toque) {
+            return;
+        }
+
+        const deslocamentoX = toque.clientX - inicioX;
+        const deslocamentoY = Math.abs(
+            toque.clientY - inicioY
+        );
+
+        if (
+            deslocamentoX > 12 &&
+            deslocamentoY < 45
+        ) {
+            window.clearTimeout(timerPressao);
+            arrastoResposta = deslocamentoX > 70;
+            elemento.style.transform =
+                `translateX(${Math.min(deslocamentoX, 86)}px)`;
+            elemento.style.transition =
+                "transform .12s ease";
+        }
+    };
+
+    const finalizarToque = evento => {
+        window.clearTimeout(timerPressao);
+
+        if (arrastoResposta) {
+            if (
+                evento &&
+                evento.cancelable
+            ) {
+                evento.preventDefault();
+            }
+
+            elemento.style.transform = "translateX(0)";
+            prepararRespostaMensagemChat(
+                id,
+                dadosMensagem
+            );
+            cliqueSuprimido = true;
+        } else {
+            elemento.style.transform = "translateX(0)";
+        }
+
+        window.setTimeout(() => {
+            elemento.style.transform = "translateX(0)";
+        }, 140);
+    };
+
     const finalizarPressao = () => {
         window.clearTimeout(timerPressao);
     };
@@ -3080,9 +3286,14 @@ function configurarPressaoProlongadaMensagem(
         { passive: true }
     );
     elemento.addEventListener(
-        "touchend",
-        finalizarPressao,
+        "touchmove",
+        moverToque,
         { passive: true }
+    );
+    elemento.addEventListener(
+        "touchend",
+        finalizarToque,
+        { passive: false }
     );
     elemento.addEventListener(
         "touchcancel",
@@ -3102,22 +3313,62 @@ function configurarPressaoProlongadaMensagem(
         finalizarPressao
     );
     elemento.addEventListener(
+        "dblclick",
+        eventoDuploClique => {
+            eventoDuploClique.preventDefault();
+            eventoDuploClique.stopPropagation();
+            prepararRespostaMensagemChat(
+                id,
+                dadosMensagem
+            );
+        }
+    );
+    elemento.addEventListener(
+        "contextmenu",
+        eventoContexto => {
+            eventoContexto.preventDefault();
+            eventoContexto.stopPropagation();
+            abrirMenuContextualMensagemChat(
+                elemento,
+                id,
+                dadosMensagem,
+                eventoContexto
+            );
+        }
+    );
+    elemento.addEventListener(
         "click",
-        evento => {
+        eventoClique => {
             if (cliqueSuprimido) {
-                evento.preventDefault();
-                evento.stopPropagation();
+                eventoClique.preventDefault();
+                eventoClique.stopPropagation();
                 cliqueSuprimido = false;
                 return;
             }
 
             if (window._modoSelecaoMensagens) {
-                evento.preventDefault();
-                evento.stopPropagation();
+                eventoClique.preventDefault();
+                eventoClique.stopPropagation();
                 alternarSelecaoMensagem(
                     elemento,
                     id,
                     dadosMensagem
+                );
+                return;
+            }
+
+            if (
+                window.matchMedia &&
+                window.matchMedia("(min-width: 769px)").matches &&
+                eventoClique.detail === 1
+            ) {
+                eventoClique.preventDefault();
+                eventoClique.stopPropagation();
+                abrirMenuContextualMensagemChat(
+                    elemento,
+                    id,
+                    dadosMensagem,
+                    eventoClique
                 );
             }
         }
@@ -3129,6 +3380,7 @@ function configurarPressaoProlongadaMensagem(
     );
     atualizarVisualSelecaoMensagem(elemento, id);
 }
+
 
 async function apagarMensagensSelecionadasChat() {
     const banco = window.ClubeDB &&
@@ -3330,6 +3582,44 @@ function renderizarBarraSelecaoMensagens() {
             }
         );
 
+        const responder = document.createElement("button");
+        responder.type = "button";
+        responder.id = "btn-responder-mensagem-selecionada";
+        responder.textContent = "Responder";
+        responder.title = "Responder à mensagem selecionada";
+        responder.style.border = "1px solid #58b7ff";
+        responder.style.borderRadius = "8px";
+        responder.style.background = "transparent";
+        responder.style.color = "#58b7ff";
+        responder.style.padding = "7px 9px";
+        responder.style.fontSize = "11px";
+        responder.style.fontWeight = "700";
+        responder.style.cursor = "pointer";
+        responder.addEventListener(
+            "click",
+            () => {
+                const selecionadas = window
+                    ._mensagensSelecionadasChat instanceof Map
+                    ? Array.from(
+                        window._mensagensSelecionadasChat.values()
+                    )
+                    : [];
+
+                if (selecionadas.length !== 1) {
+                    window.alert(
+                        "Selecione exatamente uma mensagem para responder."
+                    );
+                    return;
+                }
+
+                prepararRespostaMensagemChat(
+                    selecionadas[0].id,
+                    selecionadas[0]
+                );
+                cancelarSelecaoMensagensChat();
+            }
+        );
+
         const cancelar = document.createElement("button");
         cancelar.type = "button";
         cancelar.textContent = "Cancelar";
@@ -3348,6 +3638,7 @@ function renderizarBarraSelecaoMensagens() {
 
         barra.appendChild(titulo);
         barra.appendChild(apagar);
+        barra.appendChild(responder);
         barra.appendChild(cancelar);
         telaChat.appendChild(barra);
     }
@@ -3361,7 +3652,22 @@ function renderizarBarraSelecaoMensagens() {
             ? "1 mensagem selecionada"
             : `${quantidade} mensagens selecionadas`;
     }
+
+    const responder = document.getElementById(
+        "btn-responder-mensagem-selecionada"
+    );
+
+    if (responder) {
+        responder.disabled = quantidade !== 1;
+        responder.style.opacity = quantidade === 1
+            ? "1"
+            : "0.45";
+        responder.style.cursor = quantidade === 1
+            ? "pointer"
+            : "not-allowed";
+    }
 }
+
 
 function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     const usernameAlvoNormalizado = String(
@@ -4316,6 +4622,311 @@ function configurarBotaoVisualizarMembrosGrupoChat(dadosGrupo) {
 
 
 
+function fecharModalEditarGrupoChat() {
+    const modal = document.getElementById(
+        "modal-editar-grupo-chat"
+    );
+
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function salvarEdicaoGrupoChat() {
+    const modal = document.getElementById(
+        "modal-editar-grupo-chat"
+    );
+    const grupo = _salaGrupoAtiva;
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+
+    if (!modal || !grupo || !grupo.chatId || !banco) {
+        return;
+    }
+
+    const criadoPor = String(
+        grupo.criadoPor || ""
+    ).trim().toLowerCase();
+    const administradores = Array.isArray(
+        grupo.administradores
+    )
+        ? grupo.administradores.map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
+    const podeEditar =
+        localStorage.getItem("usuarioLogado") === "admin" ||
+        usernameLogado === criadoPor ||
+        administradores.includes(usernameLogado);
+
+    if (!podeEditar) {
+        window.alert(
+            "Você não tem permissão para editar este grupo."
+        );
+        return;
+    }
+
+    const nomeInput = document.getElementById(
+        "input-editar-nome-grupo-chat"
+    );
+    const fotoInput = document.getElementById(
+        "input-editar-foto-grupo-chat"
+    );
+    const botao = modal.querySelector(
+        "[data-salvar-edicao-grupo]"
+    );
+    const nomeGrupo = String(
+        nomeInput && nomeInput.value || ""
+    ).trim();
+    const arquivoFoto = fotoInput &&
+        fotoInput.files &&
+        fotoInput.files[0];
+
+    if (nomeGrupo.length < 2) {
+        window.alert(
+            "O nome do grupo precisa ter pelo menos 2 caracteres."
+        );
+        return;
+    }
+
+    if (botao) {
+        botao.disabled = true;
+        botao.textContent = "Salvando...";
+        botao.style.opacity = "0.65";
+    }
+
+    try {
+        const dadosAtualizacao = {
+            nomeGrupo
+        };
+
+        if (arquivoFoto) {
+            if (!arquivoFoto.type.startsWith("image/")) {
+                throw new Error(
+                    "Escolha um arquivo de imagem válido."
+                );
+            }
+
+            const fotoGrupoUrl =
+                await subirImagemParaNuvem(arquivoFoto);
+
+            if (!fotoGrupoUrl) {
+                throw new Error(
+                    "O upload da nova foto não retornou uma URL."
+                );
+            }
+
+            dadosAtualizacao.fotoGrupoUrl = fotoGrupoUrl;
+        }
+
+        await banco
+            .collection("chats")
+            .doc(grupo.chatId)
+            .set(
+                dadosAtualizacao,
+                {
+                    merge: true
+                }
+            );
+
+        grupo.nomeGrupo = nomeGrupo;
+
+        if (dadosAtualizacao.fotoGrupoUrl) {
+            grupo.fotoGrupoUrl =
+                dadosAtualizacao.fotoGrupoUrl;
+        }
+
+        const nomeEl = document.getElementById(
+            "chat-nome-atual"
+        );
+        const cargoEl = document.getElementById(
+            "chat-cargo-atual"
+        );
+        const avatarEl = document.getElementById(
+            "chat-avatar-atual"
+        );
+
+        if (nomeEl) {
+            nomeEl.textContent = nomeGrupo;
+        }
+        if (cargoEl) {
+            cargoEl.textContent =
+                `${grupo.participantes.length} participantes`;
+        }
+        if (avatarEl && dadosAtualizacao.fotoGrupoUrl) {
+            avatarEl.src = dadosAtualizacao.fotoGrupoUrl;
+        }
+
+        fecharModalEditarGrupoChat();
+        configurarAcoesGrupoChat(grupo);
+        configurarMenuAcoesGrupoChat();
+        await carregarListaDeContatosChat();
+
+        if (
+            typeof registrarEventoSistemaGrupoChat ===
+            "function"
+        ) {
+            await registrarEventoSistemaGrupoChat(
+                `@${usernameLogado} editou as informações do grupo.`,
+                grupo.chatId,
+                grupo.participantes
+            );
+        }
+
+        window.alert("Informações do grupo atualizadas.");
+    } catch (erro) {
+        console.error(
+            "Erro ao editar grupo:",
+            erro
+        );
+        window.alert(
+            `Não foi possível editar o grupo.\n\n` +
+            `Código: ${String(erro && erro.code || "sem-codigo")}\n` +
+            `Detalhes: ${String(erro && erro.message || erro)}`
+        );
+    } finally {
+        if (botao) {
+            botao.disabled = false;
+            botao.textContent = "Salvar";
+            botao.style.opacity = "1";
+        }
+    }
+}
+
+function abrirModalEditarGrupoChat() {
+    const grupo = _salaGrupoAtiva;
+
+    if (!grupo || !grupo.chatId) {
+        return;
+    }
+
+    fecharModalEditarGrupoChat();
+
+    const modal = document.createElement("div");
+    const caixa = document.createElement("div");
+    const topo = document.createElement("div");
+    const titulo = document.createElement("strong");
+    const fechar = document.createElement("button");
+    const nome = document.createElement("input");
+    const foto = document.createElement("input");
+    const salvar = document.createElement("button");
+    const cancelar = document.createElement("button");
+
+    modal.id = "modal-editar-grupo-chat";
+    modal.style.position = "fixed";
+    modal.style.inset = "0";
+    modal.style.zIndex = "2147483647";
+    modal.style.display = "flex";
+    modal.style.alignItems = "center";
+    modal.style.justifyContent = "center";
+    modal.style.padding = "18px";
+    modal.style.background = "rgba(0,0,0,.78)";
+    modal.style.boxSizing = "border-box";
+
+    caixa.style.display = "flex";
+    caixa.style.flexDirection = "column";
+    caixa.style.gap = "12px";
+    caixa.style.width = "min(100%, 420px)";
+    caixa.style.padding = "18px";
+    caixa.style.background = "#121212";
+    caixa.style.border = "1px solid #2f3336";
+    caixa.style.borderRadius = "16px";
+    caixa.style.boxSizing = "border-box";
+
+    topo.style.display = "flex";
+    topo.style.alignItems = "center";
+    topo.style.justifyContent = "space-between";
+    topo.style.gap = "10px";
+
+    titulo.textContent = "Editar grupo";
+    titulo.style.color = "#fff";
+    titulo.style.fontSize = "17px";
+
+    fechar.type = "button";
+    fechar.textContent = "×";
+    fechar.style.border = "none";
+    fechar.style.background = "transparent";
+    fechar.style.color = "#fff";
+    fechar.style.fontSize = "24px";
+    fechar.style.cursor = "pointer";
+    fechar.addEventListener(
+        "click",
+        fecharModalEditarGrupoChat
+    );
+
+    nome.id = "input-editar-nome-grupo-chat";
+    nome.type = "text";
+    nome.value = String(grupo.nomeGrupo || "");
+    nome.placeholder = "Nome do grupo";
+    nome.maxLength = 80;
+    nome.style.width = "100%";
+    nome.style.padding = "11px";
+    nome.style.boxSizing = "border-box";
+    nome.style.border = "1px solid #3a3a3a";
+    nome.style.borderRadius = "9px";
+    nome.style.background = "#1c1c1c";
+    nome.style.color = "#fff";
+    nome.style.outline = "none";
+
+    foto.id = "input-editar-foto-grupo-chat";
+    foto.type = "file";
+    foto.accept = "image/png,image/jpeg,image/webp";
+    foto.style.color = "#d7d9db";
+    foto.style.fontSize = "12px";
+
+    salvar.type = "button";
+    salvar.textContent = "Salvar";
+    salvar.setAttribute(
+        "data-salvar-edicao-grupo",
+        "true"
+    );
+    salvar.style.border = "none";
+    salvar.style.borderRadius = "9px";
+    salvar.style.background = "#0095f6";
+    salvar.style.color = "#fff";
+    salvar.style.padding = "10px 14px";
+    salvar.style.fontWeight = "700";
+    salvar.style.cursor = "pointer";
+    salvar.addEventListener(
+        "click",
+        salvarEdicaoGrupoChat
+    );
+
+    cancelar.type = "button";
+    cancelar.textContent = "Cancelar";
+    cancelar.style.border = "1px solid #3a3a3a";
+    cancelar.style.borderRadius = "9px";
+    cancelar.style.background = "transparent";
+    cancelar.style.color = "#d7d9db";
+    cancelar.style.padding = "10px 14px";
+    cancelar.style.cursor = "pointer";
+    cancelar.addEventListener(
+        "click",
+        fecharModalEditarGrupoChat
+    );
+
+    topo.appendChild(titulo);
+    topo.appendChild(fechar);
+    caixa.appendChild(topo);
+    caixa.appendChild(nome);
+    caixa.appendChild(foto);
+
+    const rodape = document.createElement("div");
+    rodape.style.display = "flex";
+    rodape.style.justifyContent = "flex-end";
+    rodape.style.gap = "8px";
+    rodape.appendChild(cancelar);
+    rodape.appendChild(salvar);
+    caixa.appendChild(rodape);
+
+    modal.appendChild(caixa);
+    document.body.appendChild(modal);
+    nome.focus();
+}
+
 function configurarAcoesGrupoChat(dadosGrupo) {
     const cabecalho = document.getElementById(
         "cabecalho-sala-chat"
@@ -4412,8 +5023,7 @@ function configurarAcoesGrupoChat(dadosGrupo) {
     }
 
     const acoes = document.createElement("div");
-    const inputFoto = document.createElement("input");
-    const botaoFoto = document.createElement("button");
+    const botaoEditar = document.createElement("button");
     const botaoMembros = document.createElement("button");
     const botaoExcluir = document.createElement("button");
 
@@ -4426,28 +5036,21 @@ function configurarAcoesGrupoChat(dadosGrupo) {
     acoes.style.flexShrink = "0";
     acoes.style.justifyContent = "flex-end";
 
-    inputFoto.type = "file";
-    inputFoto.accept = "image/png,image/jpeg,image/webp";
-    inputFoto.style.display = "none";
-    inputFoto.addEventListener(
-        "change",
-        () => trocarFotoGrupoChat(inputFoto)
+    botaoEditar.type = "button";
+    botaoEditar.textContent = "Editar";
+    botaoEditar.title = "Editar nome e foto do grupo";
+    botaoEditar.style.border = "1px solid #0095f6";
+    botaoEditar.style.borderRadius = "7px";
+    botaoEditar.style.background = "transparent";
+    botaoEditar.style.color = "#58b7ff";
+    botaoEditar.style.padding = "5px 7px";
+    botaoEditar.style.fontSize = "11px";
+    botaoEditar.style.cursor = "pointer";
+    botaoEditar.addEventListener(
+        "click",
+        abrirModalEditarGrupoChat
     );
 
-    botaoFoto.type = "button";
-    botaoFoto.textContent = "Foto";
-    botaoFoto.title = "Trocar foto do grupo";
-    botaoFoto.style.border = "1px solid #0095f6";
-    botaoFoto.style.borderRadius = "7px";
-    botaoFoto.style.background = "transparent";
-    botaoFoto.style.color = "#58b7ff";
-    botaoFoto.style.padding = "5px 7px";
-    botaoFoto.style.fontSize = "11px";
-    botaoFoto.style.cursor = "pointer";
-    botaoFoto.addEventListener(
-        "click",
-        () => inputFoto.click()
-    );
 
     botaoMembros.type = "button";
     botaoMembros.textContent = "Membros";
@@ -4479,8 +5082,7 @@ function configurarAcoesGrupoChat(dadosGrupo) {
         excluirGrupoChat
     );
 
-    acoes.appendChild(inputFoto);
-    acoes.appendChild(botaoFoto);
+    acoes.appendChild(botaoEditar);
     acoes.appendChild(botaoMembros);
     acoes.appendChild(botaoExcluir);
     painel.style.flexWrap = "nowrap";
@@ -6299,6 +6901,119 @@ async function marcarMensagensComoLidas(chatId, usernameLogado) {
 
 
 
+window._respostaMensagemChat =
+    window._respostaMensagemChat || null;
+
+function limparRespostaMensagemChat() {
+    window._respostaMensagemChat = null;
+
+    const barra = document.getElementById(
+        "barra-resposta-mensagem-chat"
+    );
+
+    if (barra) {
+        barra.remove();
+    }
+}
+
+function prepararRespostaMensagemChat(
+    mensagemId,
+    dadosMensagem
+) {
+    const id = String(mensagemId || "").trim();
+    const dados = dadosMensagem || {};
+    const remetente = String(
+        dados.remetente || ""
+    ).trim().toLowerCase();
+    const texto = String(
+        dados.texto || ""
+    ).trim();
+    const input = document.getElementById(
+        "input-nova-mensagem"
+    );
+
+    if (!id || !input) {
+        return;
+    }
+
+    window._respostaMensagemChat = {
+        id,
+        remetente,
+        texto
+    };
+
+    let barra = document.getElementById(
+        "barra-resposta-mensagem-chat"
+    );
+
+    if (!barra) {
+        barra = document.createElement("div");
+        barra.id = "barra-resposta-mensagem-chat";
+        barra.style.display = "flex";
+        barra.style.alignItems = "center";
+        barra.style.gap = "8px";
+        barra.style.width = "100%";
+        barra.style.boxSizing = "border-box";
+        barra.style.padding = "7px 10px";
+        barra.style.marginBottom = "6px";
+        barra.style.borderLeft = "3px solid #58b7ff";
+        barra.style.borderRadius = "8px";
+        barra.style.background = "#1c1c1c";
+
+        const textoBarra = document.createElement("div");
+        textoBarra.id = "texto-resposta-mensagem-chat";
+        textoBarra.style.flex = "1";
+        textoBarra.style.minWidth = "0";
+        textoBarra.style.overflow = "hidden";
+        textoBarra.style.textOverflow = "ellipsis";
+        textoBarra.style.whiteSpace = "nowrap";
+        textoBarra.style.color = "#d7d9db";
+        textoBarra.style.fontSize = "11px";
+
+        const fechar = document.createElement("button");
+        fechar.type = "button";
+        fechar.textContent = "×";
+        fechar.title = "Cancelar resposta";
+        fechar.style.border = "none";
+        fechar.style.background = "transparent";
+        fechar.style.color = "#fff";
+        fechar.style.fontSize = "20px";
+        fechar.style.lineHeight = "1";
+        fechar.style.cursor = "pointer";
+        fechar.addEventListener(
+            "click",
+            limparRespostaMensagemChat
+        );
+
+        barra.appendChild(textoBarra);
+        barra.appendChild(fechar);
+
+        const pai = input.parentElement;
+        if (pai) {
+            pai.insertBefore(barra, input);
+        } else {
+            input.insertAdjacentElement(
+                "beforebegin",
+                barra
+            );
+        }
+    }
+
+    const textoBarra = document.getElementById(
+        "texto-resposta-mensagem-chat"
+    );
+
+    if (textoBarra) {
+        textoBarra.textContent = remetente
+            ? `Respondendo a @${remetente}: ${texto}`
+            : `Respondendo: ${texto}`;
+    }
+
+    input.focus({
+        preventScroll: true
+    });
+}
+
 async function enviarMensagemChat() {
     const input = document.getElementById(
         "input-nova-mensagem"
@@ -6365,6 +7080,7 @@ async function enviarMensagemChat() {
                     meuUsername
             )
             : [destinatarioIndividual];
+        const resposta = window._respostaMensagemChat;
 
         const dadosMensagem = {
             remetente: meuUsername,
@@ -6377,6 +7093,15 @@ async function enviarMensagemChat() {
                 : [destinatarioIndividual],
             grupoId: grupoEstaAtivo
                 ? chatId
+                : "",
+            respostaMensagemId: resposta
+                ? resposta.id
+                : "",
+            respostaMensagemRemetente: resposta
+                ? resposta.remetente
+                : "",
+            respostaMensagemTexto: resposta
+                ? resposta.texto
                 : "",
             enviadoEm:
                 firebase.firestore.FieldValue.serverTimestamp(),
@@ -6441,6 +7166,7 @@ async function enviarMensagemChat() {
         }
 
         await atualizarIndicadorAbaMensagens();
+        limparRespostaMensagemChat();
 
         requestAnimationFrame(() => {
             input.focus({
