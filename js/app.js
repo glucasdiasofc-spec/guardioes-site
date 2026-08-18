@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.321.0 - versão alpha";
+const VERSAO_ATUAL = "v0.322.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -2964,6 +2964,405 @@ function gerarIdChat(user1, user2) {
 }
 
 
+window._mensagensSelecionadasChat =
+    window._mensagensSelecionadasChat instanceof Map
+        ? window._mensagensSelecionadasChat
+        : new Map();
+window._modoSelecaoMensagens = false;
+
+function atualizarVisualSelecaoMensagem(elemento, mensagemId) {
+    if (!elemento) {
+        return;
+    }
+
+    const selecionada = window
+        ._mensagensSelecionadasChat
+        .has(String(mensagemId || ""));
+
+    elemento.style.outline = selecionada
+        ? "2px solid #58b7ff"
+        : "none";
+    elemento.style.outlineOffset = selecionada
+        ? "3px"
+        : "0";
+    elemento.style.filter = selecionada
+        ? "brightness(1.18)"
+        : "none";
+    elemento.style.borderRadius = "10px";
+}
+
+function alternarSelecaoMensagem(
+    elemento,
+    mensagemId,
+    dadosMensagem
+) {
+    const id = String(mensagemId || "");
+
+    if (!id || !elemento) {
+        return;
+    }
+
+    if (window._mensagensSelecionadasChat.has(id)) {
+        window._mensagensSelecionadasChat.delete(id);
+    } else {
+        window._mensagensSelecionadasChat.set(id, {
+            id,
+            remetente: String(
+                dadosMensagem &&
+                dadosMensagem.remetente ||
+                ""
+            ).trim().toLowerCase(),
+            texto: String(
+                dadosMensagem &&
+                dadosMensagem.texto ||
+                ""
+            )
+        });
+    }
+
+    window._modoSelecaoMensagens =
+        window._mensagensSelecionadasChat.size > 0;
+    atualizarVisualSelecaoMensagem(elemento, id);
+    renderizarBarraSelecaoMensagens();
+
+    document.dispatchEvent(
+
+        new CustomEvent("mensagens-selecao-atualizada", {
+            detail: {
+                quantidade: window
+                    ._mensagensSelecionadasChat
+                    .size
+            }
+        })
+    );
+}
+
+function configurarPressaoProlongadaMensagem(
+    elemento,
+    mensagemId,
+    dadosMensagem
+) {
+    if (!elemento || !mensagemId) {
+        return;
+    }
+
+    const id = String(mensagemId);
+    let timerPressao = null;
+    let cliqueSuprimido = false;
+
+    const iniciarPressao = evento => {
+        if (
+            evento.type === "mousedown" &&
+            evento.button !== 0
+        ) {
+            return;
+        }
+
+        window.clearTimeout(timerPressao);
+        cliqueSuprimido = false;
+        timerPressao = window.setTimeout(() => {
+            cliqueSuprimido = true;
+            alternarSelecaoMensagem(
+                elemento,
+                id,
+                dadosMensagem
+            );
+        }, 600);
+    };
+
+    const finalizarPressao = () => {
+        window.clearTimeout(timerPressao);
+    };
+
+    elemento.addEventListener(
+        "touchstart",
+        iniciarPressao,
+        { passive: true }
+    );
+    elemento.addEventListener(
+        "touchend",
+        finalizarPressao,
+        { passive: true }
+    );
+    elemento.addEventListener(
+        "touchcancel",
+        finalizarPressao,
+        { passive: true }
+    );
+    elemento.addEventListener(
+        "mousedown",
+        iniciarPressao
+    );
+    elemento.addEventListener(
+        "mouseup",
+        finalizarPressao
+    );
+    elemento.addEventListener(
+        "mouseleave",
+        finalizarPressao
+    );
+    elemento.addEventListener(
+        "click",
+        evento => {
+            if (cliqueSuprimido) {
+                evento.preventDefault();
+                evento.stopPropagation();
+                cliqueSuprimido = false;
+                return;
+            }
+
+            if (window._modoSelecaoMensagens) {
+                evento.preventDefault();
+                evento.stopPropagation();
+                alternarSelecaoMensagem(
+                    elemento,
+                    id,
+                    dadosMensagem
+                );
+            }
+        }
+    );
+
+    elemento.setAttribute(
+        "data-mensagem-id",
+        id
+    );
+    atualizarVisualSelecaoMensagem(elemento, id);
+}
+
+async function apagarMensagensSelecionadasChat() {
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+    const meuUsername = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+    const chatId = String(
+        window._chatIdAtivo || ""
+    ).trim();
+    const selecionadas = window
+        ._mensagensSelecionadasChat instanceof Map
+        ? Array.from(
+            window._mensagensSelecionadasChat.values()
+        )
+        : [];
+    const ehAdministradorPrincipal =
+        localStorage.getItem("usuarioLogado") === "admin";
+
+    if (
+        !banco ||
+        !meuUsername ||
+        !chatId ||
+        !selecionadas.length
+    ) {
+        return;
+    }
+
+    const existemMensagensDeOutraPessoa =
+        selecionadas.some(mensagem => {
+            return !ehAdministradorPrincipal &&
+                String(
+                    mensagem.remetente || ""
+                ).trim().toLowerCase() !== meuUsername;
+        });
+
+    if (existemMensagensDeOutraPessoa) {
+        window.alert(
+            "Você só pode apagar mensagens enviadas pela sua própria conta."
+        );
+        return;
+    }
+
+    const confirmou = window.confirm(
+        selecionadas.length === 1
+            ? "Apagar a mensagem selecionada?"
+            : `Apagar as ${selecionadas.length} mensagens selecionadas?`
+    );
+
+    if (!confirmou) {
+        return;
+    }
+
+    const mensagensRef = banco
+        .collection("chats")
+        .doc(chatId)
+        .collection("mensagens");
+    const lote = banco.batch();
+
+    selecionadas.forEach(mensagem => {
+        lote.delete(
+            mensagensRef.doc(String(mensagem.id))
+        );
+    });
+
+    const botao = document.getElementById(
+        "btn-apagar-mensagens-selecionadas"
+    );
+
+    if (botao) {
+        botao.disabled = true;
+        botao.textContent = "Apagando...";
+        botao.style.opacity = "0.6";
+    }
+
+    try {
+        await lote.commit();
+        cancelarSelecaoMensagensChat();
+    } catch (erro) {
+        console.error(
+            "Erro ao apagar mensagens selecionadas:",
+            erro
+        );
+        window.alert(
+            `Não foi possível apagar as mensagens.\n\n` +
+            `Código: ${String(erro && erro.code || "sem-codigo")}\n` +
+            `Detalhes: ${String(erro && erro.message || erro)}`
+        );
+
+        if (botao) {
+            botao.disabled = false;
+            botao.textContent = "Apagar";
+            botao.style.opacity = "1";
+        }
+    }
+}
+
+function cancelarSelecaoMensagensChat() {
+    if (
+        !(window._mensagensSelecionadasChat instanceof Map)
+    ) {
+        window._mensagensSelecionadasChat = new Map();
+    }
+
+    window._mensagensSelecionadasChat.clear();
+    window._modoSelecaoMensagens = false;
+
+    document.querySelectorAll(
+        "[data-mensagem-id]"
+    ).forEach(elemento => {
+        atualizarVisualSelecaoMensagem(
+            elemento,
+            elemento.getAttribute("data-mensagem-id")
+        );
+    });
+
+    const barra = document.getElementById(
+        "barra-selecao-mensagens"
+    );
+
+    if (barra) {
+        barra.remove();
+    }
+}
+
+function renderizarBarraSelecaoMensagens() {
+    const telaChat = document.getElementById(
+        "tela-sala-chat"
+    );
+    const quantidade = window
+        ._mensagensSelecionadasChat instanceof Map
+        ? window._mensagensSelecionadasChat.size
+        : 0;
+    let barra = document.getElementById(
+        "barra-selecao-mensagens"
+    );
+
+    if (!telaChat) {
+        return;
+    }
+
+    if (!quantidade) {
+        if (barra) {
+            barra.remove();
+        }
+        return;
+    }
+
+    if (!barra) {
+        barra = document.createElement("div");
+        barra.id = "barra-selecao-mensagens";
+        barra.style.position = "absolute";
+        barra.style.top = "8px";
+        barra.style.left = "50%";
+        barra.style.zIndex = "100002";
+        barra.style.display = "flex";
+        barra.style.alignItems = "center";
+        barra.style.justifyContent = "center";
+        barra.style.gap = "8px";
+        barra.style.width = "min(calc(100% - 32px), 430px)";
+        barra.style.minHeight = "42px";
+        barra.style.padding = "6px 8px";
+        barra.style.boxSizing = "border-box";
+        barra.style.transform = "translateX(-50%)";
+        barra.style.border = "1px solid #3a3a3a";
+        barra.style.borderRadius = "12px";
+        barra.style.background = "rgba(38, 38, 38, .97)";
+        barra.style.boxShadow = "0 8px 24px rgba(0,0,0,.35)";
+
+        const titulo = document.createElement("span");
+        titulo.id = "contador-selecao-mensagens";
+        titulo.style.flex = "1";
+        titulo.style.color = "#fff";
+        titulo.style.fontSize = "12px";
+        titulo.style.fontWeight = "700";
+
+        const apagar = document.createElement("button");
+        apagar.type = "button";
+        apagar.id = "btn-apagar-mensagens-selecionadas";
+        apagar.textContent = "Apagar";
+        apagar.title = "Apagar mensagens selecionadas";
+        apagar.style.border = "1px solid #ff4d4d";
+        apagar.style.borderRadius = "8px";
+        apagar.style.background = "transparent";
+        apagar.style.color = "#ff6b6b";
+        apagar.style.padding = "7px 9px";
+        apagar.style.fontSize = "11px";
+        apagar.style.fontWeight = "700";
+        apagar.style.cursor = "pointer";
+        apagar.addEventListener(
+            "click",
+            () => {
+                if (
+                    typeof apagarMensagensSelecionadasChat ===
+                    "function"
+                ) {
+                    apagarMensagensSelecionadasChat();
+                }
+            }
+        );
+
+        const cancelar = document.createElement("button");
+        cancelar.type = "button";
+        cancelar.textContent = "Cancelar";
+        cancelar.title = "Cancelar seleção";
+        cancelar.style.border = "1px solid #666";
+        cancelar.style.borderRadius = "8px";
+        cancelar.style.background = "transparent";
+        cancelar.style.color = "#d7d9db";
+        cancelar.style.padding = "7px 9px";
+        cancelar.style.fontSize = "11px";
+        cancelar.style.cursor = "pointer";
+        cancelar.addEventListener(
+            "click",
+            cancelarSelecaoMensagensChat
+        );
+
+        barra.appendChild(titulo);
+        barra.appendChild(apagar);
+        barra.appendChild(cancelar);
+        telaChat.appendChild(barra);
+    }
+
+    const contador = document.getElementById(
+        "contador-selecao-mensagens"
+    );
+
+    if (contador) {
+        contador.textContent = quantidade === 1
+            ? "1 mensagem selecionada"
+            : `${quantidade} mensagens selecionadas`;
+    }
+}
+
 function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     const usernameAlvoNormalizado = String(
         usernameAlvo || ""
@@ -2977,7 +3376,12 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
     const inputMsg = document.getElementById("input-nova-mensagem");
     const cabecalhoChat = document.getElementById("cabecalho-sala-chat");
 
+    if (typeof desativarMenuAcoesGrupoChat === "function") {
+        desativarMenuAcoesGrupoChat();
+    }
+
     if (!telaChat || !inputMsg) return;
+
 
     const nomeEl = document.getElementById("chat-nome-atual");
     const cargoEl = document.getElementById("chat-cargo-atual");
@@ -3244,7 +3648,13 @@ function abrirSalaChat(usernameAlvo, nomeAlvo, cargoAlvo, fotoAlvo) {
                 }
 
                 div.appendChild(balao);
+                configurarPressaoProlongadaMensagem(
+                    div,
+                    doc.id,
+                    msg
+                );
                 container.appendChild(div);
+
             });
 
             container.scrollTop = container.scrollHeight;
@@ -3630,6 +4040,76 @@ function configurarMenuAcoesGrupoChat() {
     });
 }
 
+async function registrarEventoSistemaGrupoChat(
+    texto,
+    chatIdInformado,
+    participantesInformados
+) {
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+    const grupo = _salaGrupoAtiva;
+    const usernameLogado = String(
+        localStorage.getItem("usernameLogado") || ""
+    ).trim().toLowerCase();
+    const chatId = String(
+        chatIdInformado ||
+        grupo && grupo.chatId ||
+        ""
+    ).trim();
+    const participantes = Array.isArray(
+        participantesInformados
+            ? participantesInformados
+            : grupo && grupo.participantes
+    )
+        ? (
+            participantesInformados ||
+            grupo && grupo.participantes ||
+            []
+        ).map(usuario => String(
+            usuario || ""
+        ).trim().toLowerCase()).filter(Boolean)
+        : [];
+
+    if (
+        !banco ||
+        !chatId ||
+        !usernameLogado ||
+        !String(texto || "").trim()
+    ) {
+        return false;
+    }
+
+    try {
+        await banco
+            .collection("chats")
+            .doc(chatId)
+            .collection("mensagens")
+            .add({
+                remetente: usernameLogado,
+                destinatario: "",
+                destinatarios: participantes,
+                grupoId: chatId,
+                texto: String(texto).trim(),
+                tipoMensagem: "sistema",
+                eventoSistema: true,
+                lido: true,
+                lidoEm: null,
+                enviadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp(),
+                timestamp:
+                    firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+        return true;
+    } catch (erro) {
+        console.error(
+            "Não foi possível registrar evento do grupo:",
+            erro
+        );
+        return false;
+    }
+}
+
 async function sairDoGrupoChat() {
     const grupo = _salaGrupoAtiva;
     const banco = window.ClubeDB &&
@@ -3691,6 +4171,12 @@ async function sairDoGrupoChat() {
     }
 
     try {
+        await registrarEventoSistemaGrupoChat(
+            `@${usernameLogado} saiu do grupo.`,
+            grupo.chatId,
+            participantes
+        );
+
         await banco
             .collection("chats")
             .doc(grupo.chatId)
@@ -3701,6 +4187,7 @@ async function sairDoGrupoChat() {
 
         if (
             typeof fecharMenuAcoesGrupoChat === "function"
+
         ) {
             fecharMenuAcoesGrupoChat();
         }
@@ -4236,6 +4723,12 @@ async function expulsarMembroDoGrupoChat(usuarioExpulso) {
         grupo.participantes = participantesRestantes;
         grupo.administradores = administradoresRestantes;
 
+        await registrarEventoSistemaGrupoChat(
+            `@${usernameLogado} removeu @${alvo} do grupo.`,
+            grupo.chatId,
+            participantesRestantes
+        );
+
         fecharGerenciadorMembrosGrupoChat();
         configurarAcoesGrupoChat(grupo);
         configurarBotaoVisualizarMembrosGrupoChat(grupo);
@@ -4750,9 +5243,16 @@ async function trocarFotoGrupoChat(input) {
 
         grupo.fotoGrupoUrl = fotoGrupoUrl;
 
+        await registrarEventoSistemaGrupoChat(
+            `@${usernameLogado} alterou a foto do grupo.`,
+            grupo.chatId,
+            grupo.participantes
+        );
+
         const avatar = document.getElementById(
             "chat-avatar-atual"
         );
+
         if (avatar) {
             avatar.src = fotoGrupoUrl;
         }
@@ -5059,6 +5559,34 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
 
             snapshot.forEach(documento => {
                 const mensagem = documento.data() || {};
+                const ehEventoSistema =
+                    mensagem.tipoMensagem === "sistema" ||
+                    mensagem.eventoSistema === true ||
+                    mensagem.tipo === "sistema";
+
+                if (ehEventoSistema) {
+                    const aviso = document.createElement("div");
+                    aviso.textContent = String(
+                        mensagem.texto || ""
+                    );
+                    aviso.style.width = "100%";
+                    aviso.style.boxSizing = "border-box";
+                    aviso.style.padding = "4px 14px";
+                    aviso.style.margin = "3px 0 8px";
+                    aviso.style.color = "#8e8e8e";
+                    aviso.style.fontSize = "11px";
+                    aviso.style.lineHeight = "1.35";
+                    aviso.style.textAlign = "center";
+                    aviso.style.fontStyle = "italic";
+                    aviso.style.wordBreak = "break-word";
+                    aviso.setAttribute(
+                        "data-evento-sistema",
+                        "true"
+                    );
+                    container.appendChild(aviso);
+                    return;
+                }
+
                 const minha = String(
                     mensagem.remetente || ""
                 ).trim().toLowerCase() ===
@@ -5109,7 +5637,13 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                 balao.appendChild(horario);
 
                 linha.appendChild(balao);
+                configurarPressaoProlongadaMensagem(
+                    linha,
+                    documento.id,
+                    mensagem
+                );
                 container.appendChild(linha);
+
             });
 
             container.scrollTop = container.scrollHeight;
@@ -5144,6 +5678,7 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
 
 
 function fecharSalaChat() {
+    cancelarSelecaoMensagensChat();
     const telaChat = document.getElementById(
         "tela-sala-chat"
     );
