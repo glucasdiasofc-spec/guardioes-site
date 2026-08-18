@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.330.0 - versão alpha";
+const VERSAO_ATUAL = "v0.331.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8648,26 +8648,78 @@ async function abrirPainelUnidade() {
         conteudo.style.boxSizing = "border-box";
 
         const cartaoUnidade = document.createElement("div");
+        const molduraLogo = document.createElement("div");
+        const logoCartao = document.createElement("img");
+        const tituloUnidade = document.createElement("strong");
+        const nomeClube = document.createElement("span");
+        const identificacao = document.createElement("small");
+        const nomeClubeExibicao = String(
+            dadosUnidade.nomeClube ||
+            dadosUnidade.clube ||
+            "Clube Guardiões"
+        ).trim();
+
         cartaoUnidade.style.display = "flex";
+        cartaoUnidade.style.flexDirection = "column";
         cartaoUnidade.style.alignItems = "center";
-        cartaoUnidade.style.gap = "14px";
-        cartaoUnidade.style.padding = "16px";
-        cartaoUnidade.style.marginBottom = "14px";
-        cartaoUnidade.style.border = "1px solid #26384a";
-        cartaoUnidade.style.borderRadius = "14px";
-        cartaoUnidade.style.background =
-            "linear-gradient(135deg, #101820, #111";
+        cartaoUnidade.style.justifyContent = "center";
+        cartaoUnidade.style.gap = "10px";
+        cartaoUnidade.style.minHeight = "230px";
+        cartaoUnidade.style.padding = "28px 18px";
+        cartaoUnidade.style.marginBottom = "18px";
+        cartaoUnidade.style.border = "1px solid #2f3336";
+        cartaoUnidade.style.borderRadius = "16px";
+        cartaoUnidade.style.background = "#121212";
         cartaoUnidade.style.boxSizing = "border-box";
+        cartaoUnidade.style.textAlign = "center";
 
-        const logoCartao = logo.cloneNode(true);
-        const nomeCartao = document.createElement("div");
-        nomeCartao.textContent = nomeExibicao;
-        nomeCartao.style.fontSize = "17px";
-        nomeCartao.style.fontWeight = "700";
+        molduraLogo.style.display = "flex";
+        molduraLogo.style.alignItems = "center";
+        molduraLogo.style.justifyContent = "center";
+        molduraLogo.style.width = "112px";
+        molduraLogo.style.height = "112px";
+        molduraLogo.style.padding = "8px";
+        molduraLogo.style.boxSizing = "border-box";
+        molduraLogo.style.border = "1px solid #3a3a3a";
+        molduraLogo.style.borderRadius = "18px";
+        molduraLogo.style.background = "#0a0a0a";
 
-        cartaoUnidade.appendChild(logoCartao);
-        cartaoUnidade.appendChild(nomeCartao);
+        logoCartao.src = fotoUnidade;
+        logoCartao.alt = `Logo da unidade ${nomeExibicao}`;
+        logoCartao.style.width = "100%";
+        logoCartao.style.height = "100%";
+        logoCartao.style.objectFit = "contain";
+        logoCartao.style.borderRadius = "12px";
+        logoCartao.onerror = () => {
+            logoCartao.onerror = null;
+            logoCartao.src = window.AVATAR_USUARIO_PADRAO;
+        };
+
+        tituloUnidade.textContent =
+            `UNIDADE ${nomeExibicao.toUpperCase()}`;
+        tituloUnidade.style.color = "#fff";
+        tituloUnidade.style.fontSize = "18px";
+        tituloUnidade.style.letterSpacing = ".5px";
+        tituloUnidade.style.lineHeight = "1.25";
+
+        nomeClube.textContent = nomeClubeExibicao;
+        nomeClube.style.color = "#d7d9db";
+        nomeClube.style.fontSize = "15px";
+        nomeClube.style.fontWeight = "600";
+
+        identificacao.textContent = ehSecretario
+            ? "Painel do secretário(a)"
+            : "Área da unidade";
+        identificacao.style.color = "#8e8e8e";
+        identificacao.style.fontSize = "11px";
+
+        molduraLogo.appendChild(logoCartao);
+        cartaoUnidade.appendChild(molduraLogo);
+        cartaoUnidade.appendChild(tituloUnidade);
+        cartaoUnidade.appendChild(nomeClube);
+        cartaoUnidade.appendChild(identificacao);
         conteudo.appendChild(cartaoUnidade);
+
 
         if (ehSecretario) {
             const tituloFuncoes = document.createElement("h2");
