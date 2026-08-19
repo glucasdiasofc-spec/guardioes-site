@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.333.0 - versão alpha";
+const VERSAO_ATUAL = "v0.334.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8893,64 +8893,94 @@ async function abrirPainelUnidade() {
         }
 
         const dadosUsuario = usuarioSnap.docs[0].data() || {};
-        const nomeUnidade = String(
-            dadosUsuario.unidade || ""
-        ).trim();
-
-        if (!nomeUnidade) {
-            window.alert(
-                "Você ainda não está vinculado a uma unidade."
-            );
-            return;
-        }
-
-        const unidadeId = criarIdUnidadeParaPainel(
-            nomeUnidade
-        );
-        let unidadeSnap = await banco
-            .collection("unidades")
-            .doc(unidadeId)
-            .get();
-
-        if (!unidadeSnap.exists) {
-            unidadeSnap = await banco
-                .collection("unidades")
-                .where("nome", "==", nomeUnidade)
-                .limit(1)
-                .get();
-        }
-
-        const dadosUnidade = unidadeSnap &&
-            unidadeSnap.docs
-            ? (
-                unidadeSnap.empty
-                    ? {}
-                    : unidadeSnap.docs[0].data() || {}
-            )
-            : (
-                unidadeSnap && unidadeSnap.exists
-                    ? unidadeSnap.data() || {}
-                    : {}
-            );
-        const nomeExibicao = String(
-            dadosUnidade.nome || nomeUnidade
-        ).trim();
-        const fotoUnidade = String(
-            dadosUnidade.fotoUrl ||
-            window.AVATAR_USUARIO_PADRAO ||
-            ""
-        );
-        const cargo = String(
-            dadosUsuario.cargo || ""
-        ).trim();
         const cargoFuncao = String(
             dadosUsuario.cargoFuncao ||
             dadosUsuario.funcao ||
             ""
         ).trim().toLowerCase();
-        const ehSecretario =
-            cargoFuncao.includes("secret") ||
-            cargo.toLowerCase().includes("secret");
+        const ehSecretarioClube =
+            cargoFuncao === "secretario_clube";
+        const ehSecretarioUnidade =
+            cargoFuncao === "secretario_unidade";
+        const nomeUnidade = String(
+            dadosUsuario.unidade || ""
+        ).trim();
+
+        if (ehSecretarioUnidade && !nomeUnidade) {
+            window.alert(
+                "O Secretário(a) de Unidade precisa estar vinculado a uma unidade."
+            );
+            return;
+        }
+
+        let dadosUnidade = {};
+        if (nomeUnidade) {
+            const unidadeIdBusca = criarIdUnidadeParaPainel(
+                nomeUnidade
+            );
+            let unidadeSnap = await banco
+                .collection("unidades")
+                .doc(unidadeIdBusca)
+                .get();
+
+            if (unidadeSnap.exists) {
+                dadosUnidade = unidadeSnap.data() || {};
+            } else {
+                unidadeSnap = await banco
+                    .collection("unidades")
+                    .where("nome", "==", nomeUnidade)
+                    .limit(1)
+                    .get();
+                if (!unidadeSnap.empty) {
+                    dadosUnidade = unidadeSnap.docs[0].data() || {};
+                }
+            }
+        }
+
+        let dadosConfiguracao = {};
+        try {
+            const configuracaoSnap = await banco
+                .collection("configuracoes")
+                .doc("geral")
+                .get();
+            dadosConfiguracao = configuracaoSnap.exists
+                ? configuracaoSnap.data() || {}
+                : {};
+        } catch (erroConfiguracao) {
+            console.warn(
+                "Não foi possível carregar a identidade do clube:",
+                erroConfiguracao
+            );
+        }
+
+        const nomeClubeExibicao = String(
+            dadosUnidade.nomeClube ||
+            dadosUnidade.clube ||
+            dadosConfiguracao.nomeClube ||
+            "Clube Guardiões"
+        ).trim();
+        const nomeExibicao = ehSecretarioClube
+            ? nomeClubeExibicao
+            : String(
+                dadosUnidade.nome || nomeUnidade
+            ).trim();
+        const fotoUnidade = String(
+            dadosUnidade.fotoUrl ||
+            window.AVATAR_USUARIO_PADRAO ||
+            ""
+        );
+        const fotoClube = String(
+            dadosConfiguracao.logoAppUrl ||
+            dadosConfiguracao.logoUrl ||
+            window.AVATAR_USUARIO_PADRAO ||
+            ""
+        );
+        const fotoIdentidade = ehSecretarioClube
+            ? fotoClube
+            : fotoUnidade;
+        const unidadeId = nomeUnidade
+            ? criarIdUnidadeParaPainel(nomeUnidade)
+            : "";
 
         const painel = document.createElement("div");
         const cabecalho = document.createElement("div");
@@ -8988,8 +9018,10 @@ async function abrirPainelUnidade() {
         identidade.style.gap = "10px";
         identidade.style.minWidth = "0";
 
-        logo.src = fotoUnidade;
-        logo.alt = `Logo da unidade ${nomeExibicao}`;
+        logo.src = fotoIdentidade;
+        logo.alt = ehSecretarioClube
+            ? `Logo de ${nomeClubeExibicao}`
+            : `Logo da unidade ${nomeExibicao}`;
         logo.style.width = "44px";
         logo.style.height = "44px";
         logo.style.flex = "0 0 44px";
@@ -9006,15 +9038,19 @@ async function abrirPainelUnidade() {
         textos.style.gap = "3px";
         textos.style.minWidth = "0";
 
-        titulo.textContent = nomeExibicao;
+        titulo.textContent = ehSecretarioClube
+            ? "Painel do Clube"
+            : nomeExibicao;
         titulo.style.fontSize = "16px";
         titulo.style.overflow = "hidden";
         titulo.style.textOverflow = "ellipsis";
         titulo.style.whiteSpace = "nowrap";
 
-        subtitulo.textContent = ehSecretario
-            ? "Painel do secretário(a)"
-            : "Painel da unidade";
+        subtitulo.textContent = ehSecretarioClube
+            ? "Secretário(a) do Clube"
+            : ehSecretarioUnidade
+                ? "Secretário(a) de Unidade"
+                : "Painel da unidade";
         subtitulo.style.color = "#8e8e8e";
         subtitulo.style.fontSize = "12px";
 
@@ -9022,7 +9058,7 @@ async function abrirPainelUnidade() {
         fechar.textContent = "×";
         fechar.setAttribute(
             "aria-label",
-            "Fechar painel da unidade"
+            "Fechar painel"
         );
         fechar.style.width = "38px";
         fechar.style.height = "38px";
@@ -9048,11 +9084,6 @@ async function abrirPainelUnidade() {
         const tituloUnidade = document.createElement("strong");
         const nomeClube = document.createElement("span");
         const identificacao = document.createElement("small");
-        const nomeClubeExibicao = String(
-            dadosUnidade.nomeClube ||
-            dadosUnidade.clube ||
-            "Clube Guardiões"
-        ).trim();
 
         cartaoUnidade.style.display = "flex";
         cartaoUnidade.style.flexDirection = "column";
@@ -9079,8 +9110,8 @@ async function abrirPainelUnidade() {
         molduraLogo.style.borderRadius = "18px";
         molduraLogo.style.background = "#0a0a0a";
 
-        logoCartao.src = fotoUnidade;
-        logoCartao.alt = `Logo da unidade ${nomeExibicao}`;
+        logoCartao.src = fotoIdentidade;
+        logoCartao.alt = logo.alt;
         logoCartao.style.width = "100%";
         logoCartao.style.height = "100%";
         logoCartao.style.objectFit = "contain";
@@ -9090,21 +9121,26 @@ async function abrirPainelUnidade() {
             logoCartao.src = window.AVATAR_USUARIO_PADRAO;
         };
 
-        tituloUnidade.textContent =
-            `UNIDADE ${nomeExibicao.toUpperCase()}`;
+        tituloUnidade.textContent = ehSecretarioClube
+            ? nomeClubeExibicao.toUpperCase()
+            : `UNIDADE ${nomeExibicao.toUpperCase()}`;
         tituloUnidade.style.color = "#fff";
         tituloUnidade.style.fontSize = "18px";
         tituloUnidade.style.letterSpacing = ".5px";
         tituloUnidade.style.lineHeight = "1.25";
 
-        nomeClube.textContent = nomeClubeExibicao;
+        nomeClube.textContent = ehSecretarioClube
+            ? "Calendário central de eventos"
+            : nomeClubeExibicao;
         nomeClube.style.color = "#d7d9db";
         nomeClube.style.fontSize = "15px";
         nomeClube.style.fontWeight = "600";
 
-        identificacao.textContent = ehSecretario
-            ? "Painel do secretário(a)"
-            : "Área da unidade";
+        identificacao.textContent = ehSecretarioClube
+            ? "Eventos compartilhados com as unidades"
+            : ehSecretarioUnidade
+                ? "Frequência e relatórios da unidade"
+                : "Área da unidade";
         identificacao.style.color = "#8e8e8e";
         identificacao.style.fontSize = "11px";
 
@@ -9115,8 +9151,18 @@ async function abrirPainelUnidade() {
         cartaoUnidade.appendChild(identificacao);
         conteudo.appendChild(cartaoUnidade);
 
-
-        if (ehSecretario) {
+        if (ehSecretarioClube) {
+            const tituloFuncoes = document.createElement("h2");
+            tituloFuncoes.textContent = "Administração do calendário central";
+            tituloFuncoes.style.margin = "18px 0 10px";
+            tituloFuncoes.style.fontSize = "16px";
+            conteudo.appendChild(tituloFuncoes);
+            await renderizarPainelSecretarioClubeEventos(
+                conteudo,
+                banco,
+                username
+            );
+        } else if (ehSecretarioUnidade) {
             const tituloFuncoes = document.createElement("h2");
             tituloFuncoes.textContent = "Responsabilidades do secretário(a)";
             tituloFuncoes.style.margin = "18px 0 10px";
@@ -9124,7 +9170,7 @@ async function abrirPainelUnidade() {
 
             const aviso = document.createElement("p");
             aviso.textContent =
-                "O controle de frequência e os relatórios da unidade serão organizados aqui.";
+                "A frequência e os relatórios pertencem à unidade. Os eventos são definidos no calendário central do clube.";
             aviso.style.color = "#a8a8a8";
             aviso.style.fontSize = "13px";
             aviso.style.lineHeight = "1.5";
@@ -9145,7 +9191,6 @@ async function abrirPainelUnidade() {
                 banco,
                 username
             );
-
         } else {
             const vazio = document.createElement("p");
             vazio.textContent =
@@ -9172,10 +9217,11 @@ async function abrirPainelUnidade() {
             erro
         );
         window.alert(
-            "Não foi possível abrir o Painel da Unidade agora."
+            "Não foi possível abrir o painel agora."
         );
     }
 }
+
 
 async function carregarPerfilDoUsuario() {
     const username = localStorage.getItem("usernameLogado");
@@ -9255,25 +9301,47 @@ async function carregarPerfilDoUsuario() {
         if (cargoEl) cargoEl.textContent = dados.cargo || "Membro";
         if (unidadeEl) unidadeEl.textContent = dados.unidade || "Sem Unidade";
 
-        if (dados.unidade && botaoPainelUnidade) {
+        const cargoFuncaoPerfil = String(
+            dados.cargoFuncao ||
+            dados.funcao ||
+            ""
+        ).trim().toLowerCase();
+        const ehSecretarioClubePerfil =
+            cargoFuncaoPerfil === "secretario_clube";
+        const podeAbrirPainel = Boolean(
+            dados.unidade ||
+            ehSecretarioClubePerfil
+        );
+
+        if (podeAbrirPainel && botaoPainelUnidade) {
             botaoPainelUnidade.style.display = "block";
-            botaoPainelUnidade.setAttribute(
-                "data-unidade",
-                String(dados.unidade)
-            );
+
+            if (dados.unidade) {
+                botaoPainelUnidade.setAttribute(
+                    "data-unidade",
+                    String(dados.unidade)
+                );
+            } else {
+                botaoPainelUnidade.removeAttribute(
+                    "data-unidade"
+                );
+            }
+
             if (subtituloPainelUnidade) {
                 subtituloPainelUnidade.textContent =
-                    dados.cargoFuncao &&
-                    String(dados.cargoFuncao)
-                        .toLowerCase()
-                        .includes("secret")
-                        ? "Frequência e relatórios da unidade"
-                        : "Informações e atividades da unidade";
+                    ehSecretarioClubePerfil
+                        ? "Calendário central do clube"
+                        : cargoFuncaoPerfil ===
+                            "secretario_unidade"
+                            ? "Frequência e relatórios da unidade"
+                            : "Informações e atividades da unidade";
             }
+
             if (painelUnidadeAcesso) {
                 painelUnidadeAcesso.style.display = "block";
             }
         }
+
 
 
         if (nascimentoEl) {
