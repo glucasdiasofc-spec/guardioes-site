@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.335.0 - versão alpha";
+const VERSAO_ATUAL = "v0.336.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13030,9 +13030,22 @@ async function renderizarPainelSecretarioClubeEventos(
     aplicarEstilo(secao, {
         display: "flex",
         flexDirection: "column",
+        width: "100%",
+        minWidth: "0",
+        maxWidth: "100%",
+        boxSizing: "border-box",
         gap: "10px",
         marginTop: "22px"
-    }, ["display"]);
+    }, [
+        "display",
+        "flex-direction",
+        "width",
+        "min-width",
+        "max-width",
+        "box-sizing",
+        "gap",
+        "margin-top"
+    ]);
     titulo.textContent = "Controle de eventos do clube";
     titulo.style.margin = "0";
     titulo.style.fontSize = "17px";
@@ -13045,11 +13058,22 @@ async function renderizarPainelSecretarioClubeEventos(
 
     aplicarEstilo(barraMes, {
         display: "flex",
+        flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
+        width: "100%",
+        minWidth: "0",
         gap: "8px",
-        padding: "8px 0"
-    }, ["display"]);
+        padding: "8px 0",
+        boxSizing: "border-box"
+    }, [
+        "display",
+        "flex-direction",
+        "width",
+        "min-width",
+        "gap",
+        "box-sizing"
+    ]);
     prepararBotao(voltarMes);
     prepararBotao(avancarMes);
     voltarMes.textContent = "‹";
@@ -13058,78 +13082,150 @@ async function renderizarPainelSecretarioClubeEventos(
         width: "36px",
         minWidth: "36px",
         height: "36px",
+        flex: "0 0 36px",
         padding: "0",
         fontSize: "18px"
-    }, ["width", "min-width", "height"]);
+    }, [
+        "width",
+        "min-width",
+        "height",
+        "flex"
+    ]);
     aplicarEstilo(avancarMes, {
         width: "36px",
         minWidth: "36px",
         height: "36px",
+        flex: "0 0 36px",
         padding: "0",
         fontSize: "18px"
-    }, ["width", "min-width", "height"]);
+    }, [
+        "width",
+        "min-width",
+        "height",
+        "flex"
+    ]);
     aplicarEstilo(tituloMes, {
         display: "block",
-        flex: "1",
+        flex: "1 1 auto",
+        minWidth: "0",
         color: "#fff",
         fontSize: "14px",
         textAlign: "center"
-    }, ["display"]);
+    }, [
+        "display",
+        "flex",
+        "min-width"
+    ]);
 
     aplicarEstilo(diasSemana, {
         display: "grid",
         width: "100%",
+        minWidth: "0",
         gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-        gap: "3px"
-    }, ["display", "width"]);
+        gridAutoFlow: "row",
+        gap: "3px",
+        boxSizing: "border-box"
+    }, [
+        "display",
+        "width",
+        "min-width",
+        "grid-template-columns",
+        "grid-auto-flow",
+        "gap",
+        "box-sizing"
+    ]);
     nomesDias.forEach(nomeDia => {
         const celula = document.createElement("div");
         celula.textContent = nomeDia;
         aplicarEstilo(celula, {
             display: "block",
             width: "auto",
+            minWidth: "0",
             padding: "6px 2px",
             color: "#8e8e8e",
             fontSize: "9px",
             fontWeight: "700",
-            textAlign: "center"
-        }, ["display", "width"]);
+            textAlign: "center",
+            boxSizing: "border-box"
+        }, [
+            "display",
+            "width",
+            "min-width",
+            "box-sizing"
+        ]);
         diasSemana.appendChild(celula);
     });
 
     aplicarEstilo(calendario, {
         display: "grid",
         width: "100%",
+        minWidth: "0",
         gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+        gridAutoFlow: "row",
+        gridAutoRows: "minmax(76px, auto)",
+        alignItems: "stretch",
         gap: "3px",
         padding: "3px",
         boxSizing: "border-box",
         border: "1px solid #262626",
         borderRadius: "12px",
         background: "#0b0b0b"
-    }, ["display", "width", "background"]);
+    }, [
+        "display",
+        "width",
+        "min-width",
+        "grid-template-columns",
+        "grid-auto-flow",
+        "grid-auto-rows",
+        "align-items",
+        "gap",
+        "box-sizing",
+        "background"
+    ]);
 
     aplicarEstilo(detalhe, {
         display: "none",
         flexDirection: "column",
+        width: "100%",
+        minWidth: "0",
+        boxSizing: "border-box",
         gap: "10px",
         marginTop: "10px",
         padding: "14px",
         border: "1px solid #26384a",
         borderRadius: "12px",
         background: "#101820"
-    }, ["display", "background"]);
+    }, [
+        "display",
+        "flex-direction",
+        "width",
+        "min-width",
+        "box-sizing",
+        "gap",
+        "background"
+    ]);
 
     aplicarEstilo(tiposBox, {
         display: "flex",
         flexDirection: "column",
+        width: "100%",
+        minWidth: "0",
+        boxSizing: "border-box",
         gap: "8px",
         marginTop: "12px",
         padding: "12px",
         border: "1px solid #262626",
         borderRadius: "12px",
         background: "#101010"
-    }, ["display", "background"]);
+    }, [
+        "display",
+        "flex-direction",
+        "width",
+        "min-width",
+        "box-sizing",
+        "gap",
+        "background"
+    ]);
     status.style.margin = "0";
     status.style.color = "#65e6bf";
     status.style.fontSize = "11px";
