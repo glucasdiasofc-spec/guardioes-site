@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.339.0 - versão alpha";
+const VERSAO_ATUAL = "v0.340.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8323,13 +8323,17 @@ async function renderizarPainelSecretarioFrequencia(
             celula.style.gap = "4px";
             celula.style.minHeight = "76px";
             celula.style.padding = "6px 4px";
-            celula.style.border = dataId === hojeId
-                ? "1px solid #58b7ff"
-                : "1px solid #262626";
+            celula.style.border = dataId === calendario.dataset.diaSelecionado
+                ? "2px solid #0095f6"
+                : dataId === hojeId
+                    ? "1px solid #58b7ff"
+                    : "1px solid #262626";
             celula.style.borderRadius = "6px";
-            celula.style.background = evento
-                ? "#172b3b"
-                : "#121212";
+            celula.style.background = dataId === calendario.dataset.diaSelecionado
+                ? "#123d60"
+                : evento
+                    ? "#172b3b"
+                    : "#121212";
             celula.style.color = "#fff";
             celula.style.textAlign = "left";
             celula.style.cursor = "pointer";
@@ -8338,15 +8342,19 @@ async function renderizarPainelSecretarioFrequencia(
                 ? `${dia} · HOJE`
                 : String(dia);
             numero.style.fontSize = "11px";
-            numero.style.color = dataId === hojeId
-                ? "#58b7ff"
-                : "#d7d9db";
+            numero.style.color = dataId === calendario.dataset.diaSelecionado
+                ? "#8dccff"
+                : dataId === hojeId
+                    ? "#58b7ff"
+                    : "#d7d9db";
 
             listaEventos.style.display = "flex";
             listaEventos.style.flexDirection = "column";
             listaEventos.style.gap = "2px";
             listaEventos.style.minWidth = "0";
-            listaEventos.style.color = "#d7d9db";
+            listaEventos.style.color = dataId === calendario.dataset.diaSelecionado
+                ? "#d9efff"
+                : "#d7d9db";
             listaEventos.style.fontSize = "9px";
             listaEventos.style.lineHeight = "1.2";
             listaEventos.style.overflow = "hidden";
@@ -8375,7 +8383,9 @@ async function renderizarPainelSecretarioFrequencia(
                 const resumo = document.createElement("span");
                 resumo.textContent =
                     `✓ ${totalPresentes} · F ${totalFaltas}`;
-                resumo.style.color = "#8e8e8e";
+                resumo.style.color = dataId === calendario.dataset.diaSelecionado
+                    ? "#b9ddff"
+                    : "#8e8e8e";
                 listaEventos.appendChild(resumo);
             }
 
@@ -8383,11 +8393,16 @@ async function renderizarPainelSecretarioFrequencia(
             celula.appendChild(listaEventos);
             celula.addEventListener(
                 "click",
-                () => abrirChamada(dataId, evento)
+                () => {
+                    calendario.dataset.diaSelecionado = dataId;
+                    renderizarCalendario();
+                    abrirChamada(dataId, evento);
+                }
             );
             calendario.appendChild(celula);
         }
     };
+
 
     voltarMes.addEventListener(
         "click",
