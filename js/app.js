@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.340.0 - versão alpha";
+const VERSAO_ATUAL = "v0.341.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9324,35 +9324,48 @@ async function carregarPerfilDoUsuario() {
         const cargoNomePerfil = String(
             dados.cargo || ""
         ).trim().toLowerCase();
-        const cargoPerfilNormalizado = String(
-            cargoNomePerfil
+        const cargoTextoVisivel = String(
+            cargoEl ? cargoEl.textContent : ""
+        ).trim().toLowerCase();
+        const normalizarCargoPerfil = valor => String(
+            valor || ""
         )
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
             .replace(/[()]/g, "")
             .replace(/\s+/g, " ")
             .trim();
-        const funcaoPerfilNormalizada = String(
-            cargoFuncaoPerfil
-        )
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[()]/g, "")
-            .replace(/\s+/g, " ")
-            .trim();
+        const funcaoPerfilNormalizada =
+            normalizarCargoPerfil(cargoFuncaoPerfil);
+        const cargoPerfilNormalizado =
+            normalizarCargoPerfil(cargoNomePerfil);
+        const cargoTextoVisivelNormalizado =
+            normalizarCargoPerfil(cargoTextoVisivel);
         const ehSecretarioClubePerfil =
-            cargoFuncaoPerfil === "secretario_clube" ||
-            funcaoPerfilNormalizada === "secretario do clube" ||
-            cargoPerfilNormalizado === "secretario do clube" ||
-            cargoPerfilNormalizado.includes(
+            funcaoPerfilNormalizada === "secretario_clube" ||
+            funcaoPerfilNormalizada.includes(
                 "secretario do clube"
+            ) ||
+            (
+                cargoPerfilNormalizado.includes("secretario") &&
+                cargoPerfilNormalizado.includes("clube")
+            ) ||
+            (
+                cargoTextoVisivelNormalizado.includes("secretario") &&
+                cargoTextoVisivelNormalizado.includes("clube")
             );
         const ehSecretarioUnidadePerfil =
-            cargoFuncaoPerfil === "secretario_unidade" ||
-            funcaoPerfilNormalizada === "secretario de unidade" ||
-            cargoPerfilNormalizado === "secretario de unidade" ||
-            cargoPerfilNormalizado.includes(
+            funcaoPerfilNormalizada === "secretario_unidade" ||
+            funcaoPerfilNormalizada.includes(
                 "secretario de unidade"
+            ) ||
+            (
+                cargoPerfilNormalizado.includes("secretario") &&
+                cargoPerfilNormalizado.includes("unidade")
+            ) ||
+            (
+                cargoTextoVisivelNormalizado.includes("secretario") &&
+                cargoTextoVisivelNormalizado.includes("unidade")
             );
         const podeAbrirPainel = Boolean(
             dados.unidade ||
@@ -9360,7 +9373,11 @@ async function carregarPerfilDoUsuario() {
         );
 
         if (podeAbrirPainel && botaoPainelUnidade) {
-            botaoPainelUnidade.style.display = "block";
+            botaoPainelUnidade.style.setProperty(
+                "display",
+                "block",
+                "important"
+            );
 
             if (dados.unidade) {
                 botaoPainelUnidade.setAttribute(
@@ -9383,9 +9400,14 @@ async function carregarPerfilDoUsuario() {
             }
 
             if (painelUnidadeAcesso) {
-                painelUnidadeAcesso.style.display = "block";
+                painelUnidadeAcesso.style.setProperty(
+                    "display",
+                    "block",
+                    "important"
+                );
             }
         }
+
 
 
 
