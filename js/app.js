@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.336.0 - versão alpha";
+const VERSAO_ATUAL = "v0.337.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -12242,12 +12242,27 @@ async function renderizarPainelSecretarioClubeEventos(
 
     const aplicarEstilo = (elemento, estilos, importantes = []) => {
         Object.entries(estilos).forEach(([propriedade, valor]) => {
+            const propriedadeCss = String(
+                propriedade
+            ).replace(
+                /[A-Z]/g,
+                letra => `-${letra.toLowerCase()}`
+            );
+            const prioridade = importantes.some(item => {
+                const itemCss = String(item).replace(
+                    /[A-Z]/g,
+                    letra => `-${letra.toLowerCase()}`
+                );
+                return item === propriedade ||
+                    itemCss === propriedadeCss;
+            })
+                ? "important"
+                : "";
+
             elemento.style.setProperty(
-                propriedade,
+                propriedadeCss,
                 valor,
-                importantes.includes(propriedade)
-                    ? "important"
-                    : ""
+                prioridade
             );
         });
     };
@@ -13310,6 +13325,7 @@ async function renderizarPainelSecretarioClubeEventos(
             "Não foi possível carregar o calendário central.";
     }
 }
+
 
 
 
