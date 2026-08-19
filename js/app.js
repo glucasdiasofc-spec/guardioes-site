@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.337.0 - versão alpha";
+const VERSAO_ATUAL = "v0.338.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9306,8 +9306,24 @@ async function carregarPerfilDoUsuario() {
             dados.funcao ||
             ""
         ).trim().toLowerCase();
+        const cargoFuncaoNormalizada = cargoFuncaoPerfil
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[()]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
         const ehSecretarioClubePerfil =
-            cargoFuncaoPerfil === "secretario_clube";
+            cargoFuncaoPerfil === "secretario_clube" ||
+            cargoFuncaoNormalizada === "secretario do clube" ||
+            cargoFuncaoNormalizada.includes(
+                "secretario do clube"
+            );
+        const ehSecretarioUnidadePerfil =
+            cargoFuncaoPerfil === "secretario_unidade" ||
+            cargoFuncaoNormalizada === "secretario de unidade" ||
+            cargoFuncaoNormalizada.includes(
+                "secretario de unidade"
+            );
         const podeAbrirPainel = Boolean(
             dados.unidade ||
             ehSecretarioClubePerfil
@@ -9331,8 +9347,7 @@ async function carregarPerfilDoUsuario() {
                 subtituloPainelUnidade.textContent =
                     ehSecretarioClubePerfil
                         ? "Calendário central do clube"
-                        : cargoFuncaoPerfil ===
-                            "secretario_unidade"
+                        : ehSecretarioUnidadePerfil
                             ? "Frequência e relatórios da unidade"
                             : "Informações e atividades da unidade";
             }
@@ -9341,6 +9356,7 @@ async function carregarPerfilDoUsuario() {
                 painelUnidadeAcesso.style.display = "block";
             }
         }
+
 
 
 
