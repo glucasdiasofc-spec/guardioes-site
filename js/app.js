@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.334.0 - versão alpha";
+const VERSAO_ATUAL = "v0.335.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -12170,23 +12170,66 @@ async function renderizarPainelSecretarioClubeEventos(
     usernameLogado
 ) {
     const secao = document.createElement("section");
-    const mesTitulo = document.createElement("strong");
+    const titulo = document.createElement("h2");
+    const descricao = document.createElement("p");
+    const barraMes = document.createElement("div");
+    const voltarMes = document.createElement("button");
+    const avancarMes = document.createElement("button");
+    const tituloMes = document.createElement("strong");
+    const diasSemana = document.createElement("div");
     const calendario = document.createElement("div");
     const detalhe = document.createElement("div");
     const tiposBox = document.createElement("div");
-    const aviso = document.createElement("p");
+    const status = document.createElement("p");
     const nomesMeses = [
-        "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL",
-        "MAIO", "JUNHO", "JULHO", "AGOSTO",
-        "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
+        "JANEIRO",
+        "FEVEREIRO",
+        "MARÇO",
+        "ABRIL",
+        "MAIO",
+        "JUNHO",
+        "JULHO",
+        "AGOSTO",
+        "SETEMBRO",
+        "OUTUBRO",
+        "NOVEMBRO",
+        "DEZEMBRO"
     ];
-    const nomesDias = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+    const nomesDias = [
+        "DOM",
+        "SEG",
+        "TER",
+        "QUA",
+        "QUI",
+        "SEX",
+        "SÁB"
+    ];
     const tiposPadrao = [
-        { id: "reuniao", nome: "Reunião" },
-        { id: "acao", nome: "Ação" },
-        { id: "acampamento", nome: "Acampamento" },
-        { id: "agenda", nome: "Agenda" },
-        { id: "outra_atividade", nome: "Outra atividade" }
+        {
+            id: "reuniao",
+            nome: "Reunião",
+            cor: "#58b7ff"
+        },
+        {
+            id: "acao",
+            nome: "Ação",
+            cor: "#20c997"
+        },
+        {
+            id: "acampamento",
+            nome: "Acampamento",
+            cor: "#f0ad4e"
+        },
+        {
+            id: "agenda",
+            nome: "Agenda",
+            cor: "#bd8cff"
+        },
+        {
+            id: "outra_atividade",
+            nome: "Outra atividade",
+            cor: "#a8a8a8"
+        }
     ];
     let mesAtual = new Date(
         new Date().getFullYear(),
@@ -12197,62 +12240,139 @@ async function renderizarPainelSecretarioClubeEventos(
     let eventos = [];
     let tipos = [];
 
+    const aplicarEstilo = (elemento, estilos, importantes = []) => {
+        Object.entries(estilos).forEach(([propriedade, valor]) => {
+            elemento.style.setProperty(
+                propriedade,
+                valor,
+                importantes.includes(propriedade)
+                    ? "important"
+                    : ""
+            );
+        });
+    };
+
+    const criarDataId = data => {
+        return [
+            data.getFullYear(),
+            String(data.getMonth() + 1).padStart(2, "0"),
+            String(data.getDate()).padStart(2, "0")
+        ].join("-");
+    };
+
+    const formatarData = dataId => {
+        const partes = String(dataId || "").split("-");
+        return partes.length === 3
+            ? `${partes[2]}/${partes[1]}/${partes[0]}`
+            : String(dataId || "");
+    };
+
     const normalizar = texto => String(texto || "")
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .trim();
 
-    const escapar = texto => String(texto || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-
-    const dataId = data => [
-        data.getFullYear(),
-        String(data.getMonth() + 1).padStart(2, "0"),
-        String(data.getDate()).padStart(2, "0")
-    ].join("-");
-
-    const dataLegivel = data => {
-        const partes = String(data || "").split("-");
-        return partes.length === 3
-            ? `${partes[2]}/${partes[1]}/${partes[0]}`
-            : data;
+    const localizarTipo = evento => {
+        const id = String(
+            evento && (evento.tipoId || evento.tipo) || ""
+        ).trim();
+        return tipos.find(tipo => tipo.id === id) || {
+            id: id || "outra_atividade",
+            nome: String(
+                evento && evento.tipoNome || "Outra atividade"
+            ),
+            cor: "#a8a8a8"
+        };
     };
 
-    const tipoAtual = id => tipos.find(tipo => tipo.id === id) || {
-        id: id || "outra_atividade",
-        nome: "Outra atividade"
+    const prepararBotao = (botao, principal = false, perigo = false) => {
+        botao.type = "button";
+        aplicarEstilo(botao, {
+            display: "inline-flex",
+            width: "auto",
+            minWidth: "0",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "8px 10px",
+            border: "1px solid #3a3a3a",
+            borderRadius: "8px",
+            background: principal ? "#0095f6" : "#1c1c1c",
+            color: principal
+                ? "#fff"
+                : perigo
+                    ? "#ff8b8b"
+                    : "#d7d9db",
+            fontSize: "11px",
+            fontWeight: principal ? "700" : "400",
+            lineHeight: "1.2",
+            cursor: "pointer",
+            boxSizing: "border-box"
+        }, [
+            "display",
+            "width",
+            "background",
+            "color"
+        ]);
     };
 
-    const botao = (texto, classe = "") => {
-        return `<button type="button" class="${classe}">${texto}</button>`;
+    const prepararCampo = campo => {
+        aplicarEstilo(campo, {
+            display: "block",
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "9px 10px",
+            border: "1px solid #3a3a3a",
+            borderRadius: "8px",
+            background: "#1c1c1c",
+            color: "#fff",
+            fontSize: "12px"
+        }, [
+            "display",
+            "width",
+            "background",
+            "color"
+        ]);
     };
 
-    const mostrarAviso = texto => {
-        aviso.textContent = texto || "";
+    const criarLabel = (texto, campo) => {
+        const label = document.createElement("label");
+        const legenda = document.createElement("span");
+        aplicarEstilo(label, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+            color: "#d7d9db",
+            fontSize: "11px"
+        }, ["display"]);
+        legenda.textContent = texto;
+        label.appendChild(legenda);
+        label.appendChild(campo);
+        return label;
     };
 
     const carregarTipos = async () => {
-        const ref = banco
+        const snapshot = await banco
             .collection("configuracoes_clube")
-            .doc("tipos_eventos");
-        const snap = await ref.get();
-        const dados = snap.exists ? snap.data() || {} : {};
+            .doc("tipos_eventos")
+            .get();
+        const dados = snapshot.exists
+            ? snapshot.data() || {}
+            : {};
         tipos = Array.isArray(dados.tipos)
             ? dados.tipos
-                .filter(tipo => tipo && tipo.ativo !== false)
-                .map(tipo => ({
-                    id: String(tipo.id || "").trim(),
-                    nome: String(tipo.nome || "").trim()
+                .filter(item => item && item.ativo !== false)
+                .map(item => ({
+                    id: String(item.id || "").trim(),
+                    nome: String(item.nome || "").trim(),
+                    cor: String(item.cor || "#a8a8a8").trim()
                 }))
-                .filter(tipo => tipo.id && tipo.nome)
+                .filter(item => item.id && item.nome)
             : [];
         if (!tipos.length) {
-            tipos = tiposPadrao.map(tipo => ({ ...tipo }));
+            tipos = tiposPadrao.map(item => ({
+                ...item
+            }));
         }
     };
 
@@ -12265,282 +12385,31 @@ async function renderizarPainelSecretarioClubeEventos(
                 atualizadoPor: usernameLogado,
                 atualizadoEm:
                     firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            }, {
+                merge: true
+            });
     };
 
     const carregarEventos = async () => {
-        const snap = await banco.collection("eventos_clube").get();
-        eventos = snap.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
+        const snapshot = await banco
+            .collection("eventos_clube")
+            .get();
+        eventos = snapshot.docs.map(documento => ({
+            id: documento.id,
+            ...documento.data()
         }));
     };
 
-    const abrirFormulario = evento => {
-        detalhe.insertAdjacentHTML("beforeend", `
-            <form class="calendario-clube-formulario">
-                <strong>${evento ? "Editar evento" : "Novo evento"}</strong>
-                <input name="data" type="date" value="${escapar(
-                    evento && evento.data || diaSelecionado || dataId(new Date())
-                )}" required>
-                <select name="tipo">${tipos.map(tipo => `
-                    <option value="${escapar(tipo.id)}" ${
-                        evento && evento.tipo === tipo.id ? "selected" : ""
-                    }>${escapar(tipo.nome)}</option>
-                `).join("")}</select>
-                <input name="titulo" type="text" placeholder="Título do evento" value="${escapar(
-                    evento && evento.titulo
-                )}" required>
-                <textarea name="descricao" rows="3" placeholder="Descrição opcional">${escapar(
-                    evento && evento.descricao
-                )}</textarea>
-                <select name="status">
-                    <option value="ativo" ${
-                        !evento || evento.status !== "cancelado" ? "selected" : ""
-                    }>Evento ativo</option>
-                    <option value="cancelado" ${
-                        evento && evento.status === "cancelado" ? "selected" : ""
-                    }>Evento cancelado</option>
-                </select>
-                <div class="calendario-clube-formulario-acoes">
-                    ${botao("Cancelar", "calendario-clube-btn-secundario")}
-                    ${botao(
-                        evento ? "Salvar alterações" : "Criar evento",
-                        "calendario-clube-btn-principal"
-                    )}
-                </div>
-            </form>
-        `);
-        const formulario = detalhe.lastElementChild;
-        formulario.addEventListener("submit", async eventoSubmit => {
-            eventoSubmit.preventDefault();
-            const dados = new FormData(formulario);
-            const data = String(dados.get("data") || "").trim();
-            const tipo = String(dados.get("tipo") || "").trim();
-            const titulo = String(dados.get("titulo") || "").trim();
-            const descricao = String(dados.get("descricao") || "").trim();
-            const status = dados.get("status") === "cancelado"
-                ? "cancelado"
-                : "ativo";
-            if (!data || !tipo || !titulo) {
-                window.alert("Preencha a data, o tipo e o título do evento.");
-                return;
-            }
-            const dadosEvento = {
-                data,
-                tipo,
-                titulo,
-                descricao,
-                status,
-                atualizadoPor: usernameLogado,
-                atualizadoEm:
-                    firebase.firestore.FieldValue.serverTimestamp()
-            };
-            const enviar = formulario.querySelector(
-                ".calendario-clube-btn-principal"
-            );
-            enviar.disabled = true;
-            try {
-                if (evento && evento.id) {
-                    await banco.collection("eventos_clube")
-                        .doc(evento.id).set(dadosEvento, { merge: true });
-                } else {
-                    await banco.collection("eventos_clube").add({
-                        ...dadosEvento,
-                        criadoPor: usernameLogado,
-                        criadoEm:
-                            firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-                diaSelecionado = data;
-                await carregarEventos();
-                renderizarCalendario();
-                renderizarDetalhe();
-                mostrarAviso("Evento salvo com sucesso.");
-            } catch (erro) {
-                console.error("Erro ao salvar evento central:", erro);
-                window.alert("Não foi possível salvar o evento.");
-                enviar.disabled = false;
-            }
-        });
-        formulario.querySelector(
-            ".calendario-clube-btn-secundario"
-        ).addEventListener("click", () => formulario.remove());
-    };
-
-    const alterarStatus = async evento => {
-        const novoStatus = evento.status === "cancelado"
-            ? "ativo"
-            : "cancelado";
-        const pergunta = novoStatus === "cancelado"
-            ? "Marcar este evento como cancelado?"
-            : "Reativar este evento?";
-        if (!window.confirm(pergunta)) {
-            return;
-        }
-        await banco.collection("eventos_clube").doc(evento.id).set({
-            status: novoStatus,
-            atualizadoPor: usernameLogado,
-            atualizadoEm:
-                firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        await carregarEventos();
-        renderizarCalendario();
-        renderizarDetalhe();
-    };
-
-    const apagarEvento = async evento => {
-        if (!window.confirm("Apagar definitivamente este evento?")) {
-            return;
-        }
-        await banco.collection("eventos_clube").doc(evento.id).delete();
-        await carregarEventos();
-        renderizarCalendario();
-        renderizarDetalhe();
-        mostrarAviso("Evento apagado.");
-    };
-
-    const renderizarDetalhe = () => {
-        detalhe.innerHTML = "";
-        if (!diaSelecionado) {
-            detalhe.style.display = "none";
-            return;
-        }
-        detalhe.style.display = "flex";
-        detalhe.insertAdjacentHTML("beforeend", `
-            <div class="calendario-clube-detalhe-cabecalho">
-                <strong>Eventos de ${dataLegivel(diaSelecionado)}</strong>
-                ${botao("+ Novo evento", "calendario-clube-btn-principal")}
-            </div>
-        `);
-        detalhe.querySelector(".calendario-clube-btn-principal")
-            .addEventListener("click", () => abrirFormulario(null));
-        const eventosDoDia = eventos.filter(evento => {
-            return String(evento.data || "") === diaSelecionado;
-        });
-        if (!eventosDoDia.length) {
-            detalhe.insertAdjacentHTML(
-                "beforeend",
-                "<p>Nenhum evento registrado para este dia.</p>"
-            );
-        }
-        eventosDoDia.forEach(evento => {
-            const tipo = tipoAtual(evento.tipo);
-            const card = document.createElement("article");
-            card.className = "calendario-clube-evento-card";
-            card.innerHTML = `
-                <div class="calendario-clube-evento-cabecalho">
-                    <strong></strong>
-                    <span>${escapar(
-                        evento.status === "cancelado"
-                            ? "CANCELADO"
-                            : tipo.nome
-                    )}</span>
-                </div>
-                <p></p>
-                <div class="calendario-clube-evento-acoes">
-                    ${botao("Editar", "calendario-clube-btn-secundario")}
-                    ${botao(
-                        evento.status === "cancelado"
-                            ? "Reativar"
-                            : "Cancelar evento",
-                        "calendario-clube-btn-secundario"
-                    )}
-                    ${botao("Apagar", "calendario-clube-btn-perigo")}
-                </div>
-            `;
-            card.querySelector("strong").textContent =
-                evento.titulo || tipo.nome;
-            card.querySelector("p").textContent =
-                evento.descricao || "Sem descrição adicional.";
-            const acoes = card.querySelectorAll("button");
-            acoes[0].addEventListener(
-                "click",
-                () => abrirFormulario(evento)
-            );
-            acoes[1].addEventListener(
-                "click",
-                () => alterarStatus(evento).catch(erro => {
-                    console.error("Erro ao alterar evento:", erro);
-                    window.alert("Não foi possível alterar o evento.");
-                })
-            );
-            acoes[2].addEventListener(
-                "click",
-                () => apagarEvento(evento).catch(erro => {
-                    console.error("Erro ao apagar evento:", erro);
-                    window.alert("Não foi possível apagar o evento.");
-                })
-            );
-            detalhe.appendChild(card);
-        });
-    };
-
-    const renderizarTipos = () => {
-        tiposBox.innerHTML = `
-            <div class="calendario-clube-detalhe-cabecalho">
-                <strong>Tipos de evento</strong>
-                ${botao("+ Nova tag", "calendario-clube-btn-secundario")}
-            </div>
-            <div class="calendario-clube-tipos-lista"></div>
-        `;
-        tiposBox.querySelector("button").addEventListener(
-            "click",
-            async () => {
-                const nome = String(window.prompt("Nome da nova tag:") || "")
-                    .trim();
-                if (!nome) {
-                    return;
-                }
-                tipos.push({
-                    id: `${normalizar(nome).replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
-                    nome
-                });
-                await salvarTipos();
-                renderizarTipos();
-            }
-        );
-        const lista = tiposBox.querySelector(".calendario-clube-tipos-lista");
-        tipos.forEach(tipo => {
-            const linha = document.createElement("div");
-            linha.className = "calendario-clube-tipo-linha";
-            linha.innerHTML = `
-                <span></span>
-                ${botao("Editar", "calendario-clube-btn-secundario")}
-                ${botao("Apagar", "calendario-clube-btn-perigo")}
-            `;
-            linha.querySelector("span").textContent = tipo.nome;
-            const botoes = linha.querySelectorAll("button");
-            botoes[0].addEventListener("click", async () => {
-                const nome = String(window.prompt(
-                    "Novo nome da tag:",
-                    tipo.nome
-                ) || "").trim();
-                if (!nome) {
-                    return;
-                }
-                tipo.nome = nome;
-                await salvarTipos();
-                renderizarTipos();
-                renderizarDetalhe();
-            });
-            botoes[1].addEventListener("click", async () => {
-                if (!window.confirm(`Apagar a tag “${tipo.nome}”?`)) {
-                    return;
-                }
-                tipos = tipos.filter(item => item.id !== tipo.id);
-                await salvarTipos();
-                renderizarTipos();
-                mostrarAviso("Tag apagada com sucesso.");
-            });
-            lista.appendChild(linha);
-        });
+    const mostrarErro = (mensagem, erro) => {
+        console.error(mensagem, erro);
+        window.alert(mensagem);
     };
 
     const renderizarCalendario = () => {
         calendario.innerHTML = "";
-        mesTitulo.textContent =
+        tituloMes.textContent =
             `${nomesMeses[mesAtual.getMonth()]} ${mesAtual.getFullYear()}`;
+
         const primeiroDia = new Date(
             mesAtual.getFullYear(),
             mesAtual.getMonth(),
@@ -12551,126 +12420,798 @@ async function renderizarPainelSecretarioClubeEventos(
             mesAtual.getMonth() + 1,
             0
         ).getDate();
-        const hoje = dataId(new Date());
-        for (let vazio = 0; vazio < primeiroDia; vazio += 1) {
-            calendario.insertAdjacentHTML(
-                "beforeend",
-                "<span class=\"calendario-clube-dia-vazio\"></span>"
-            );
+        const hojeId = criarDataId(new Date());
+
+        for (let indice = 0; indice < primeiroDia; indice += 1) {
+            const vazio = document.createElement("div");
+            aplicarEstilo(vazio, {
+                minHeight: "76px"
+            });
+            calendario.appendChild(vazio);
         }
+
         for (let dia = 1; dia <= totalDias; dia += 1) {
-            const atual = dataId(new Date(
+            const data = new Date(
                 mesAtual.getFullYear(),
                 mesAtual.getMonth(),
                 dia
-            ));
-            const doDia = eventos.filter(evento => {
-                return String(evento.data || "") === atual;
+            );
+            const dataId = criarDataId(data);
+            const eventosDoDia = eventos.filter(evento => {
+                return String(evento.data || "") === dataId;
             });
             const celula = document.createElement("button");
-            celula.type = "button";
-            celula.className = "calendario-clube-dia";
-            if (atual === hoje) {
-                celula.classList.add("hoje");
-            }
-            if (atual === diaSelecionado) {
-                celula.classList.add("selecionado");
-            }
-            celula.innerHTML = `
-                <strong>${dia}</strong>
-                <small>${doDia.length ? `${doDia.length} evento(s)` : ""}</small>
-            `;
-            celula.addEventListener("click", () => {
-                diaSelecionado = atual;
-                renderizarCalendario();
-                renderizarDetalhe();
+            const numero = document.createElement("strong");
+            const lista = document.createElement("span");
+
+            prepararBotao(celula);
+            aplicarEstilo(celula, {
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "stretch",
+                justifyContent: "flex-start",
+                gap: "4px",
+                width: "auto",
+                minWidth: "0",
+                minHeight: "76px",
+                padding: "6px 4px",
+                border: dataId === diaSelecionado
+                    ? "2px solid #0095f6"
+                    : dataId === hojeId
+                        ? "1px solid #58b7ff"
+                        : "1px solid #262626",
+                borderRadius: "6px",
+                background: dataId === diaSelecionado
+                    ? "#123d60"
+                    : eventosDoDia.length
+                        ? "#172b3b"
+                        : "#121212",
+                color: "#fff",
+                textAlign: "left",
+                lineHeight: "1.2",
+                cursor: "pointer",
+                boxSizing: "border-box"
+            }, [
+                "display",
+                "width",
+                "background",
+                "color"
+            ]);
+
+            numero.textContent = dataId === hojeId
+                ? `${dia} · HOJE`
+                : String(dia);
+            aplicarEstilo(numero, {
+                display: "block",
+                color: dataId === diaSelecionado
+                    ? "#8dccff"
+                    : dataId === hojeId
+                        ? "#58b7ff"
+                        : "#d7d9db",
+                fontSize: "11px",
+                fontWeight: "700"
+            }, ["display", "color"]);
+
+            aplicarEstilo(lista, {
+                display: "flex",
+                flexDirection: "column",
+                gap: "2px",
+                width: "100%",
+                minWidth: "0",
+                color: dataId === diaSelecionado
+                    ? "#d9efff"
+                    : "#d7d9db",
+                fontSize: "9px",
+                lineHeight: "1.2",
+                overflow: "hidden"
+            }, [
+                "display",
+                "width",
+                "color"
+            ]);
+
+            eventosDoDia.slice(0, 2).forEach(evento => {
+                const item = document.createElement("span");
+                const tipo = localizarTipo(evento);
+                item.textContent = tipo.nome;
+                item.title = evento.titulo || tipo.nome;
+                aplicarEstilo(item, {
+                    display: "block",
+                    width: "100%",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap"
+                }, ["display", "width"]);
+                lista.appendChild(item);
             });
+
+            if (eventosDoDia.length > 2) {
+                const mais = document.createElement("span");
+                mais.textContent = `+ ${eventosDoDia.length - 2} evento(s)`;
+                mais.style.color = "#8e8e8e";
+                lista.appendChild(mais);
+            }
+
+            celula.appendChild(numero);
+            celula.appendChild(lista);
+            celula.addEventListener(
+                "click",
+                () => {
+                    diaSelecionado = dataId;
+                    renderizarCalendario();
+                    renderizarDetalhe();
+                }
+            );
             calendario.appendChild(celula);
         }
     };
 
-    const cabecalho = document.createElement("div");
-    const voltar = document.createElement("button");
-    const avancar = document.createElement("button");
-    const titulo = document.createElement("h2");
-    const descricao = document.createElement("p");
-    const dias = document.createElement("div");
+    const abrirFormularioEvento = eventoAtual => {
+        const formulario = document.createElement("form");
+        const tituloFormulario = document.createElement("strong");
+        const data = document.createElement("input");
+        const tipo = document.createElement("select");
+        const tituloEvento = document.createElement("input");
+        const descricaoEvento = document.createElement("textarea");
+        const situacao = document.createElement("select");
+        const acoes = document.createElement("div");
+        const fechar = document.createElement("button");
+        const salvar = document.createElement("button");
+
+        aplicarEstilo(formulario, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "9px",
+            padding: "14px",
+            border: "1px solid #26384a",
+            borderRadius: "12px",
+            background: "#0d0d0d"
+        }, ["display"]);
+
+        tituloFormulario.textContent = eventoAtual
+            ? "Editar evento central"
+            : "Novo evento central";
+        tituloFormulario.style.fontSize = "14px";
+
+        data.type = "date";
+        data.value = eventoAtual && eventoAtual.data
+            ? String(eventoAtual.data)
+            : diaSelecionado || criarDataId(new Date());
+        data.required = true;
+        prepararCampo(data);
+
+        tipos.forEach(item => {
+            const option = document.createElement("option");
+            option.value = item.id;
+            option.textContent = item.nome;
+            tipo.appendChild(option);
+        });
+        tipo.value = eventoAtual
+            ? String(eventoAtual.tipoId || eventoAtual.tipo || "")
+            : tipos[0]
+                ? tipos[0].id
+                : "reuniao";
+        prepararCampo(tipo);
+
+        tituloEvento.type = "text";
+        tituloEvento.placeholder = "Título do evento";
+        tituloEvento.value = eventoAtual
+            ? String(eventoAtual.titulo || "")
+            : "";
+        tituloEvento.required = true;
+        tituloEvento.maxLength = 160;
+        prepararCampo(tituloEvento);
+
+        descricaoEvento.rows = 3;
+        descricaoEvento.placeholder =
+            "Descrição ou orientações do evento (opcional)";
+        descricaoEvento.value = eventoAtual
+            ? String(eventoAtual.descricao || "")
+            : "";
+        descricaoEvento.style.resize = "vertical";
+        prepararCampo(descricaoEvento);
+
+        const ativo = document.createElement("option");
+        const cancelado = document.createElement("option");
+        ativo.value = "ativo";
+        ativo.textContent = "Evento ativo";
+        cancelado.value = "cancelado";
+        cancelado.textContent = "Evento cancelado";
+        situacao.appendChild(ativo);
+        situacao.appendChild(cancelado);
+        situacao.value = eventoAtual &&
+            eventoAtual.status === "cancelado"
+            ? "cancelado"
+            : "ativo";
+        prepararCampo(situacao);
+
+        aplicarEstilo(acoes, {
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "8px",
+            flexWrap: "wrap"
+        }, ["display"]);
+        prepararBotao(fechar);
+        fechar.textContent = "Fechar";
+        prepararBotao(salvar, true);
+        salvar.textContent = eventoAtual
+            ? "Salvar alterações"
+            : "Criar evento";
+
+        formulario.appendChild(tituloFormulario);
+        formulario.appendChild(criarLabel("Data", data));
+        formulario.appendChild(criarLabel("Tipo de evento", tipo));
+        formulario.appendChild(criarLabel("Título", tituloEvento));
+        formulario.appendChild(criarLabel("Descrição", descricaoEvento));
+        formulario.appendChild(criarLabel("Situação", situacao));
+        acoes.appendChild(fechar);
+        acoes.appendChild(salvar);
+        formulario.appendChild(acoes);
+        detalhe.appendChild(formulario);
+
+        fechar.addEventListener(
+            "click",
+            () => formulario.remove()
+        );
+        formulario.addEventListener(
+            "submit",
+            async eventoSubmit => {
+                eventoSubmit.preventDefault();
+                const dataValor = String(data.value || "").trim();
+                const tipoValor = String(tipo.value || "").trim();
+                const tituloValor = String(
+                    tituloEvento.value || ""
+                ).trim();
+                const tipoSelecionado = tipos.find(item => {
+                    return item.id === tipoValor;
+                }) || tiposPadrao[0];
+
+                if (!dataValor || !tipoValor || !tituloValor) {
+                    window.alert(
+                        "Informe a data, o tipo e o título do evento."
+                    );
+                    return;
+                }
+
+                salvar.disabled = true;
+                salvar.textContent = "Salvando...";
+                const dadosEvento = {
+                    data: dataValor,
+                    tipoId: tipoSelecionado.id,
+                    tipoNome: tipoSelecionado.nome,
+                    titulo: tituloValor,
+                    descricao: String(
+                        descricaoEvento.value || ""
+                    ).trim(),
+                    status: situacao.value === "cancelado"
+                        ? "cancelado"
+                        : "ativo",
+                    atualizadoPor: usernameLogado,
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                try {
+                    if (eventoAtual && eventoAtual.id) {
+                        await banco
+                            .collection("eventos_clube")
+                            .doc(eventoAtual.id)
+                            .set(dadosEvento, {
+                                merge: true
+                            });
+                    } else {
+                        await banco
+                            .collection("eventos_clube")
+                            .add({
+                                ...dadosEvento,
+                                criadoPor: usernameLogado,
+                                criadoEm:
+                                    firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                    }
+                    diaSelecionado = dataValor;
+                    await carregarEventos();
+                    formulario.remove();
+                    renderizarCalendario();
+                    renderizarDetalhe();
+                    status.textContent = "Evento salvo com sucesso.";
+                } catch (erro) {
+                    mostrarErro(
+                        "Não foi possível salvar o evento. Verifique as regras do Firestore.",
+                        erro
+                    );
+                    salvar.disabled = false;
+                    salvar.textContent = eventoAtual
+                        ? "Salvar alterações"
+                        : "Criar evento";
+                }
+            }
+        );
+    };
+
+    const renderizarDetalhe = () => {
+        detalhe.innerHTML = "";
+        aplicarEstilo(detalhe, {
+            display: diaSelecionado ? "flex" : "none"
+        }, ["display"]);
+        if (!diaSelecionado) {
+            return;
+        }
+
+        const topo = document.createElement("div");
+        const tituloDia = document.createElement("strong");
+        const novoEvento = document.createElement("button");
+        const eventosDoDia = eventos.filter(evento => {
+            return String(evento.data || "") === diaSelecionado;
+        });
+        aplicarEstilo(topo, {
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+        }, ["display"]);
+        tituloDia.textContent =
+            `Eventos de ${formatarData(diaSelecionado)}`;
+        tituloDia.style.flex = "1";
+        prepararBotao(novoEvento, true);
+        novoEvento.textContent = "+ Novo evento";
+        novoEvento.addEventListener(
+            "click",
+            () => abrirFormularioEvento(null)
+        );
+        topo.appendChild(tituloDia);
+        topo.appendChild(novoEvento);
+        detalhe.appendChild(topo);
+
+        if (!eventosDoDia.length) {
+            const vazio = document.createElement("p");
+            vazio.textContent =
+                "Nenhum evento registrado neste dia.";
+            vazio.style.color = "#8e8e8e";
+            vazio.style.fontSize = "12px";
+            detalhe.appendChild(vazio);
+        }
+
+        eventosDoDia.forEach(evento => {
+            const tipo = localizarTipo(evento);
+            const card = document.createElement("article");
+            const cabecalho = document.createElement("div");
+            const nome = document.createElement("strong");
+            const etiqueta = document.createElement("span");
+            const texto = document.createElement("p");
+            const acoes = document.createElement("div");
+            const editar = document.createElement("button");
+            const alternar = document.createElement("button");
+            const apagar = document.createElement("button");
+
+            aplicarEstilo(card, {
+                display: "block",
+                padding: "12px",
+                border: `1px solid ${tipo.cor}`,
+                borderRadius: "10px",
+                background: "#121212"
+            }, ["display", "background"]);
+            aplicarEstilo(cabecalho, {
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+            }, ["display"]);
+            nome.textContent = evento.titulo || tipo.nome;
+            nome.style.flex = "1";
+            etiqueta.textContent = evento.status === "cancelado"
+                ? "CANCELADO"
+                : tipo.nome;
+            etiqueta.style.color = evento.status === "cancelado"
+                ? "#ff7b7b"
+                : tipo.cor;
+            etiqueta.style.fontSize = "9px";
+            etiqueta.style.fontWeight = "700";
+            texto.textContent = evento.descricao ||
+                "Sem descrição adicional.";
+            texto.style.margin = "7px 0 10px";
+            texto.style.color = "#a8a8a8";
+            texto.style.fontSize = "11px";
+            texto.style.whiteSpace = "pre-wrap";
+            aplicarEstilo(acoes, {
+                display: "flex",
+                gap: "6px",
+                flexWrap: "wrap"
+            }, ["display"]);
+
+            prepararBotao(editar);
+            editar.textContent = "Editar";
+            prepararBotao(alternar);
+            alternar.textContent = evento.status === "cancelado"
+                ? "Reativar"
+                : "Cancelar evento";
+            alternar.style.color = evento.status === "cancelado"
+                ? "#65e6bf"
+                : "#f0ad4e";
+            prepararBotao(apagar, false, true);
+            apagar.textContent = "Apagar";
+
+            editar.addEventListener(
+                "click",
+                () => abrirFormularioEvento(evento)
+            );
+            alternar.addEventListener(
+                "click",
+                async () => {
+                    const novoStatus = evento.status === "cancelado"
+                        ? "ativo"
+                        : "cancelado";
+                    const confirmar = window.confirm(
+                        novoStatus === "cancelado"
+                            ? "Marcar este evento como cancelado?"
+                            : "Reativar este evento?"
+                    );
+                    if (!confirmar) {
+                        return;
+                    }
+                    try {
+                        await banco
+                            .collection("eventos_clube")
+                            .doc(evento.id)
+                            .set({
+                                status: novoStatus,
+                                atualizadoPor: usernameLogado,
+                                atualizadoEm:
+                                    firebase.firestore.FieldValue.serverTimestamp()
+                            }, {
+                                merge: true
+                            });
+                        await carregarEventos();
+                        renderizarCalendario();
+                        renderizarDetalhe();
+                    } catch (erro) {
+                        mostrarErro(
+                            "Não foi possível alterar o evento.",
+                            erro
+                        );
+                    }
+                }
+            );
+            apagar.addEventListener(
+                "click",
+                async () => {
+                    if (!window.confirm(
+                        "Apagar definitivamente este evento?"
+                    )) {
+                        return;
+                    }
+                    try {
+                        await banco
+                            .collection("eventos_clube")
+                            .doc(evento.id)
+                            .delete();
+                        await carregarEventos();
+                        renderizarCalendario();
+                        renderizarDetalhe();
+                    } catch (erro) {
+                        mostrarErro(
+                            "Não foi possível apagar o evento.",
+                            erro
+                        );
+                    }
+                }
+            );
+
+            cabecalho.appendChild(nome);
+            cabecalho.appendChild(etiqueta);
+            acoes.appendChild(editar);
+            acoes.appendChild(alternar);
+            acoes.appendChild(apagar);
+            card.appendChild(cabecalho);
+            card.appendChild(texto);
+            card.appendChild(acoes);
+            detalhe.appendChild(card);
+        });
+    };
+
+    const renderizarTipos = () => {
+        tiposBox.innerHTML = "";
+        const topo = document.createElement("div");
+        const tituloTipos = document.createElement("strong");
+        const novaTag = document.createElement("button");
+        const lista = document.createElement("div");
+
+        aplicarEstilo(topo, {
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+        }, ["display"]);
+        tituloTipos.textContent = "Tipos de evento";
+        tituloTipos.style.flex = "1";
+        prepararBotao(novaTag);
+        novaTag.textContent = "+ Nova tag";
+        novaTag.addEventListener(
+            "click",
+            async () => {
+                const nome = String(window.prompt(
+                    "Nome da nova tag de evento:"
+                ) || "").trim();
+                if (!nome) {
+                    return;
+                }
+                const base = normalizar(nome)
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "") || "tipo";
+                tipos.push({
+                    id: `${base}-${Date.now()}`,
+                    nome,
+                    cor: "#a8a8a8"
+                });
+                try {
+                    await salvarTipos();
+                    renderizarTipos();
+                    status.textContent = "Tag criada com sucesso.";
+                } catch (erro) {
+                    mostrarErro("Não foi possível criar a tag.", erro);
+                }
+            }
+        );
+        aplicarEstilo(lista, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+            marginTop: "8px"
+        }, ["display"]);
+
+        tipos.forEach(tipo => {
+            const linha = document.createElement("div");
+            const nome = document.createElement("span");
+            const editar = document.createElement("button");
+            const apagar = document.createElement("button");
+            aplicarEstilo(linha, {
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "7px 8px",
+                border: "1px solid #262626",
+                borderRadius: "8px",
+                background: "#121212"
+            }, ["display", "background"]);
+            nome.textContent = tipo.nome;
+            nome.style.flex = "1";
+            nome.style.color = tipo.cor;
+            prepararBotao(editar);
+            editar.textContent = "Editar";
+            prepararBotao(apagar, false, true);
+            apagar.textContent = "Apagar";
+            editar.addEventListener(
+                "click",
+                async () => {
+                    const novoNome = String(window.prompt(
+                        "Novo nome da tag:",
+                        tipo.nome
+                    ) || "").trim();
+                    if (!novoNome) {
+                        return;
+                    }
+                    tipo.nome = novoNome;
+                    try {
+                        await salvarTipos();
+                        renderizarTipos();
+                        renderizarDetalhe();
+                    } catch (erro) {
+                        mostrarErro("Não foi possível editar a tag.", erro);
+                    }
+                }
+            );
+            apagar.addEventListener(
+                "click",
+                async () => {
+                    if (!window.confirm(
+                        `Apagar a tag “${tipo.nome}”? Os eventos existentes serão preservados.`
+                    )) {
+                        return;
+                    }
+                    tipos = tipos.filter(item => item.id !== tipo.id);
+                    try {
+                        await salvarTipos();
+                        renderizarTipos();
+                        renderizarDetalhe();
+                    } catch (erro) {
+                        mostrarErro("Não foi possível apagar a tag.", erro);
+                    }
+                }
+            );
+            linha.appendChild(nome);
+            linha.appendChild(editar);
+            linha.appendChild(apagar);
+            lista.appendChild(linha);
+        });
+        topo.appendChild(tituloTipos);
+        topo.appendChild(novaTag);
+        tiposBox.appendChild(topo);
+        tiposBox.appendChild(lista);
+    };
 
     secao.id = "secao-calendario-clube-eventos";
-    secao.className = "painel-calendario-clube";
-    titulo.textContent = "Calendário do Clube";
+    aplicarEstilo(secao, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        marginTop: "22px"
+    }, ["display"]);
+    titulo.textContent = "Controle de eventos do clube";
+    titulo.style.margin = "0";
+    titulo.style.fontSize = "17px";
     descricao.textContent =
-        "Somente o Secretário(a) do Clube pode registrar e administrar os eventos centrais.";
-    cabecalho.className = "calendario-clube-cabecalho";
-    voltar.type = "button";
-    voltar.textContent = "‹";
-    avancar.type = "button";
-    avancar.textContent = "›";
-    mesTitulo.textContent = "";
-    dias.className = "calendario-clube-dias-semana";
-    dias.innerHTML = nomesDias.map(nome => `<span>${nome}</span>`).join("");
-    calendario.className = "calendario-clube-grade";
-    detalhe.className = "calendario-clube-detalhe";
-    tiposBox.className = "calendario-clube-tipos";
-    aviso.className = "calendario-clube-aviso";
+        "O calendário é compartilhado com as unidades. Somente o Secretário(a) do Clube registra e administra os eventos.";
+    descricao.style.margin = "0";
+    descricao.style.color = "#8e8e8e";
+    descricao.style.fontSize = "12px";
+    descricao.style.lineHeight = "1.45";
 
-    voltar.addEventListener("click", () => {
-        mesAtual = new Date(
-            mesAtual.getFullYear(),
-            mesAtual.getMonth() - 1,
-            1
-        );
-        renderizarCalendario();
-    });
-    avancar.addEventListener("click", () => {
-        mesAtual = new Date(
-            mesAtual.getFullYear(),
-            mesAtual.getMonth() + 1,
-            1
-        );
-        renderizarCalendario();
+    aplicarEstilo(barraMes, {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "8px",
+        padding: "8px 0"
+    }, ["display"]);
+    prepararBotao(voltarMes);
+    prepararBotao(avancarMes);
+    voltarMes.textContent = "‹";
+    avancarMes.textContent = "›";
+    aplicarEstilo(voltarMes, {
+        width: "36px",
+        minWidth: "36px",
+        height: "36px",
+        padding: "0",
+        fontSize: "18px"
+    }, ["width", "min-width", "height"]);
+    aplicarEstilo(avancarMes, {
+        width: "36px",
+        minWidth: "36px",
+        height: "36px",
+        padding: "0",
+        fontSize: "18px"
+    }, ["width", "min-width", "height"]);
+    aplicarEstilo(tituloMes, {
+        display: "block",
+        flex: "1",
+        color: "#fff",
+        fontSize: "14px",
+        textAlign: "center"
+    }, ["display"]);
+
+    aplicarEstilo(diasSemana, {
+        display: "grid",
+        width: "100%",
+        gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+        gap: "3px"
+    }, ["display", "width"]);
+    nomesDias.forEach(nomeDia => {
+        const celula = document.createElement("div");
+        celula.textContent = nomeDia;
+        aplicarEstilo(celula, {
+            display: "block",
+            width: "auto",
+            padding: "6px 2px",
+            color: "#8e8e8e",
+            fontSize: "9px",
+            fontWeight: "700",
+            textAlign: "center"
+        }, ["display", "width"]);
+        diasSemana.appendChild(celula);
     });
 
-    cabecalho.appendChild(voltar);
-    cabecalho.appendChild(mesTitulo);
-    cabecalho.appendChild(avancar);
+    aplicarEstilo(calendario, {
+        display: "grid",
+        width: "100%",
+        gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+        gap: "3px",
+        padding: "3px",
+        boxSizing: "border-box",
+        border: "1px solid #262626",
+        borderRadius: "12px",
+        background: "#0b0b0b"
+    }, ["display", "width", "background"]);
+
+    aplicarEstilo(detalhe, {
+        display: "none",
+        flexDirection: "column",
+        gap: "10px",
+        marginTop: "10px",
+        padding: "14px",
+        border: "1px solid #26384a",
+        borderRadius: "12px",
+        background: "#101820"
+    }, ["display", "background"]);
+
+    aplicarEstilo(tiposBox, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        marginTop: "12px",
+        padding: "12px",
+        border: "1px solid #262626",
+        borderRadius: "12px",
+        background: "#101010"
+    }, ["display", "background"]);
+    status.style.margin = "0";
+    status.style.color = "#65e6bf";
+    status.style.fontSize = "11px";
+    status.style.textAlign = "center";
+
+    barraMes.appendChild(voltarMes);
+    barraMes.appendChild(tituloMes);
+    barraMes.appendChild(avancarMes);
     secao.appendChild(titulo);
     secao.appendChild(descricao);
-    secao.appendChild(cabecalho);
-    secao.appendChild(dias);
+    secao.appendChild(barraMes);
+    secao.appendChild(diasSemana);
     secao.appendChild(calendario);
     secao.appendChild(detalhe);
     secao.appendChild(tiposBox);
-    secao.appendChild(aviso);
+    secao.appendChild(status);
     container.appendChild(secao);
 
+    voltarMes.addEventListener(
+        "click",
+        () => {
+            mesAtual = new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth() - 1,
+                1
+            );
+            diaSelecionado = "";
+            renderizarCalendario();
+            renderizarDetalhe();
+        }
+    );
+    avancarMes.addEventListener(
+        "click",
+        () => {
+            mesAtual = new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth() + 1,
+                1
+            );
+            diaSelecionado = "";
+            renderizarCalendario();
+            renderizarDetalhe();
+        }
+    );
+
     try {
-        const usuarioSnap = await banco.collection("usuarios")
+        const usuarioSnap = await banco
+            .collection("usuarios")
             .where("username", "==", usernameLogado)
             .limit(1)
             .get();
-        const usuario = usuarioSnap.empty
+        const dadosUsuario = usuarioSnap.empty
             ? {}
             : usuarioSnap.docs[0].data() || {};
-        const funcao = normalizar(
-            usuario.cargoFuncao || usuario.funcao || ""
-        ).replace(/[()]/g, "");
-        if (!funcao.includes("secretario_clube") &&
-            !funcao.includes("secretario do clube")) {
+        const cargoFuncao = String(
+            dadosUsuario.cargoFuncao ||
+            dadosUsuario.funcao ||
+            ""
+        ).trim().toLowerCase();
+
+        if (cargoFuncao !== "secretario_clube") {
             secao.innerHTML = "";
-            secao.insertAdjacentHTML(
-                "beforeend",
-                "<p>Este calendário é exclusivo do Secretário(a) do Clube.</p>"
-            );
+            const bloqueado = document.createElement("p");
+            bloqueado.textContent =
+                "Este calendário é exclusivo do Secretário(a) do Clube.";
+            bloqueado.style.color = "#8e8e8e";
+            bloqueado.style.fontSize = "12px";
+            secao.appendChild(bloqueado);
             return;
         }
+
         await carregarTipos();
         await carregarEventos();
         renderizarCalendario();
         renderizarTipos();
     } catch (erro) {
-        console.error("Erro ao carregar calendário central:", erro);
-        mostrarAviso("Não foi possível carregar o calendário central.");
+        console.error(
+            "Erro ao carregar calendário central:",
+            erro
+        );
+        status.textContent =
+            "Não foi possível carregar o calendário central.";
     }
 }
 
