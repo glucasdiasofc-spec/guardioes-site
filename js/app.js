@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.341.0 - versão alpha";
+const VERSAO_ATUAL = "v0.342.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8908,15 +8908,40 @@ async function abrirPainelUnidade() {
         }
 
         const dadosUsuario = usuarioSnap.docs[0].data() || {};
-        const cargoFuncao = String(
+        const normalizarCargoPainel = valor => String(
+            valor || ""
+        )
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[()]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+        const cargoFuncao = normalizarCargoPainel(
             dadosUsuario.cargoFuncao ||
             dadosUsuario.funcao ||
             ""
-        ).trim().toLowerCase();
+        );
+        const cargoNome = normalizarCargoPainel(
+            dadosUsuario.cargo
+        );
         const ehSecretarioClube =
-            cargoFuncao === "secretario_clube";
+            cargoFuncao === "secretario_clube" ||
+            cargoFuncao === "secretario do clube" ||
+            cargoNome === "secretario do clube" ||
+            (
+                cargoNome.includes("secretario") &&
+                cargoNome.includes("clube")
+            );
         const ehSecretarioUnidade =
-            cargoFuncao === "secretario_unidade";
+            cargoFuncao === "secretario_unidade" ||
+            cargoFuncao === "secretario de unidade" ||
+            cargoNome === "secretario de unidade" ||
+            (
+                cargoNome.includes("secretario") &&
+                cargoNome.includes("unidade")
+            );
+
         const nomeUnidade = String(
             dadosUsuario.unidade || ""
         ).trim();
@@ -13364,13 +13389,33 @@ async function renderizarPainelSecretarioClubeEventos(
         const dadosUsuario = usuarioSnap.empty
             ? {}
             : usuarioSnap.docs[0].data() || {};
-        const cargoFuncao = String(
+        const normalizarCargoCalendario = valor => String(
+            valor || ""
+        )
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[()]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+        const cargoFuncao = normalizarCargoCalendario(
             dadosUsuario.cargoFuncao ||
             dadosUsuario.funcao ||
             ""
-        ).trim().toLowerCase();
+        );
+        const cargoNome = normalizarCargoCalendario(
+            dadosUsuario.cargo
+        );
+        const ehSecretarioClube =
+            cargoFuncao === "secretario_clube" ||
+            cargoFuncao === "secretario do clube" ||
+            cargoNome === "secretario do clube" ||
+            (
+                cargoNome.includes("secretario") &&
+                cargoNome.includes("clube")
+            );
 
-        if (cargoFuncao !== "secretario_clube") {
+        if (!ehSecretarioClube) {
             secao.innerHTML = "";
             const bloqueado = document.createElement("p");
             bloqueado.textContent =
@@ -13380,6 +13425,7 @@ async function renderizarPainelSecretarioClubeEventos(
             secao.appendChild(bloqueado);
             return;
         }
+
 
         await carregarTipos();
         await carregarEventos();
