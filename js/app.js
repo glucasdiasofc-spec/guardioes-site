@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.356.0 - versão alpha";
+const VERSAO_ATUAL = "v0.357.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8035,6 +8035,401 @@ async function renderizarPainelSecretarioFrequencia(
         status.textContent = "";
     };
 
+    const abrirFichaUnidadeEvento = async (
+        eventoAtual,
+        dataId,
+        registroAtual
+    ) => {
+        const eventoId = String(
+            eventoAtual &&
+            (
+                eventoAtual.eventoCentralId ||
+                eventoAtual.id ||
+                dataId
+            ) ||
+            dataId
+        ).trim();
+        const fichaRef = banco
+            .collection("fichas_unidades")
+            .doc(unidadeId)
+            .collection("eventos")
+            .doc(eventoId);
+        const painelFicha = document.createElement("section");
+        const topo = document.createElement("div");
+        const titulo = document.createElement("h3");
+        const fechar = document.createElement("button");
+        const identificacao = document.createElement("p");
+        const resumo = document.createElement("div");
+        const lista = document.createElement("div");
+        const observacoes = document.createElement("textarea");
+        const ocorrencias = document.createElement("textarea");
+        const patrimonio = document.createElement("textarea");
+        const salvar = document.createElement("button");
+        const avaliacaoPorMembro = {};
+        let fichaAtual = {};
+
+        const criarOpcoes = (campo, opcoes, valor) => {
+            const select = document.createElement("select");
+            select.dataset.campo = campo;
+            opcoes.forEach(opcao => {
+                const option = document.createElement("option");
+                option.value = opcao.value;
+                option.textContent = opcao.label;
+                select.appendChild(option);
+            });
+            select.value = opcoes.some(
+                opcao => opcao.value === valor
+            )
+                ? valor
+                : opcoes[0].value;
+            select.style.padding = "7px";
+            select.style.border = "1px solid #334351";
+            select.style.borderRadius = "7px";
+            select.style.background = "#0d1115";
+            select.style.color = "#fff";
+            select.style.fontSize = "10px";
+            select.style.minWidth = "92px";
+            return select;
+        };
+
+        const prepararCampoTexto = (
+            campo,
+            placeholder,
+            valor = ""
+        ) => {
+            campo.value = String(valor || "");
+            campo.placeholder = placeholder;
+            campo.rows = 3;
+            campo.style.width = "100%";
+            campo.style.boxSizing = "border-box";
+            campo.style.padding = "9px";
+            campo.style.border = "1px solid #334351";
+            campo.style.borderRadius = "8px";
+            campo.style.background = "#0d1115";
+            campo.style.color = "#fff";
+            campo.style.fontSize = "11px";
+            campo.style.resize = "vertical";
+            campo.style.fontFamily = "inherit";
+        };
+
+        try {
+            const fichaSnap = await fichaRef.get();
+            fichaAtual = fichaSnap.exists
+                ? fichaSnap.data() || {}
+                : {};
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar ficha da unidade:",
+                erro
+            );
+            window.alert(
+                "Não foi possível carregar a ficha desta unidade."
+            );
+            return;
+        }
+
+        const avaliacoesSalvas =
+            fichaAtual.avaliacoesPorMembro || {};
+        membros.forEach(membro => {
+            const salva = avaliacoesSalvas[membro.username] || {};
+            avaliacaoPorMembro[membro.username] = {
+                uniforme: salva.uniforme || "nao_avaliado",
+                biblia: salva.biblia || "nao_avaliado",
+                licao: salva.licao || "nao_avaliado",
+                tarefa: salva.tarefa || "nao_avaliado",
+                mensalidade: salva.mensalidade || "nao_avaliado"
+            };
+        });
+
+        painelFicha.style.display = "flex";
+        painelFicha.style.flexDirection = "column";
+        painelFicha.style.gap = "10px";
+        painelFicha.style.marginTop = "12px";
+        painelFicha.style.padding = "14px";
+        painelFicha.style.border = "1px solid #20c997";
+        painelFicha.style.borderRadius = "12px";
+        painelFicha.style.background = "#101820";
+
+        topo.style.display = "flex";
+        topo.style.alignItems = "center";
+        topo.style.gap = "8px";
+
+        titulo.textContent = "Ficha operacional da unidade";
+        titulo.style.flex = "1";
+        titulo.style.margin = "0";
+        titulo.style.color = "#fff";
+        titulo.style.fontSize = "15px";
+
+        fechar.type = "button";
+        fechar.textContent = "×";
+        fechar.style.width = "32px";
+        fechar.style.height = "32px";
+        fechar.style.border = "1px solid #52606d";
+        fechar.style.borderRadius = "8px";
+        fechar.style.background = "#1b232b";
+        fechar.style.color = "#fff";
+        fechar.style.fontSize = "20px";
+        fechar.style.cursor = "pointer";
+        fechar.addEventListener(
+            "click",
+            () => painelFicha.remove()
+        );
+
+        topo.appendChild(titulo);
+        topo.appendChild(fechar);
+        painelFicha.appendChild(topo);
+
+        identificacao.textContent =
+            `${eventoAtual.titulo || "Evento"} · ${formatarData(dataId)}`;
+        identificacao.style.margin = "0";
+        identificacao.style.color = "#a8a8a8";
+        identificacao.style.fontSize = "11px";
+        painelFicha.appendChild(identificacao);
+
+        resumo.style.display = "flex";
+        resumo.style.flexWrap = "wrap";
+        resumo.style.gap = "6px";
+        resumo.style.padding = "9px";
+        resumo.style.border = "1px solid #26384a";
+        resumo.style.borderRadius = "9px";
+        resumo.style.background = "#0d1115";
+        resumo.innerHTML = `
+            <span style="color:#65e6bf;font-size:11px">
+                Presentes: ${Array.isArray(registroAtual && registroAtual.presentes)
+                    ? registroAtual.presentes.length
+                    : 0}
+            </span>
+            <span style="color:#ffb45c;font-size:11px">
+                Ausências: ${(Array.isArray(registroAtual && registroAtual.faltas)
+                    ? registroAtual.faltas.length
+                    : 0) + (Array.isArray(registroAtual && registroAtual.justificados)
+                    ? registroAtual.justificados.length
+                    : 0)}
+            </span>
+            <span style="color:#58b7ff;font-size:11px">
+                Justificadas: ${Array.isArray(registroAtual && registroAtual.justificados)
+                    ? registroAtual.justificados.length
+                    : 0}
+            </span>
+        `;
+        painelFicha.appendChild(resumo);
+
+        const legenda = document.createElement("p");
+        legenda.textContent =
+            "Avalie os itens da unidade somente quando se aplicarem ao evento.";
+        legenda.style.margin = "0";
+        legenda.style.color = "#8e9aa5";
+        legenda.style.fontSize = "10px";
+        painelFicha.appendChild(legenda);
+
+        lista.style.display = "flex";
+        lista.style.flexDirection = "column";
+        lista.style.gap = "6px";
+        lista.style.maxHeight = "min(52vh, 520px)";
+        lista.style.overflowY = "auto";
+
+        const opcoesUniforme = [
+            { value: "nao_avaliado", label: "Não avaliado" },
+            { value: "completo", label: "Completo" },
+            { value: "incompleto", label: "Incompleto" },
+            { value: "sem_uniforme", label: "Sem uniforme" }
+        ];
+        const opcoesSimNao = [
+            { value: "nao_avaliado", label: "Não avaliado" },
+            { value: "sim", label: "Sim" },
+            { value: "nao", label: "Não" }
+        ];
+        const opcoesMensalidade = [
+            { value: "nao_avaliado", label: "Não avaliado" },
+            { value: "pago", label: "Pago" },
+            { value: "parcial", label: "Parcial" },
+            { value: "pendente", label: "Pendente" },
+            { value: "isento", label: "Isento" }
+        ];
+
+        membros.forEach(membro => {
+            const linha = document.createElement("article");
+            const cabecalho = document.createElement("div");
+            const avatar = document.createElement("img");
+            const nome = document.createElement("strong");
+            const controles = document.createElement("div");
+
+            linha.style.display = "flex";
+            linha.style.flexDirection = "column";
+            linha.style.gap = "7px";
+            linha.style.padding = "9px";
+            linha.style.border = "1px solid #26384a";
+            linha.style.borderRadius = "9px";
+            linha.style.background = "#0d1115";
+
+            cabecalho.style.display = "flex";
+            cabecalho.style.alignItems = "center";
+            cabecalho.style.gap = "8px";
+
+            avatar.src = membro.fotoUrl ||
+                window.AVATAR_USUARIO_PADRAO;
+            avatar.alt = `Foto de ${membro.nome}`;
+            avatar.style.width = "32px";
+            avatar.style.height = "32px";
+            avatar.style.objectFit = "cover";
+            avatar.style.borderRadius = "50%";
+            avatar.onerror = () => {
+                avatar.onerror = null;
+                avatar.src = window.AVATAR_USUARIO_PADRAO;
+            };
+
+            nome.textContent = membro.nome;
+            nome.style.color = "#fff";
+            nome.style.fontSize = "12px";
+
+            controles.style.display = "grid";
+            controles.style.gridTemplateColumns =
+                "repeat(auto-fit, minmax(100px, 1fr))";
+            controles.style.gap = "6px";
+
+            const campos = [
+                ["uniforme", "Uniforme", opcoesUniforme],
+                ["biblia", "Bíblia", opcoesSimNao],
+                ["licao", "Lição", opcoesSimNao],
+                ["tarefa", "Tarefa", opcoesSimNao],
+                ["mensalidade", "Mensalidade", opcoesMensalidade]
+            ];
+
+            campos.forEach(([campo, rotulo, opcoes]) => {
+                const grupo = document.createElement("label");
+                const texto = document.createElement("span");
+                const select = criarOpcoes(
+                    campo,
+                    opcoes,
+                    avaliacaoPorMembro[membro.username][campo]
+                );
+
+                texto.textContent = rotulo;
+                texto.style.display = "block";
+                texto.style.marginBottom = "3px";
+                texto.style.color = "#8e9aa5";
+                texto.style.fontSize = "9px";
+                grupo.appendChild(texto);
+                grupo.appendChild(select);
+                controles.appendChild(grupo);
+
+                select.addEventListener(
+                    "change",
+                    () => {
+                        avaliacaoPorMembro[membro.username][campo] =
+                            select.value;
+                    }
+                );
+            });
+
+            cabecalho.appendChild(avatar);
+            cabecalho.appendChild(nome);
+            linha.appendChild(cabecalho);
+            linha.appendChild(controles);
+            lista.appendChild(linha);
+        });
+
+        painelFicha.appendChild(lista);
+
+        prepararCampoTexto(
+            observacoes,
+            "Observações da unidade...",
+            fichaAtual.observacoes
+        );
+        prepararCampoTexto(
+            ocorrencias,
+            "Ocorrências e justificativas administrativas...",
+            fichaAtual.ocorrencias
+        );
+        prepararCampoTexto(
+            patrimonio,
+            "Materiais, equipamentos e patrimônio...",
+            fichaAtual.patrimonio
+        );
+        painelFicha.appendChild(observacoes);
+        painelFicha.appendChild(ocorrencias);
+        painelFicha.appendChild(patrimonio);
+
+        salvar.type = "button";
+        salvar.textContent = "Salvar ficha da unidade";
+        salvar.style.width = "100%";
+        salvar.style.padding = "11px";
+        salvar.style.border = "none";
+        salvar.style.borderRadius = "8px";
+        salvar.style.background = "#20c997";
+        salvar.style.color = "#071b16";
+        salvar.style.fontWeight = "700";
+        salvar.style.cursor = "pointer";
+        salvar.addEventListener(
+            "click",
+            async () => {
+                salvar.disabled = true;
+                salvar.textContent = "Salvando...";
+                try {
+                    await fichaRef.set({
+                        ...fichaAtual,
+                        eventoId,
+                        data: dataId,
+                        unidadeId,
+                        unidade: nomeUnidade,
+                        tipoEvento:
+                            eventoAtual.tipo ||
+                            eventoAtual.tipoAtividade ||
+                            "",
+                        tituloEvento:
+                            eventoAtual.titulo ||
+                            "",
+                        statusPorMembro:
+                            registroAtual.statusPorMembro ||
+                            {},
+                        justificativasPorMembro:
+                            registroAtual.justificativasPorMembro ||
+                            {},
+                        presentes:
+                            registroAtual.presentes ||
+                            [],
+                        faltas:
+                            registroAtual.faltas ||
+                            [],
+                        justificados:
+                            registroAtual.justificados ||
+                            [],
+                        avaliacoesPorMembro: avaliacaoPorMembro,
+                        observacoes: observacoes.value.trim(),
+                        ocorrencias: ocorrencias.value.trim(),
+                        patrimonio: patrimonio.value.trim(),
+                        atualizadoPor: usernameLogado,
+                        atualizadoEm:
+                            firebase.firestore.FieldValue.serverTimestamp()
+                    }, {
+                        merge: true
+                    });
+                    window.alert(
+                        "Ficha da unidade salva com sucesso."
+                    );
+                    painelFicha.remove();
+                } catch (erro) {
+                    console.error(
+                        "Erro ao salvar ficha da unidade:",
+                        erro
+                    );
+                    window.alert(
+                        "Não foi possível salvar a ficha da unidade. Verifique as regras do Firestore."
+                    );
+                } finally {
+                    salvar.disabled = false;
+                    salvar.textContent =
+                        "Salvar ficha da unidade";
+                }
+            }
+        );
+        painelFicha.appendChild(salvar);
+        detalhe.appendChild(painelFicha);
+        painelFicha.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+    };
 
     const abrirChamada = (dataId, registro) => {
         detalhe.innerHTML = "";
@@ -8443,69 +8838,93 @@ async function renderizarPainelSecretarioFrequencia(
                 }
             }
         );
+        const fichaUnidade = document.createElement("button");
+        fichaUnidade.type = "button";
+        fichaUnidade.textContent =
+            "Abrir ficha operacional da unidade";
+        fichaUnidade.style.width = "100%";
+        fichaUnidade.style.padding = "10px";
+        fichaUnidade.style.border = "1px solid #20c997";
+        fichaUnidade.style.borderRadius = "8px";
+        fichaUnidade.style.background = "transparent";
+        fichaUnidade.style.color = "#65e6bf";
+        fichaUnidade.style.fontSize = "11px";
+        fichaUnidade.style.fontWeight = "700";
+        fichaUnidade.style.cursor = "pointer";
+        fichaUnidade.addEventListener(
+            "click",
+            () => abrirFichaUnidadeEvento(
+                registro || {},
+                dataId,
+                registro || {}
+            )
+        );
+        detalhe.appendChild(fichaUnidade);
         detalhe.appendChild(salvar);
 
-        if (registro) {
-            const apagar = document.createElement("button");
-            apagar.type = "button";
-            apagar.textContent = "Apagar chamada desta data";
-            apagar.style.width = "100%";
-            apagar.style.marginTop = "8px";
-            apagar.style.padding = "10px";
-            apagar.style.border = "1px solid #8f3030";
-            apagar.style.borderRadius = "9px";
-            apagar.style.background = "transparent";
-            apagar.style.color = "#ff8b8b";
-            apagar.style.fontWeight = "700";
-            apagar.style.cursor = "pointer";
-            apagar.style.display = "none";
+        const apagar = document.createElement("button");
+        apagar.type = "button";
+        apagar.textContent =
+            "Apagar chamada desta data";
+        apagar.style.width = "100%";
+        apagar.style.marginTop = "8px";
+        apagar.style.padding = "10px";
+        apagar.style.border = "1px solid #8f3030";
+        apagar.style.borderRadius = "9px";
+        apagar.style.background = "transparent";
+        apagar.style.color = "#ff8b8b";
+        apagar.style.fontWeight = "700";
+        apagar.style.cursor = "pointer";
+        apagar.style.display = modoEdicaoChamada
+            ? "block"
+            : "none";
 
-            apagar.addEventListener(
-                "click",
-                async () => {
-                    const confirmar = window.confirm(
-                        `Apagar a chamada de ${formatarData(dataId)}? Esta ação não pode ser desfeita.`
-                    );
+        apagar.addEventListener(
+            "click",
+            async () => {
+                const confirmar = window.confirm(
+                    `Apagar a chamada de ${formatarData(dataId)}? Esta ação não pode ser desfeita.`
+                );
 
-                    if (!confirmar) {
-                        return;
-                    }
-
-                    apagar.disabled = true;
-                    apagar.textContent = "Apagando...";
-
-                    try {
-                        await banco
-                            .collection("frequencias_unidades")
-                            .doc(unidadeId)
-                            .collection("registros")
-                            .doc(dataId)
-                            .delete();
-
-                        eventosPorData.delete(dataId);
-                        detalhe.innerHTML = "";
-                        detalhe.style.display = "none";
-                        renderizarCalendario();
-                        status.textContent =
-                            "Chamada apagada com sucesso.";
-                    } catch (erro) {
-                        console.error(
-                            "Erro ao apagar frequência:",
-                            erro
-                        );
-                        window.alert(
-                            "Não foi possível apagar a chamada. Verifique as regras do Firestore."
-                        );
-                        apagar.disabled = false;
-                        apagar.textContent =
-                            "Apagar chamada desta data";
-                    }
+                if (!confirmar) {
+                    return;
                 }
-            );
-            detalhe.appendChild(apagar);
-        }
+
+                apagar.disabled = true;
+                apagar.textContent = "Apagando...";
+
+                try {
+                    await banco
+                        .collection("frequencias_unidades")
+                        .doc(unidadeId)
+                        .collection("registros")
+                        .doc(dataId)
+                        .delete();
+
+                    eventosPorData.delete(dataId);
+                    detalhe.innerHTML = "";
+                    detalhe.style.display = "none";
+                    renderizarCalendario();
+                    status.textContent =
+                        "Chamada apagada com sucesso.";
+                } catch (erro) {
+                    console.error(
+                        "Erro ao apagar frequência:",
+                        erro
+                    );
+                    window.alert(
+                        "Não foi possível apagar a chamada. Verifique as regras do Firestore."
+                    );
+                    apagar.disabled = false;
+                    apagar.textContent =
+                        "Apagar chamada desta data";
+                }
+            }
+        );
+        detalhe.appendChild(apagar);
 
         const resumoChamada = document.createElement("div");
+
 
 
         const criarGrupoResumo = (
@@ -13580,11 +13999,81 @@ async function renderizarPainelSecretarioClubeEventos(
             resumo.appendChild(indicador);
         };
 
+        const frequenciasPorUnidade = [];
+        const dataEventoRelatorio = String(
+            eventoAtual.data || ""
+        ).trim();
+
+        const carregarFrequenciasDoEvento = async () => {
+            if (!dataEventoRelatorio) {
+                return;
+            }
+
+            const unidadesSnap = await banco
+                .collection("frequencias_unidades")
+                .get();
+
+            await Promise.all(
+                unidadesSnap.docs.map(async unidadeDocumento => {
+                    const registroSnap = await unidadeDocumento.ref
+                        .collection("registros")
+                        .doc(dataEventoRelatorio)
+                        .get();
+
+                    if (!registroSnap.exists) {
+                        return;
+                    }
+
+                    const dadosFrequencia =
+                        registroSnap.data() || {};
+                    const presentes = Array.isArray(
+                        dadosFrequencia.presentes
+                    )
+                        ? dadosFrequencia.presentes
+                        : [];
+                    const faltas = Array.isArray(
+                        dadosFrequencia.faltas
+                    )
+                        ? dadosFrequencia.faltas
+                        : [];
+                    const justificados = Array.isArray(
+                        dadosFrequencia.justificados
+                    )
+                        ? dadosFrequencia.justificados
+                        : [];
+
+                    frequenciasPorUnidade.push({
+                        unidadeId: unidadeDocumento.id,
+                        unidade: String(
+                            dadosFrequencia.unidade ||
+                            unidadeDocumento.id
+                        ).trim(),
+                        presentes,
+                        faltas,
+                        justificados,
+                        ausenciasTotais:
+                            faltas.length + justificados.length,
+                        statusPorMembro:
+                            dadosFrequencia.statusPorMembro ||
+                            {},
+                        justificativasPorMembro:
+                            dadosFrequencia.justificativasPorMembro ||
+                            {},
+                        atualizadoPor: String(
+                            dadosFrequencia.atualizadoPor ||
+                            ""
+                        ).trim()
+                    });
+                })
+            );
+        };
+
         try {
             const relatorioSnap = await relatorioRef.get();
             relatorioAtual = relatorioSnap.exists
                 ? relatorioSnap.data() || {}
                 : {};
+            await carregarFrequenciasDoEvento();
         } catch (erro) {
             console.error(
                 "Erro ao carregar relatório do evento:",
@@ -13595,6 +14084,7 @@ async function renderizarPainelSecretarioClubeEventos(
             );
             return;
         }
+
 
         painelRelatorio.style.display = "flex";
         painelRelatorio.style.flexDirection = "column";
@@ -13668,7 +14158,100 @@ async function renderizarPainelSecretarioClubeEventos(
         avisoAutomatico.style.margin = "0";
         avisoAutomatico.style.color = "#8e9aa5";
         avisoAutomatico.style.fontSize = "10px";
-        painelRelatorio.appendChild(avisoAutomatico);
+        const consolidado = document.createElement("section");
+        const tituloConsolidado = document.createElement("h4");
+        const listaFrequencias = document.createElement("div");
+
+        consolidado.style.display = "flex";
+        consolidado.style.flexDirection = "column";
+        consolidado.style.gap = "8px";
+        consolidado.style.marginTop = "4px";
+        consolidado.style.padding = "12px";
+        consolidado.style.border = "1px solid #26384a";
+        consolidado.style.borderRadius = "10px";
+        consolidado.style.background = "#0d1115";
+
+        tituloConsolidado.textContent =
+            "Frequência consolidada das unidades";
+        tituloConsolidado.style.margin = "0";
+        tituloConsolidado.style.color = "#fff";
+        tituloConsolidado.style.fontSize = "13px";
+
+        listaFrequencias.style.display = "flex";
+        listaFrequencias.style.flexDirection = "column";
+        listaFrequencias.style.gap = "6px";
+
+        if (!frequenciasPorUnidade.length) {
+            const vazio = document.createElement("p");
+            vazio.textContent =
+                "Nenhuma unidade lançou frequência para este evento ainda.";
+            vazio.style.margin = "0";
+            vazio.style.color = "#8e9aa5";
+            vazio.style.fontSize = "11px";
+            listaFrequencias.appendChild(vazio);
+        }
+
+        frequenciasPorUnidade
+            .sort((a, b) => a.unidade.localeCompare(
+                b.unidade,
+                "pt-BR"
+            ))
+            .forEach(frequencia => {
+                const cardUnidade = document.createElement("article");
+                const cabecalhoUnidade =
+                    document.createElement("strong");
+                const resumoUnidade = document.createElement("div");
+                const presentesTexto =
+                    document.createElement("span");
+                const ausenciasTexto =
+                    document.createElement("span");
+                const justificadasTexto =
+                    document.createElement("span");
+
+                cardUnidade.style.display = "flex";
+                cardUnidade.style.flexDirection = "column";
+                cardUnidade.style.gap = "7px";
+                cardUnidade.style.padding = "10px";
+                cardUnidade.style.border = "1px solid #26384a";
+                cardUnidade.style.borderRadius = "8px";
+                cardUnidade.style.background = "#101820";
+
+                cabecalhoUnidade.textContent =
+                    frequencia.unidade || "Unidade sem nome";
+                cabecalhoUnidade.style.color = "#fff";
+                cabecalhoUnidade.style.fontSize = "12px";
+
+                resumoUnidade.style.display = "flex";
+                resumoUnidade.style.flexWrap = "wrap";
+                resumoUnidade.style.gap = "6px";
+
+                presentesTexto.textContent =
+                    `Presentes: ${frequencia.presentes.length}`;
+                presentesTexto.style.color = "#65e6bf";
+                presentesTexto.style.fontSize = "11px";
+
+                ausenciasTexto.textContent =
+                    `Ausências: ${frequencia.ausenciasTotais}`;
+                ausenciasTexto.style.color = "#ffb45c";
+                ausenciasTexto.style.fontSize = "11px";
+
+                justificadasTexto.textContent =
+                    `Justificadas: ${frequencia.justificados.length}`;
+                justificadasTexto.style.color = "#58b7ff";
+                justificadasTexto.style.fontSize = "11px";
+
+                resumoUnidade.appendChild(presentesTexto);
+                resumoUnidade.appendChild(ausenciasTexto);
+                resumoUnidade.appendChild(justificadasTexto);
+                cardUnidade.appendChild(cabecalhoUnidade);
+                cardUnidade.appendChild(resumoUnidade);
+                listaFrequencias.appendChild(cardUnidade);
+            });
+
+        consolidado.appendChild(tituloConsolidado);
+        consolidado.appendChild(listaFrequencias);
+        painelRelatorio.appendChild(consolidado);
+
 
         const statusGrupo = document.createElement("label");
         const statusTexto = document.createElement("span");
