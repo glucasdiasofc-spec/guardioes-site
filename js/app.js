@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.344.0 - versão alpha";
+const VERSAO_ATUAL = "v0.345.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -7963,28 +7963,78 @@ async function renderizarPainelSecretarioFrequencia(
         status.textContent = "Carregando eventos...";
         eventosPorData.clear();
 
-        const registrosSnap = await banco
-            .collection("frequencias_unidades")
-            .doc(unidadeId)
-            .collection("registros")
-            .get();
+        const [eventosClubeSnap, registrosSnap] =
+            await Promise.all([
+                banco
+                    .collection("eventos_clube")
+                    .get(),
+                banco
+                    .collection("frequencias_unidades")
+                    .doc(unidadeId)
+                    .collection("registros")
+                    .get()
+            ]);
+
+        eventosClubeSnap.forEach(documento => {
+            const dados = documento.data() || {};
+            const data = String(
+                dados.data || ""
+            ).trim();
+
+            if (!data) {
+                return;
+            }
+
+            eventosPorData.set(data, {
+                ...dados,
+                data,
+                eventoCentralId: documento.id,
+                eventoCentral: true,
+                eventoCentralStatus: String(
+                    dados.status || "ativo"
+                ).trim().toLowerCase(),
+                tipoAtividade: String(
+                    dados.tipoId ||
+                    dados.tipo ||
+                    "outra_atividade"
+                ).trim(),
+                tituloEvento: String(
+                    dados.titulo || ""
+                ).trim()
+            });
+        });
 
         registrosSnap.forEach(documento => {
             const dados = documento.data() || {};
             const data = String(
                 dados.data || documento.id || ""
             ).trim();
+            const eventoCentral = eventosPorData.get(data);
 
-            if (data) {
-                eventosPorData.set(data, {
-                    ...dados,
-                    data
-                });
+            if (!data || !eventoCentral) {
+                return;
             }
+
+            eventosPorData.set(data, {
+                ...eventoCentral,
+                ...dados,
+                data,
+                eventoCentral: true,
+                eventoCentralId:
+                    eventoCentral.eventoCentralId,
+                eventoCentralStatus:
+                    eventoCentral.eventoCentralStatus,
+                tipoAtividade:
+                    eventoCentral.tipoAtividade,
+                tituloEvento:
+                    eventoCentral.tituloEvento,
+                frequenciaSalva: true
+            });
         });
 
         status.textContent = "";
     };
+
 
     const abrirChamada = (dataId, registro) => {
         detalhe.innerHTML = "";
@@ -8459,9 +8509,30 @@ async function renderizarPainelSecretarioFrequencia(
                 () => {
                     calendario.dataset.diaSelecionado = dataId;
                     renderizarCalendario();
+
+                    if (!evento || evento.eventoCentral !== true) {
+                        window.alert(
+                            "Não existe evento central cadastrado para esta data. A chamada só pode ser lançada em eventos do clube."
+                        );
+                        return;
+                    }
+
+                    if (
+                        String(
+                            evento.eventoCentralStatus ||
+                            "ativo"
+                        ).trim().toLowerCase() === "cancelado"
+                    ) {
+                        window.alert(
+                            "Este evento está cancelado. Não é possível lançar a chamada."
+                        );
+                        return;
+                    }
+
                     abrirChamada(dataId, evento);
                 }
             );
+
             calendario.appendChild(celula);
         }
     };
