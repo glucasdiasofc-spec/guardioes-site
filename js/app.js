@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.345.0 - versão alpha";
+const VERSAO_ATUAL = "v0.346.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8048,6 +8048,7 @@ async function renderizarPainelSecretarioFrequencia(
         const salvar = document.createElement("button");
         const tipo = document.createElement("select");
         const estados = {};
+        const justificativas = {};
 
         topo.style.display = "flex";
         topo.style.alignItems = "center";
@@ -8099,6 +8100,9 @@ async function renderizarPainelSecretarioFrequencia(
         const estadosSalvos = registro &&
             registro.statusPorMembro ||
             {};
+        const justificativasSalvas = registro &&
+            registro.justificativasPorMembro ||
+            {};
         const presentesAntigos = new Set(
             Array.isArray(registro && registro.presentes)
                 ? registro.presentes
@@ -8125,7 +8129,12 @@ async function renderizarPainelSecretarioFrequencia(
                         : justificadosAntigos.has(membro.username)
                             ? "J"
                             : "");
+            justificativas[membro.username] = String(
+                justificativasSalvas[membro.username] ||
+                ""
+            ).trim();
         });
+
 
         seletorTodos.type = "button";
         seletorTodos.textContent =
@@ -8164,7 +8173,9 @@ async function renderizarPainelSecretarioFrequencia(
                 const textos = document.createElement("div");
                 const nome = document.createElement("strong");
                 const cargo = document.createElement("small");
+                const colunaStatus = document.createElement("div");
                 const botoes = document.createElement("div");
+                const justificativa = document.createElement("textarea");
                 const estadoAtual = estados[membro.username] || "";
 
                 linha.style.display = "flex";
@@ -8207,7 +8218,15 @@ async function renderizarPainelSecretarioFrequencia(
                 cargo.style.color = "#8e8e8e";
                 cargo.style.fontSize = "10px";
 
+                colunaStatus.style.display = "flex";
+                colunaStatus.style.flexDirection = "column";
+                colunaStatus.style.alignItems = "stretch";
+                colunaStatus.style.gap = "5px";
+                colunaStatus.style.flex = "0 0 124px";
+                colunaStatus.style.minWidth = "0";
+
                 botoes.style.display = "flex";
+                botoes.style.justifyContent = "flex-end";
                 botoes.style.gap = "4px";
 
                 [
@@ -8223,6 +8242,11 @@ async function renderizarPainelSecretarioFrequencia(
                             novoEstado => {
                                 estados[membro.username] =
                                     novoEstado;
+
+                                if (novoEstado !== "J") {
+                                    justificativas[membro.username] = "";
+                                }
+
                                 renderizarLista();
                             }
                         )
@@ -8233,10 +8257,44 @@ async function renderizarPainelSecretarioFrequencia(
                 textos.appendChild(cargo);
                 linha.appendChild(avatar);
                 linha.appendChild(textos);
-                linha.appendChild(botoes);
+                colunaStatus.appendChild(botoes);
+
+                if (estadoAtual === "J") {
+                    justificativa.value =
+                        justificativas[membro.username] || "";
+                    justificativa.placeholder =
+                        "Digite a justificativa...";
+                    justificativa.rows = 2;
+                    justificativa.maxLength = 300;
+                    justificativa.setAttribute(
+                        "aria-label",
+                        `Justificativa de ${membro.nome}`
+                    );
+                    justificativa.style.width = "100%";
+                    justificativa.style.boxSizing = "border-box";
+                    justificativa.style.padding = "6px 7px";
+                    justificativa.style.border = "1px solid #f0ad4e";
+                    justificativa.style.borderRadius = "7px";
+                    justificativa.style.background = "#1c1c1c";
+                    justificativa.style.color = "#fff";
+                    justificativa.style.fontSize = "10px";
+                    justificativa.style.lineHeight = "1.3";
+                    justificativa.style.resize = "vertical";
+                    justificativa.addEventListener(
+                        "input",
+                        () => {
+                            justificativas[membro.username] =
+                                justificativa.value;
+                        }
+                    );
+                    colunaStatus.appendChild(justificativa);
+                }
+
+                linha.appendChild(colunaStatus);
                 lista.appendChild(linha);
             });
         };
+
 
         detalhe.appendChild(lista);
 
