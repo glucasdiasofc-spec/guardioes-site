@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.351.0 - versão alpha";
+const VERSAO_ATUAL = "v0.352.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8525,7 +8525,11 @@ async function renderizarPainelSecretarioFrequencia(
             grupo.style.borderRadius = "9px";
             grupo.style.background = "#121212";
 
-            tituloGrupoElemento.textContent = tituloGrupo;
+            const totalGrupo = membros.filter(
+                membro => estados[membro.username] === estadoGrupo
+            ).length;
+            tituloGrupoElemento.textContent =
+                `${tituloGrupo} (${totalGrupo})`;
             tituloGrupoElemento.style.color = corGrupo;
             tituloGrupoElemento.style.fontSize = "12px";
             tituloGrupoElemento.style.fontWeight = "700";
