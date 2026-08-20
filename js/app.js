@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.350.0 - versão alpha";
+const VERSAO_ATUAL = "v0.351.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8458,6 +8458,7 @@ async function renderizarPainelSecretarioFrequencia(
             apagar.style.color = "#ff8b8b";
             apagar.style.fontWeight = "700";
             apagar.style.cursor = "pointer";
+            apagar.style.display = "none";
 
             apagar.addEventListener(
                 "click",
@@ -8656,6 +8657,18 @@ async function renderizarPainelSecretarioFrequencia(
                 seletorTodos.style.display = "block";
                 lista.style.display = "flex";
                 salvar.style.display = "block";
+
+                const botaoApagar = Array.from(
+                    detalhe.querySelectorAll("button")
+                ).find(botao => {
+                    return botao.textContent.trim() ===
+                        "Apagar chamada desta data";
+                });
+
+                if (botaoApagar) {
+                    botaoApagar.style.display = "block";
+                }
+
             }
         );
 
