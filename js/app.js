@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.347.0 - versão alpha";
+const VERSAO_ATUAL = "v0.348.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8270,6 +8270,8 @@ async function renderizarPainelSecretarioFrequencia(
                         "aria-label",
                         `Justificativa de ${membro.nome}`
                     );
+                    justificativa.dataset.usernameJustificativa =
+                        membro.username;
                     justificativa.style.width = "100%";
                     justificativa.style.boxSizing = "border-box";
                     justificativa.style.padding = "6px 7px";
@@ -8335,6 +8337,38 @@ async function renderizarPainelSecretarioFrequencia(
                     const justificados = membros
                         .filter(membro => estados[membro.username] === "J")
                         .map(membro => membro.username);
+                    const justificativasPorMembro = {};
+                    const camposJustificativa =
+                        lista.querySelectorAll(
+                            "textarea[data-username-justificativa]"
+                        );
+
+                    camposJustificativa.forEach(campo => {
+                        const username = String(
+                            campo.dataset.usernameJustificativa ||
+                            ""
+                        ).trim().toLowerCase();
+
+                        if (username) {
+                            justificativasPorMembro[username] =
+                                String(campo.value || "").trim();
+                        }
+                    });
+
+                    justificados.forEach(username => {
+                        if (
+                            !Object.prototype.hasOwnProperty.call(
+                                justificativasPorMembro,
+                                username
+                            )
+                        ) {
+                            justificativasPorMembro[username] =
+                                String(
+                                    justificativas[username] ||
+                                    ""
+                                ).trim();
+                        }
+                    });
 
                     await banco
                         .collection("frequencias_unidades")
@@ -8347,6 +8381,7 @@ async function renderizarPainelSecretarioFrequencia(
                             unidadeId,
                             tipoAtividade: tipo.value,
                             statusPorMembro: estados,
+                            justificativasPorMembro,
                             presentes,
                             faltas,
                             justificados,
