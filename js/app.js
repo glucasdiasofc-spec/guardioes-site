@@ -8525,11 +8525,6 @@ async function renderizarPainelSecretarioFrequencia(
             grupo.style.borderRadius = "9px";
             grupo.style.background = "#121212";
 
-            const totalGrupo = membros.filter(
-                membro => estados[membro.username] === estadoGrupo
-            ).length;
-            tituloGrupoElemento.textContent =
-                `${tituloGrupo} (${totalGrupo})`;
             tituloGrupoElemento.style.color = corGrupo;
             tituloGrupoElemento.style.fontSize = "12px";
             tituloGrupoElemento.style.fontWeight = "700";
@@ -8550,6 +8545,7 @@ async function renderizarPainelSecretarioFrequencia(
                 : membrosDoGrupo.length;
             tituloGrupoElemento.textContent =
                 `${tituloGrupo} (${totalGrupo})`;
+
 
 
             if (!membrosDoGrupo.length) {
