@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.353.0 - versão alpha";
+const VERSAO_ATUAL = "v0.354.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -12990,14 +12990,158 @@ async function renderizarPainelSecretarioClubeEventos(
     };
 
     const carregarEventos = async () => {
-        const snapshot = await banco
-            .collection("eventos_clube")
-            .get();
-        eventos = snapshot.docs.map(documento => ({
-            id: documento.id,
-            ...documento.data()
-        }));
+        const [eventosSnapshot, unidadesSnapshot, usuariosSnapshot] =
+            await Promise.all([
+                banco
+                    .collection("eventos_clube")
+                    .get(),
+                banco
+                    .collection("unidades")
+                    .get(),
+                banco
+                    .collection("usuarios")
+                    .get()
+            ]);
+        const usuariosPorUsername = new Map();
+
+        usuariosSnapshot.forEach(documento => {
+            const dados = documento.data() || {};
+            const username = String(
+                dados.username || ""
+            ).trim().toLowerCase();
+
+            if (username) {
+                usuariosPorUsername.set(username, {
+                    username,
+                    nome: String(
+                        dados.nomeReal || username
+                    ).trim(),
+                    cargo: String(
+                        dados.cargo || "Participante"
+                    ).trim(),
+                    fotoUrl: String(
+                        dados.fotoUrl || ""
+                    ).trim()
+                });
+            }
+        });
+
+        const frequenciasPorData = new Map();
+
+        await Promise.all(
+            unidadesSnapshot.docs.map(async unidadeDocumento => {
+                const unidadeDados =
+                    unidadeDocumento.data() || {};
+                const unidadeId = unidadeDocumento.id;
+                const nomeUnidade = String(
+                    unidadeDados.nome ||
+                    unidadeDados.nomeUnidade ||
+                    unidadeId
+                ).trim();
+                const registrosSnapshot = await banco
+                    .collection("frequencias_unidades")
+                    .doc(unidadeId)
+                    .collection("registros")
+                    .get();
+
+                registrosSnapshot.forEach(registroDocumento => {
+                    const dados = registroDocumento.data() || {};
+                    const data = String(
+                        dados.data || registroDocumento.id || ""
+                    ).trim();
+
+                    if (!data) {
+                        return;
+                    }
+
+                    const statusPorMembro =
+                        dados.statusPorMembro || {};
+                    const justificativasPorMembro =
+                        dados.justificativasPorMembro || {};
+                    const frequencia = {
+                        id: registroDocumento.id,
+                        data,
+                        unidadeId,
+                        unidade: String(
+                            dados.unidade || nomeUnidade
+                        ).trim(),
+                        presentes: Array.isArray(
+                            dados.presentes
+                        )
+                            ? dados.presentes
+                                .map(username => String(
+                                    username || ""
+                                ).trim().toLowerCase())
+                                .filter(Boolean)
+                            : [],
+                        faltas: Array.isArray(
+                            dados.faltas
+                        )
+                            ? dados.faltas
+                                .map(username => String(
+                                    username || ""
+                                ).trim().toLowerCase())
+                                .filter(Boolean)
+                            : [],
+                        justificados: Array.isArray(
+                            dados.justificados
+                        )
+                            ? dados.justificados
+                                .map(username => String(
+                                    username || ""
+                                ).trim().toLowerCase())
+                                .filter(Boolean)
+                            : [],
+                        statusPorMembro,
+                        justificativasPorMembro,
+                        atualizadoEm: dados.atualizadoEm || null
+                    };
+                    const listaAtual = frequenciasPorData.get(data) || [];
+                    listaAtual.push(frequencia);
+                    frequenciasPorData.set(data, listaAtual);
+                });
+            })
+        );
+
+        eventos = eventosSnapshot.docs.map(documento => {
+            const dados = documento.data() || {};
+            const data = String(
+                dados.data || ""
+            ).trim();
+            const frequencias = frequenciasPorData.get(data) || [];
+
+            return {
+                id: documento.id,
+                ...dados,
+                data,
+                frequencias,
+                totalFrequencias: frequencias.length,
+                totalPresentes: frequencias.reduce(
+                    (total, frequencia) => {
+                        return total + frequencia.presentes.length;
+                    },
+                    0
+                ),
+                totalFaltas: frequencias.reduce(
+                    (total, frequencia) => {
+                        return total +
+                            frequencia.faltas.length +
+                            frequencia.justificados.length;
+                    },
+                    0
+                ),
+                totalJustificados: frequencias.reduce(
+                    (total, frequencia) => {
+                        return total +
+                            frequencia.justificados.length;
+                    },
+                    0
+                ),
+                usuariosPorUsername
+            };
+        });
     };
+
 
     const mostrarErro = (mensagem, erro) => {
         console.error(mensagem, erro);
