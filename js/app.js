@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.346.0 - versão alpha";
+const VERSAO_ATUAL = "v0.347.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8450,7 +8450,7 @@ async function renderizarPainelSecretarioFrequencia(
     }; 
 
 
-    const renderizarCalendario = () => {
+        const renderizarCalendario = () => {
         calendario.innerHTML = "";
         tituloMes.textContent =
             `${nomesMeses[mesAtual.getMonth()]} ${mesAtual.getFullYear()}`;
@@ -8482,6 +8482,17 @@ async function renderizarPainelSecretarioFrequencia(
             );
             const dataId = criarDataId(data);
             const evento = eventosPorData.get(dataId);
+            const existeEventoCentral = Boolean(
+                evento && evento.eventoCentral === true
+            );
+            const frequenciaSalva = Boolean(
+                evento && (
+                    evento.frequenciaSalva === true ||
+                    evento.statusPorMembro
+                )
+            );
+            const diaSelecionado =
+                dataId === calendario.dataset.diaSelecionado;
             const celula = document.createElement("button");
             const numero = document.createElement("strong");
             const listaEventos = document.createElement("span");
@@ -8494,106 +8505,144 @@ async function renderizarPainelSecretarioFrequencia(
             celula.style.gap = "4px";
             celula.style.minHeight = "76px";
             celula.style.padding = "6px 4px";
-            celula.style.border = dataId === calendario.dataset.diaSelecionado
-                ? "2px solid #0095f6"
+            celula.style.border = frequenciaSalva
+                ? "1px solid #20c997"
                 : dataId === hojeId
                     ? "1px solid #58b7ff"
                     : "1px solid #262626";
             celula.style.borderRadius = "6px";
-            celula.style.background = dataId === calendario.dataset.diaSelecionado
-                ? "#123d60"
-                : evento
+            celula.style.background = frequenciaSalva
+                ? "#103c32"
+                : existeEventoCentral
                     ? "#172b3b"
                     : "#121212";
             celula.style.color = "#fff";
             celula.style.textAlign = "left";
-            celula.style.cursor = "pointer";
+            celula.style.cursor = existeEventoCentral
+                ? "pointer"
+                : "default";
+            celula.style.boxSizing = "border-box";
+
+            if (diaSelecionado) {
+                celula.style.boxShadow =
+                    "0 0 0 2px #0095f6";
+            }
 
             numero.textContent = dataId === hojeId
                 ? `${dia} · HOJE`
                 : String(dia);
+            numero.style.display = "block";
             numero.style.fontSize = "11px";
-            numero.style.color = dataId === calendario.dataset.diaSelecionado
-                ? "#8dccff"
-                : dataId === hojeId
-                    ? "#58b7ff"
-                    : "#d7d9db";
+            numero.style.fontWeight = "700";
+            numero.style.color = frequenciaSalva
+                ? "#8ff0ce"
+                : diaSelecionado
+                    ? "#8dccff"
+                    : dataId === hojeId
+                        ? "#58b7ff"
+                        : "#d7d9db";
 
             listaEventos.style.display = "flex";
             listaEventos.style.flexDirection = "column";
             listaEventos.style.gap = "2px";
             listaEventos.style.minWidth = "0";
-            listaEventos.style.color = dataId === calendario.dataset.diaSelecionado
-                ? "#d9efff"
-                : "#d7d9db";
+            listaEventos.style.color = frequenciaSalva
+                ? "#c7ffec"
+                : diaSelecionado
+                    ? "#d9efff"
+                    : "#d7d9db";
             listaEventos.style.fontSize = "9px";
             listaEventos.style.lineHeight = "1.2";
             listaEventos.style.overflow = "hidden";
 
-            if (evento) {
+            if (existeEventoCentral) {
                 const eventoTexto = document.createElement("span");
-                const totalPresentes = Array.isArray(
-                    evento.presentes
-                )
-                    ? evento.presentes.length
-                    : 0;
-                const totalFaltas = Array.isArray(
-                    evento.faltas
-                )
-                    ? evento.faltas.length
-                    : 0;
+                const tituloEvento = String(
+                    evento.tituloEvento ||
+                    evento.titulo ||
+                    ""
+                ).trim();
+                const tipoEvento = tiposAtividade[
+                    evento.tipoAtividade
+                ] || tiposAtividade.outra_atividade;
 
-                eventoTexto.textContent =
-                    tiposAtividade[evento.tipoAtividade] ||
-                    tiposAtividade.outra_atividade;
+                eventoTexto.textContent = tituloEvento
+                    ? `${tipoEvento} · ${tituloEvento}`
+                    : tipoEvento;
                 eventoTexto.style.overflow = "hidden";
                 eventoTexto.style.textOverflow = "ellipsis";
                 eventoTexto.style.whiteSpace = "nowrap";
                 listaEventos.appendChild(eventoTexto);
 
-                const resumo = document.createElement("span");
-                resumo.textContent =
-                    `✓ ${totalPresentes} · F ${totalFaltas}`;
-                resumo.style.color = dataId === calendario.dataset.diaSelecionado
-                    ? "#b9ddff"
-                    : "#8e8e8e";
-                listaEventos.appendChild(resumo);
+                if (frequenciaSalva) {
+                    const chamada = document.createElement("span");
+                    const totalPresentes = Array.isArray(
+                        evento.presentes
+                    )
+                        ? evento.presentes.length
+                        : 0;
+                    const totalFaltas = Array.isArray(
+                        evento.faltas
+                    )
+                        ? evento.faltas.length
+                        : 0;
+                    const totalJustificados = Array.isArray(
+                        evento.justificados
+                    )
+                        ? evento.justificados.length
+                        : 0;
+
+                    chamada.textContent =
+                        `Chamada · P ${totalPresentes} · A ${totalFaltas} · J ${totalJustificados}`;
+                    chamada.style.color = "#8ff0ce";
+                    chamada.style.overflow = "hidden";
+                    chamada.style.textOverflow = "ellipsis";
+                    chamada.style.whiteSpace = "nowrap";
+                    listaEventos.appendChild(chamada);
+                } else if (
+                    String(
+                        evento.eventoCentralStatus ||
+                        evento.status ||
+                        "ativo"
+                    ).trim().toLowerCase() === "cancelado"
+                ) {
+                    const cancelado = document.createElement("span");
+                    cancelado.textContent = "Evento cancelado";
+                    cancelado.style.color = "#ff9b9b";
+                    listaEventos.appendChild(cancelado);
+                }
             }
 
             celula.appendChild(numero);
             celula.appendChild(listaEventos);
+
             celula.addEventListener(
                 "click",
                 () => {
                     calendario.dataset.diaSelecionado = dataId;
                     renderizarCalendario();
 
-                    if (!evento || evento.eventoCentral !== true) {
-                        window.alert(
-                            "Não existe evento central cadastrado para esta data. A chamada só pode ser lançada em eventos do clube."
-                        );
+                    if (!existeEventoCentral) {
                         return;
                     }
 
                     if (
                         String(
                             evento.eventoCentralStatus ||
+                            evento.status ||
                             "ativo"
                         ).trim().toLowerCase() === "cancelado"
                     ) {
-                        window.alert(
-                            "Este evento está cancelado. Não é possível lançar a chamada."
-                        );
                         return;
                     }
 
                     abrirChamada(dataId, evento);
                 }
             );
-
             calendario.appendChild(celula);
         }
     };
+
 
 
     voltarMes.addEventListener(
