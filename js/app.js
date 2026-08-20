@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.342.0 - versão alpha";
+const VERSAO_ATUAL = "v0.343.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -12743,6 +12743,7 @@ async function renderizarPainelSecretarioClubeEventos(
         prepararBotao(fechar);
         fechar.textContent = "Fechar";
         prepararBotao(salvar, true);
+        salvar.type = "submit";
         salvar.textContent = eventoAtual
             ? "Salvar alterações"
             : "Criar evento";
