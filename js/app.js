@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.343.0 - versão alpha";
+const VERSAO_ATUAL = "v0.344.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8251,6 +8251,8 @@ async function renderizarPainelSecretarioFrequencia(
 
                     eventosPorData.set(dataId, {
                         data: dataId,
+                        unidade: nomeUnidade,
+                        unidadeId,
                         tipoAtividade: tipo.value,
                         presentes,
                         faltas,
@@ -8276,8 +8278,69 @@ async function renderizarPainelSecretarioFrequencia(
             }
         );
         detalhe.appendChild(salvar);
+
+        if (registro) {
+            const apagar = document.createElement("button");
+            apagar.type = "button";
+            apagar.textContent = "Apagar chamada desta data";
+            apagar.style.width = "100%";
+            apagar.style.marginTop = "8px";
+            apagar.style.padding = "10px";
+            apagar.style.border = "1px solid #8f3030";
+            apagar.style.borderRadius = "9px";
+            apagar.style.background = "transparent";
+            apagar.style.color = "#ff8b8b";
+            apagar.style.fontWeight = "700";
+            apagar.style.cursor = "pointer";
+
+            apagar.addEventListener(
+                "click",
+                async () => {
+                    const confirmar = window.confirm(
+                        `Apagar a chamada de ${formatarData(dataId)}? Esta ação não pode ser desfeita.`
+                    );
+
+                    if (!confirmar) {
+                        return;
+                    }
+
+                    apagar.disabled = true;
+                    apagar.textContent = "Apagando...";
+
+                    try {
+                        await banco
+                            .collection("frequencias_unidades")
+                            .doc(unidadeId)
+                            .collection("registros")
+                            .doc(dataId)
+                            .delete();
+
+                        eventosPorData.delete(dataId);
+                        detalhe.innerHTML = "";
+                        detalhe.style.display = "none";
+                        renderizarCalendario();
+                        status.textContent =
+                            "Chamada apagada com sucesso.";
+                    } catch (erro) {
+                        console.error(
+                            "Erro ao apagar frequência:",
+                            erro
+                        );
+                        window.alert(
+                            "Não foi possível apagar a chamada. Verifique as regras do Firestore."
+                        );
+                        apagar.disabled = false;
+                        apagar.textContent =
+                            "Apagar chamada desta data";
+                    }
+                }
+            );
+            detalhe.appendChild(apagar);
+        }
+
         renderizarLista();
-    };
+    }; 
+
 
     const renderizarCalendario = () => {
         calendario.innerHTML = "";
