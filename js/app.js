@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.354.0 - versão alpha";
+const VERSAO_ATUAL = "v0.355.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13523,9 +13523,26 @@ async function renderizarPainelSecretarioClubeEventos(
             const etiqueta = document.createElement("span");
             const texto = document.createElement("p");
             const acoes = document.createElement("div");
+            const acoesChamada = document.createElement("div");
             const editar = document.createElement("button");
             const alternar = document.createElement("button");
             const apagar = document.createElement("button");
+            const verChamada = document.createElement("button");
+            const resumoFrequencia = document.createElement("div");
+            const frequencias = Array.isArray(
+                evento.frequencias
+            )
+                ? evento.frequencias
+                : [];
+            const totalPresentes = Number(
+                evento.totalPresentes || 0
+            );
+            const totalAusentes = Number(
+                evento.totalFaltas || 0
+            );
+            const totalJustificados = Number(
+                evento.totalJustificados || 0
+            );
 
             aplicarEstilo(card, {
                 display: "block",
@@ -13555,11 +13572,30 @@ async function renderizarPainelSecretarioClubeEventos(
             texto.style.color = "#a8a8a8";
             texto.style.fontSize = "11px";
             texto.style.whiteSpace = "pre-wrap";
+
             aplicarEstilo(acoes, {
                 display: "flex",
                 gap: "6px",
                 flexWrap: "wrap"
             }, ["display"]);
+            aplicarEstilo(acoesChamada, {
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+                width: "100%",
+                marginTop: "8px"
+            }, ["display", "width"]);
+            aplicarEstilo(resumoFrequencia, {
+                display: "none",
+                flexDirection: "column",
+                gap: "8px",
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #26384a",
+                borderRadius: "9px",
+                background: "#0d1620",
+                boxSizing: "border-box"
+            }, ["display", "width"]);
 
             prepararBotao(editar);
             editar.textContent = "Editar";
@@ -13572,6 +13608,197 @@ async function renderizarPainelSecretarioClubeEventos(
                 : "#f0ad4e";
             prepararBotao(apagar, false, true);
             apagar.textContent = "Apagar";
+            prepararBotao(verChamada, true);
+            verChamada.textContent = frequencias.length
+                ? `Ver chamada · P ${totalPresentes} · A ${totalAusentes} · J ${totalJustificados}`
+                : "Ver chamada · Nenhuma lançada";
+            verChamada.style.width = "100%";
+
+            const criarGrupoResumo = (
+                tituloGrupo,
+                usernames,
+                corGrupo,
+                justificativasPorMembro
+            ) => {
+                const grupo = document.createElement("div");
+                const tituloGrupoElemento =
+                    document.createElement("strong");
+                const pessoas = document.createElement("div");
+
+                aplicarEstilo(grupo, {
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "5px",
+                    padding: "8px",
+                    border: `1px solid ${corGrupo}`,
+                    borderRadius: "8px",
+                    background: "#121212"
+                }, ["display"]);
+                tituloGrupoElemento.textContent =
+                    `${tituloGrupo} (${usernames.length})`;
+                tituloGrupoElemento.style.color = corGrupo;
+                tituloGrupoElemento.style.fontSize = "11px";
+                pessoas.style.display = "flex";
+                pessoas.style.flexDirection = "column";
+                pessoas.style.gap = "4px";
+
+                if (!usernames.length) {
+                    const vazio = document.createElement("small");
+                    vazio.textContent = "Nenhum participante";
+                    vazio.style.color = "#8e8e8e";
+                    pessoas.appendChild(vazio);
+                }
+
+                usernames.forEach(username => {
+                    const pessoaDados = evento.usuariosPorUsername &&
+                        typeof evento.usuariosPorUsername.get ===
+                            "function"
+                        ? evento.usuariosPorUsername.get(username)
+                        : null;
+                    const linha = document.createElement("div");
+                    const avatar = document.createElement("img");
+                    const textoPessoa = document.createElement("div");
+                    const nomePessoa = document.createElement("strong");
+                    const detalhePessoa = document.createElement("small");
+
+                    aplicarEstilo(linha, {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "7px",
+                        padding: "5px",
+                        borderRadius: "7px",
+                        background: "#1a1a1a"
+                    }, ["display"]);
+                    avatar.src = pessoaDados && pessoaDados.fotoUrl
+                        ? pessoaDados.fotoUrl
+                        : window.AVATAR_USUARIO_PADRAO;
+                    avatar.alt = pessoaDados && pessoaDados.nome
+                        ? `Foto de ${pessoaDados.nome}`
+                        : `Foto de ${username}`;
+                    aplicarEstilo(avatar, {
+                        width: "30px",
+                        height: "30px",
+                        flex: "0 0 30px",
+                        objectFit: "cover",
+                        borderRadius: "50%"
+                    }, ["width", "height", "flex"]);
+                    avatar.onerror = () => {
+                        avatar.onerror = null;
+                        avatar.src = window.AVATAR_USUARIO_PADRAO;
+                    };
+                    textoPessoa.style.display = "flex";
+                    textoPessoa.style.flexDirection = "column";
+                    textoPessoa.style.gap = "2px";
+                    nomePessoa.textContent = pessoaDados &&
+                        pessoaDados.nome
+                        ? pessoaDados.nome
+                        : username;
+                    nomePessoa.style.color = "#fff";
+                    nomePessoa.style.fontSize = "11px";
+                    detalhePessoa.textContent =
+                        pessoaDados && pessoaDados.cargo
+                            ? pessoaDados.cargo
+                            : username;
+                    detalhePessoa.style.color = "#8e8e8e";
+                    detalhePessoa.style.fontSize = "9px";
+                    textoPessoa.appendChild(nomePessoa);
+                    textoPessoa.appendChild(detalhePessoa);
+                    linha.appendChild(avatar);
+                    linha.appendChild(textoPessoa);
+
+                    const justificativa = String(
+                        justificativasPorMembro &&
+                        justificativasPorMembro[username] ||
+                        ""
+                    ).trim();
+                    if (justificativa) {
+                        const justificativaTexto =
+                            document.createElement("small");
+                        justificativaTexto.textContent =
+                            `Justificativa: ${justificativa}`;
+                        justificativaTexto.style.color = "#f0ad4e";
+                        justificativaTexto.style.fontSize = "10px";
+                        justificativaTexto.style.marginLeft = "37px";
+                        linha.style.flexWrap = "wrap";
+                        linha.appendChild(justificativaTexto);
+                    }
+                    pessoas.appendChild(linha);
+                });
+
+                grupo.appendChild(tituloGrupoElemento);
+                grupo.appendChild(pessoas);
+                return grupo;
+            };
+
+            verChamada.addEventListener(
+                "click",
+                () => {
+                    const aberto = resumoFrequencia.style.display ===
+                        "flex";
+                    if (aberto) {
+                        resumoFrequencia.style.display = "none";
+                        verChamada.textContent = frequencias.length
+                            ? `Ver chamada · P ${totalPresentes} · A ${totalAusentes} · J ${totalJustificados}`
+                            : "Ver chamada · Nenhuma lançada";
+                        return;
+                    }
+
+                    resumoFrequencia.innerHTML = "";
+                    const tituloResumo = document.createElement("strong");
+                    tituloResumo.textContent = frequencias.length
+                        ? `Frequência registrada — ${frequencias.length} unidade(s)`
+                        : "Nenhuma chamada lançada para este evento";
+                    tituloResumo.style.color = "#fff";
+                    tituloResumo.style.fontSize = "12px";
+                    resumoFrequencia.appendChild(tituloResumo);
+
+                    frequencias.forEach(frequencia => {
+                        const unidade = document.createElement("strong");
+                        const presentes = document.createElement("div");
+                        const ausentes = document.createElement("div");
+                        const justificados = document.createElement("div");
+                        const faltasTotais =
+                            frequencia.faltas.length +
+                            frequencia.justificados.length;
+
+                        unidade.textContent =
+                            `${frequencia.unidade} · P ${frequencia.presentes.length} · A ${faltasTotais} · J ${frequencia.justificados.length}`;
+                        unidade.style.color = "#58b7ff";
+                        unidade.style.fontSize = "11px";
+                        presentes.appendChild(
+                            criarGrupoResumo(
+                                "Presentes",
+                                frequencia.presentes,
+                                "#20c997",
+                                {}
+                            )
+                        );
+                        ausentes.appendChild(
+                            criarGrupoResumo(
+                                "Ausentes não justificados",
+                                frequencia.faltas,
+                                "#ff7b7b",
+                                {}
+                            )
+                        );
+                        justificados.appendChild(
+                            criarGrupoResumo(
+                                "Justificados",
+                                frequencia.justificados,
+                                "#f0ad4e",
+                                frequencia.justificativasPorMembro
+                            )
+                        );
+                        resumoFrequencia.appendChild(unidade);
+                        resumoFrequencia.appendChild(presentes);
+                        resumoFrequencia.appendChild(ausentes);
+                        resumoFrequencia.appendChild(justificados);
+                    });
+
+                    resumoFrequencia.style.display = "flex";
+                    verChamada.textContent = "Ocultar chamada";
+                }
+            );
 
             editar.addEventListener(
                 "click",
@@ -13638,18 +13865,21 @@ async function renderizarPainelSecretarioClubeEventos(
                     }
                 }
             );
-
             cabecalho.appendChild(nome);
             cabecalho.appendChild(etiqueta);
             acoes.appendChild(editar);
             acoes.appendChild(alternar);
             acoes.appendChild(apagar);
+            acoesChamada.appendChild(verChamada);
+            acoesChamada.appendChild(resumoFrequencia);
             card.appendChild(cabecalho);
             card.appendChild(texto);
             card.appendChild(acoes);
+            card.appendChild(acoesChamada);
             detalhe.appendChild(card);
         });
     };
+
 
     const renderizarTipos = () => {
         tiposBox.innerHTML = "";
