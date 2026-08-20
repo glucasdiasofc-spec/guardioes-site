@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.348.0 - versão alpha";
+const VERSAO_ATUAL = "v0.349.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8392,16 +8392,37 @@ async function renderizarPainelSecretarioFrequencia(
                             merge: true
                         });
 
+                    const eventoAtual =
+                        eventosPorData.get(dataId) || {};
+
                     eventosPorData.set(dataId, {
+                        ...eventoAtual,
                         data: dataId,
                         unidade: nomeUnidade,
                         unidadeId,
-                        tipoAtividade: tipo.value,
+                        tipoAtividade:
+                            eventoAtual.tipoAtividade ||
+                            tipo.value,
                         presentes,
                         faltas,
                         justificados,
-                        statusPorMembro: estados
+                        statusPorMembro: estados,
+                        justificativasPorMembro,
+                        frequenciaSalva: true,
+                        eventoCentral:
+                            eventoAtual.eventoCentral === true,
+                        eventoCentralId:
+                            eventoAtual.eventoCentralId ||
+                            "",
+                        eventoCentralStatus:
+                            eventoAtual.eventoCentralStatus ||
+                            "ativo",
+                        tituloEvento:
+                            eventoAtual.tituloEvento ||
+                            eventoAtual.titulo ||
+                            ""
                     });
+
                     renderizarCalendario();
                     window.alert(
                         "Frequência salva com sucesso."
