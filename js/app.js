@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.349.0 - versão alpha";
+const VERSAO_ATUAL = "v0.350.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8046,9 +8046,11 @@ async function renderizarPainelSecretarioFrequencia(
         const seletorTodos = document.createElement("button");
         const lista = document.createElement("div");
         const salvar = document.createElement("button");
+        const editar = document.createElement("button");
         const tipo = document.createElement("select");
         const estados = {};
         const justificativas = {};
+        let modoEdicaoChamada = !registro;
 
         topo.style.display = "flex";
         topo.style.alignItems = "center";
@@ -8499,11 +8501,177 @@ async function renderizarPainelSecretarioFrequencia(
                     }
                 }
             );
-            detalhe.appendChild(apagar);
-        }
+        const resumoChamada = document.createElement("div");
+
+        const criarGrupoResumo = (
+            tituloGrupo,
+            estadoGrupo,
+            corGrupo
+        ) => {
+            const grupo = document.createElement("section");
+            const tituloGrupoElemento = document.createElement("strong");
+            const pessoas = document.createElement("div");
+
+            grupo.style.display = "flex";
+            grupo.style.flexDirection = "column";
+            grupo.style.gap = "6px";
+            grupo.style.padding = "9px";
+            grupo.style.border = `1px solid ${corGrupo}`;
+            grupo.style.borderRadius = "9px";
+            grupo.style.background = "#121212";
+
+            tituloGrupoElemento.textContent = tituloGrupo;
+            tituloGrupoElemento.style.color = corGrupo;
+            tituloGrupoElemento.style.fontSize = "12px";
+            tituloGrupoElemento.style.fontWeight = "700";
+            grupo.appendChild(tituloGrupoElemento);
+
+            pessoas.style.display = "flex";
+            pessoas.style.flexDirection = "column";
+            pessoas.style.gap = "5px";
+
+            const membrosDoGrupo = membros.filter(
+                membro => estados[membro.username] === estadoGrupo
+            );
+
+            if (!membrosDoGrupo.length) {
+                const vazio = document.createElement("small");
+                vazio.textContent = "Nenhum participante";
+                vazio.style.color = "#8e8e8e";
+                pessoas.appendChild(vazio);
+            }
+
+            membrosDoGrupo.forEach(membro => {
+                const pessoa = document.createElement("div");
+                const avatarPessoa = document.createElement("img");
+                const textoPessoa = document.createElement("div");
+                const nomePessoa = document.createElement("strong");
+                const detalhePessoa = document.createElement("small");
+
+                pessoa.style.display = "flex";
+                pessoa.style.alignItems = "center";
+                pessoa.style.gap = "7px";
+                pessoa.style.padding = "5px";
+                pessoa.style.borderRadius = "7px";
+                pessoa.style.background = "#1a1a1a";
+
+                avatarPessoa.src = membro.fotoUrl ||
+                    window.AVATAR_USUARIO_PADRAO;
+                avatarPessoa.alt = `Foto de ${membro.nome}`;
+                avatarPessoa.style.width = "28px";
+                avatarPessoa.style.height = "28px";
+                avatarPessoa.style.flex = "0 0 28px";
+                avatarPessoa.style.objectFit = "cover";
+                avatarPessoa.style.borderRadius = "50%";
+                avatarPessoa.onerror = () => {
+                    avatarPessoa.onerror = null;
+                    avatarPessoa.src =
+                        window.AVATAR_USUARIO_PADRAO;
+                };
+
+                textoPessoa.style.display = "flex";
+                textoPessoa.style.flexDirection = "column";
+                textoPessoa.style.gap = "1px";
+                textoPessoa.style.minWidth = "0";
+                textoPessoa.style.flex = "1";
+
+                nomePessoa.textContent = membro.nome;
+                nomePessoa.style.color = "#fff";
+                nomePessoa.style.fontSize = "11px";
+
+                detalhePessoa.textContent =
+                    membro.cargo || "Participante";
+                detalhePessoa.style.color = "#8e8e8e";
+                detalhePessoa.style.fontSize = "9px";
+
+                if (estadoGrupo === "J") {
+                    const justificativaTexto = String(
+                        justificativas[membro.username] ||
+                        "Justificativa não informada"
+                    ).trim();
+                    detalhePessoa.textContent =
+                        `Justificativa: ${justificativaTexto || "Justificativa não informada"}`;
+                    detalhePessoa.style.color = "#f0c36d";
+                }
+
+                textoPessoa.appendChild(nomePessoa);
+                textoPessoa.appendChild(detalhePessoa);
+                pessoa.appendChild(avatarPessoa);
+                pessoa.appendChild(textoPessoa);
+                pessoas.appendChild(pessoa);
+            });
+
+            grupo.appendChild(pessoas);
+            return grupo;
+        };
+
+        resumoChamada.style.display = "flex";
+        resumoChamada.style.flexDirection = "column";
+        resumoChamada.style.gap = "8px";
+        resumoChamada.style.marginTop = "4px";
+        resumoChamada.appendChild(
+            criarGrupoResumo(
+                "Presentes",
+                "P",
+                "#20c997"
+            )
+        );
+        resumoChamada.appendChild(
+            criarGrupoResumo(
+                "Ausentes",
+                "A",
+                "#ff6b6b"
+            )
+        );
+        resumoChamada.appendChild(
+            criarGrupoResumo(
+                "Justificados",
+                "J",
+                "#f0ad4e"
+            )
+        );
+
+        editar.type = "button";
+        editar.textContent = "Editar chamada";
+        editar.style.width = "100%";
+        editar.style.marginTop = "8px";
+        editar.style.padding = "10px";
+        editar.style.border = "1px solid #3b9cff";
+        editar.style.borderRadius = "9px";
+        editar.style.background = "transparent";
+        editar.style.color = "#8dccff";
+        editar.style.fontWeight = "700";
+        editar.style.cursor = "pointer";
+        editar.addEventListener(
+            "click",
+            () => {
+                modoEdicaoChamada = true;
+                resumoChamada.style.display = "none";
+                editar.style.display = "none";
+                tipo.style.display = "block";
+                seletorTodos.style.display = "block";
+                lista.style.display = "flex";
+                salvar.style.display = "block";
+            }
+        );
+
+        detalhe.appendChild(editar);
+        detalhe.appendChild(resumoChamada);
 
         renderizarLista();
-    }; 
+
+        if (registro && !modoEdicaoChamada) {
+            tipo.style.display = "none";
+            seletorTodos.style.display = "none";
+            lista.style.display = "none";
+            salvar.style.display = "none";
+            editar.style.display = "block";
+            resumoChamada.style.display = "flex";
+        } else {
+            editar.style.display = "none";
+            resumoChamada.style.display = "none";
+        }
+
 
 
         const renderizarCalendario = () => {
