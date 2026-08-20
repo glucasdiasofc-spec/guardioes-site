@@ -8501,7 +8501,11 @@ async function renderizarPainelSecretarioFrequencia(
                     }
                 }
             );
+            detalhe.appendChild(apagar);
+        }
+
         const resumoChamada = document.createElement("div");
+
 
         const criarGrupoResumo = (
             tituloGrupo,
@@ -8671,10 +8675,9 @@ async function renderizarPainelSecretarioFrequencia(
             editar.style.display = "none";
             resumoChamada.style.display = "none";
         }
+    };
 
-
-
-        const renderizarCalendario = () => {
+    const renderizarCalendario = () => {
         calendario.innerHTML = "";
         tituloMes.textContent =
             `${nomesMeses[mesAtual.getMonth()]} ${mesAtual.getFullYear()}`;
