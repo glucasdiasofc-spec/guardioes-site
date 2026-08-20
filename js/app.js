@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.355.0 - versão alpha";
+const VERSAO_ATUAL = "v0.356.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13473,6 +13473,390 @@ async function renderizarPainelSecretarioClubeEventos(
         );
     };
 
+    const abrirRelatorioOficial = async eventoAtual => {
+        const painelRelatorio = document.createElement("section");
+        const topo = document.createElement("div");
+        const titulo = document.createElement("h3");
+        const fechar = document.createElement("button");
+        const resumo = document.createElement("div");
+        const formulario = document.createElement("div");
+        const acoes = document.createElement("div");
+        const salvar = document.createElement("button");
+        const cancelar = document.createElement("button");
+        const relatorioRef = banco
+            .collection("relatorios_clube")
+            .doc(eventoAtual.id);
+        let relatorioAtual = {};
+
+        const totalPresentes = Array.isArray(
+            eventoAtual.presentes
+        )
+            ? eventoAtual.presentes.length
+            : 0;
+        const totalFaltas = Array.isArray(
+            eventoAtual.faltas
+        )
+            ? eventoAtual.faltas.length
+            : 0;
+        const totalJustificados = Array.isArray(
+            eventoAtual.justificados
+        )
+            ? eventoAtual.justificados.length
+            : 0;
+        const totalAusencias =
+            totalFaltas + totalJustificados;
+
+        const criarCampo = (
+            rotulo,
+            nome,
+            tipo = "textarea",
+            valor = ""
+        ) => {
+            const grupo = document.createElement("label");
+            const texto = document.createElement("span");
+            const campo = document.createElement(
+                tipo === "textarea"
+                    ? "textarea"
+                    : "input"
+            );
+
+            texto.textContent = rotulo;
+            texto.style.display = "block";
+            texto.style.marginBottom = "5px";
+            texto.style.color = "#cfd6dc";
+            texto.style.fontSize = "11px";
+            texto.style.fontWeight = "700";
+
+            campo.name = nome;
+            campo.value = String(valor || "");
+            campo.style.width = "100%";
+            campo.style.boxSizing = "border-box";
+            campo.style.padding = "10px";
+            campo.style.border = "1px solid #334351";
+            campo.style.borderRadius = "8px";
+            campo.style.background = "#0d1115";
+            campo.style.color = "#fff";
+            campo.style.fontSize = "12px";
+            campo.style.fontFamily = "inherit";
+
+            if (tipo === "textarea") {
+                campo.rows = 4;
+                campo.style.resize = "vertical";
+            }
+
+            grupo.style.display = "block";
+            grupo.style.marginBottom = "11px";
+            grupo.appendChild(texto);
+            grupo.appendChild(campo);
+            formulario.appendChild(grupo);
+            return campo;
+        };
+
+        const criarIndicador = (rotulo, valor, cor) => {
+            const indicador = document.createElement("div");
+            const numero = document.createElement("strong");
+            const texto = document.createElement("span");
+
+            indicador.style.flex = "1 1 120px";
+            indicador.style.minWidth = "110px";
+            indicador.style.padding = "10px";
+            indicador.style.border = `1px solid ${cor}`;
+            indicador.style.borderRadius = "8px";
+            indicador.style.background = "#101820";
+
+            numero.textContent = String(valor);
+            numero.style.display = "block";
+            numero.style.color = cor;
+            numero.style.fontSize = "19px";
+
+            texto.textContent = rotulo;
+            texto.style.display = "block";
+            texto.style.marginTop = "2px";
+            texto.style.color = "#a8a8a8";
+            texto.style.fontSize = "10px";
+
+            indicador.appendChild(numero);
+            indicador.appendChild(texto);
+            resumo.appendChild(indicador);
+        };
+
+        try {
+            const relatorioSnap = await relatorioRef.get();
+            relatorioAtual = relatorioSnap.exists
+                ? relatorioSnap.data() || {}
+                : {};
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar relatório do evento:",
+                erro
+            );
+            window.alert(
+                "Não foi possível carregar o relatório deste evento."
+            );
+            return;
+        }
+
+        painelRelatorio.style.display = "flex";
+        painelRelatorio.style.flexDirection = "column";
+        painelRelatorio.style.gap = "12px";
+        painelRelatorio.style.marginTop = "12px";
+        painelRelatorio.style.padding = "15px";
+        painelRelatorio.style.border = "1px solid #2e7dff";
+        painelRelatorio.style.borderRadius = "12px";
+        painelRelatorio.style.background = "#101820";
+
+        topo.style.display = "flex";
+        topo.style.alignItems = "center";
+        topo.style.gap = "8px";
+
+        titulo.textContent = "Relatório oficial da reunião";
+        titulo.style.flex = "1";
+        titulo.style.margin = "0";
+        titulo.style.color = "#fff";
+        titulo.style.fontSize = "16px";
+
+        fechar.type = "button";
+        fechar.textContent = "×";
+        fechar.style.width = "32px";
+        fechar.style.height = "32px";
+        fechar.style.border = "1px solid #52606d";
+        fechar.style.borderRadius = "8px";
+        fechar.style.background = "#1b232b";
+        fechar.style.color = "#fff";
+        fechar.style.fontSize = "20px";
+        fechar.style.cursor = "pointer";
+        fechar.addEventListener(
+            "click",
+            () => painelRelatorio.remove()
+        );
+
+        topo.appendChild(titulo);
+        topo.appendChild(fechar);
+        painelRelatorio.appendChild(topo);
+
+        const identificacao = document.createElement("p");
+        identificacao.textContent =
+            `${eventoAtual.titulo || "Evento"} · ${formatarData(eventoAtual.data)}`;
+        identificacao.style.margin = "0";
+        identificacao.style.color = "#a8a8a8";
+        identificacao.style.fontSize = "12px";
+        painelRelatorio.appendChild(identificacao);
+
+        resumo.style.display = "flex";
+        resumo.style.flexWrap = "wrap";
+        resumo.style.gap = "7px";
+        criarIndicador(
+            "Presentes",
+            totalPresentes,
+            "#65e6bf"
+        );
+        criarIndicador(
+            "Ausências totais",
+            totalAusencias,
+            "#ffb45c"
+        );
+        criarIndicador(
+            "Justificados",
+            totalJustificados,
+            "#58b7ff"
+        );
+        painelRelatorio.appendChild(resumo);
+
+        const avisoAutomatico = document.createElement("p");
+        avisoAutomatico.textContent =
+            "Os indicadores de frequência são preenchidos automaticamente a partir das chamadas das unidades.";
+        avisoAutomatico.style.margin = "0";
+        avisoAutomatico.style.color = "#8e9aa5";
+        avisoAutomatico.style.fontSize = "10px";
+        painelRelatorio.appendChild(avisoAutomatico);
+
+        const statusGrupo = document.createElement("label");
+        const statusTexto = document.createElement("span");
+        const status = document.createElement("select");
+        statusTexto.textContent = "Status do relatório";
+        statusTexto.style.display = "block";
+        statusTexto.style.marginBottom = "5px";
+        statusTexto.style.color = "#cfd6dc";
+        statusTexto.style.fontSize = "11px";
+        statusTexto.style.fontWeight = "700";
+        status.innerHTML = `
+            <option value="rascunho">Rascunho</option>
+            <option value="em_revisao">Em revisão</option>
+            <option value="finalizado">Finalizado</option>
+        `;
+        status.value = relatorioAtual.status || "rascunho";
+        status.style.width = "100%";
+        status.style.padding = "10px";
+        status.style.border = "1px solid #334351";
+        status.style.borderRadius = "8px";
+        status.style.background = "#0d1115";
+        status.style.color = "#fff";
+        statusGrupo.appendChild(statusTexto);
+        statusGrupo.appendChild(status);
+        formulario.appendChild(statusGrupo);
+
+        criarCampo(
+            "Local da reunião",
+            "local",
+            "input",
+            relatorioAtual.local
+        );
+        criarCampo(
+            "Horário",
+            "horario",
+            "input",
+            relatorioAtual.horario
+        );
+        criarCampo(
+            "Cronograma da reunião",
+            "cronograma",
+            "textarea",
+            relatorioAtual.cronograma
+        );
+        criarCampo(
+            "Devocional e mensagem",
+            "devocional",
+            "textarea",
+            relatorioAtual.devocional
+        );
+        criarCampo(
+            "Classes e especialidades",
+            "classesEspecialidades",
+            "textarea",
+            relatorioAtual.classesEspecialidades
+        );
+        criarCampo(
+            "Ordem unida e atividades práticas",
+            "ordemUnida",
+            "textarea",
+            relatorioAtual.ordemUnida
+        );
+        criarCampo(
+            "Visitantes",
+            "visitantes",
+            "textarea",
+            relatorioAtual.visitantes
+        );
+        criarCampo(
+            "Ocorrências e observações",
+            "ocorrencias",
+            "textarea",
+            relatorioAtual.ocorrencias
+        );
+        criarCampo(
+            "Patrimônio e materiais",
+            "patrimonio",
+            "textarea",
+            relatorioAtual.patrimonio
+        );
+        criarCampo(
+            "Observações administrativas",
+            "administrativo",
+            "textarea",
+            relatorioAtual.administrativo
+        );
+
+        acoes.style.display = "flex";
+        acoes.style.flexWrap = "wrap";
+        acoes.style.gap = "7px";
+
+        salvar.type = "button";
+        salvar.textContent = "Salvar rascunho";
+        salvar.style.flex = "1 1 180px";
+        salvar.style.padding = "11px";
+        salvar.style.border = "none";
+        salvar.style.borderRadius = "8px";
+        salvar.style.background = "#2e7dff";
+        salvar.style.color = "#fff";
+        salvar.style.fontWeight = "700";
+        salvar.style.cursor = "pointer";
+
+        cancelar.type = "button";
+        cancelar.textContent = "Fechar relatório";
+        cancelar.style.flex = "1 1 150px";
+        cancelar.style.padding = "11px";
+        cancelar.style.border = "1px solid #52606d";
+        cancelar.style.borderRadius = "8px";
+        cancelar.style.background = "#1b232b";
+        cancelar.style.color = "#fff";
+        cancelar.style.cursor = "pointer";
+        cancelar.addEventListener(
+            "click",
+            () => painelRelatorio.remove()
+        );
+
+        salvar.addEventListener(
+            "click",
+            async () => {
+                const campos = {};
+                formulario.querySelectorAll(
+                    "input[name], textarea[name]"
+                ).forEach(campo => {
+                    campos[campo.name] =
+                        String(campo.value || "").trim();
+                });
+
+                salvar.disabled = true;
+                salvar.textContent = "Salvando...";
+
+                try {
+                    await relatorioRef.set({
+                        ...relatorioAtual,
+                        ...campos,
+                        eventoId: eventoAtual.id,
+                        data: eventoAtual.data,
+                        tituloEvento: eventoAtual.titulo || "",
+                        tipoEvento: eventoAtual.tipo || "",
+                        frequenciaConsolidada: {
+                            presentes: totalPresentes,
+                            ausenciasTotais: totalAusencias,
+                            justificados: totalJustificados
+                        },
+                        status: status.value,
+                        criadoPor:
+                            relatorioAtual.criadoPor ||
+                            usernameLogado,
+                        atualizadoPor: usernameLogado,
+                        atualizadoEm:
+                            firebase.firestore.FieldValue.serverTimestamp(),
+                        versao: Number(
+                            relatorioAtual.versao || 1
+                        )
+                    }, {
+                        merge: true
+                    });
+
+                    window.alert(
+                        "Rascunho do relatório salvo com sucesso."
+                    );
+                    painelRelatorio.remove();
+                } catch (erro) {
+                    console.error(
+                        "Erro ao salvar relatório do evento:",
+                        erro
+                    );
+                    window.alert(
+                        "Não foi possível salvar o relatório. Verifique as regras do Firestore."
+                    );
+                } finally {
+                    salvar.disabled = false;
+                    salvar.textContent = "Salvar rascunho";
+                }
+            }
+        );
+
+        acoes.appendChild(salvar);
+        acoes.appendChild(cancelar);
+        painelRelatorio.appendChild(formulario);
+        painelRelatorio.appendChild(acoes);
+        detalhe.appendChild(painelRelatorio);
+        painelRelatorio.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+    };
+
+
     const renderizarDetalhe = () => {
         detalhe.innerHTML = "";
         aplicarEstilo(detalhe, {
@@ -13527,6 +13911,7 @@ async function renderizarPainelSecretarioClubeEventos(
             const editar = document.createElement("button");
             const alternar = document.createElement("button");
             const apagar = document.createElement("button");
+            const relatorio = document.createElement("button");
             const verChamada = document.createElement("button");
             const resumoFrequencia = document.createElement("div");
             const frequencias = Array.isArray(
@@ -13608,6 +13993,9 @@ async function renderizarPainelSecretarioClubeEventos(
                 : "#f0ad4e";
             prepararBotao(apagar, false, true);
             apagar.textContent = "Apagar";
+            prepararBotao(relatorio, true);
+            relatorio.textContent = "Criar relatório oficial";
+            relatorio.style.color = "#65e6bf";
             prepararBotao(verChamada, true);
             verChamada.textContent = frequencias.length
                 ? `Ver chamada · P ${totalPresentes} · A ${totalAusentes} · J ${totalJustificados}`
@@ -13865,11 +14253,17 @@ async function renderizarPainelSecretarioClubeEventos(
                     }
                 }
             );
+            relatorio.addEventListener(
+                "click",
+                () => abrirRelatorioOficial(evento)
+            );
+
             cabecalho.appendChild(nome);
             cabecalho.appendChild(etiqueta);
             acoes.appendChild(editar);
             acoes.appendChild(alternar);
             acoes.appendChild(apagar);
+            acoes.appendChild(relatorio);
             acoesChamada.appendChild(verChamada);
             acoesChamada.appendChild(resumoFrequencia);
             card.appendChild(cabecalho);
@@ -13877,6 +14271,7 @@ async function renderizarPainelSecretarioClubeEventos(
             card.appendChild(acoes);
             card.appendChild(acoesChamada);
             detalhe.appendChild(card);
+
         });
     };
 
