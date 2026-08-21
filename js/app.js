@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.376.0 - versão alpha";
+const VERSAO_ATUAL = "v0.377.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -16230,15 +16230,22 @@ async function salvarEdicaoMembroAdmin() {
         "edit-membro-cargo-assinatura"
     );
 
+    const nomeAssinaturaDigitado = campoNomeAssinatura
+        ? String(campoNomeAssinatura.value || "").trim()
+        : "";
+    const cargoAssinaturaDigitado = campoCargoAssinatura
+        ? String(campoCargoAssinatura.value || "").trim()
+        : "";
+
     const dadosBasicos = {
-        nomeReal: document.getElementById("edit-membro-nome-real").value.trim(),
-        nomeAssinatura: campoNomeAssinatura
-            ? campoNomeAssinatura.value.trim()
-            : "",
-        cargoAssinatura: campoCargoAssinatura
-            ? campoCargoAssinatura.value.trim()
-            : "",
-        username: document.getElementById("edit-membro-username").value.trim().toLowerCase(),
+        nomeReal: String(
+            document.getElementById("edit-membro-nome-real").value || ""
+        ).trim(),
+        nomeAssinatura: nomeAssinaturaDigitado,
+        cargoAssinatura: cargoAssinaturaDigitado,
+        username: String(
+            document.getElementById("edit-membro-username").value || ""
+        ).trim().toLowerCase(),
         tipo: document.getElementById("edit-membro-tipo").value,
         unidade: document.getElementById("edit-membro-unidade-vinculo").value,
         cargoId,
@@ -16246,6 +16253,7 @@ async function salvarEdicaoMembroAdmin() {
         cargoFuncao: cargoSelecionado ? cargoSelecionado.funcao : "nenhuma",
         dataNascimento: document.getElementById("edit-membro-nascimento").value
     };
+
 
 
     if (
@@ -16408,19 +16416,25 @@ async function salvarEdicaoMembroAdmin() {
         }
 
         const assinaturaAtualSnap = await assinaturaNovaRef.get();
+        const assinaturaAtual = assinaturaAtualSnap.exists
+            ? assinaturaAtualSnap.data() || {}
+            : {};
 
         if (
-            assinaturaAtualSnap.exists &&
-            !urlAssinaturaNova
+            urlAssinaturaNova ||
+            assinaturaAtualSnap.exists
         ) {
             await assinaturaNovaRef.set({
-                ...assinaturaAtualSnap.data(),
+                ...assinaturaAtual,
                 username: usernameNovo,
+                ...(urlAssinaturaNova
+                    ? { pngUrl: urlAssinaturaNova }
+                    : {}),
                 nomeAssinatura:
-                    dadosBasicos.nomeAssinatura ||
+                    nomeAssinaturaDigitado ||
                     dadosBasicos.nomeReal,
                 cargoAssinatura:
-                    dadosBasicos.cargoAssinatura ||
+                    cargoAssinaturaDigitado ||
                     dadosBasicos.cargo ||
                     "Responsável",
                 nomeUsuario: dadosBasicos.nomeReal,
@@ -16433,6 +16447,7 @@ async function salvarEdicaoMembroAdmin() {
                 merge: true
             });
         }
+
 
         alert(`🎉 Membro ${dadosAtualizados.nomeReal} atualizado com sucesso!`);
         fecharModalEdicaoMembro();
