@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.363.0 - versão alpha";
+const VERSAO_ATUAL = "v0.364.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8365,21 +8365,103 @@ async function renderizarPainelSecretarioFrequencia(
         exportarPdf.addEventListener(
             "click",
             async () => {
-                const janelaPdf = window.open(
-                    "",
-                    "_blank",
-                    "width=980,height=760"
+                const modalPdf = document.createElement("div");
+                const cabecalhoPdf = document.createElement("div");
+                const tituloPdf = document.createElement("strong");
+                const acoesPdf = document.createElement("div");
+                const statusPdf = document.createElement("span");
+                const imprimirPdf = document.createElement("button");
+                const fecharPdf = document.createElement("button");
+                const framePdf = document.createElement("iframe");
+                const janelaPdf = framePdf.contentWindow;
+
+                modalPdf.style.position = "fixed";
+                modalPdf.style.inset = "0";
+                modalPdf.style.zIndex = "99999";
+                modalPdf.style.display = "flex";
+                modalPdf.style.flexDirection = "column";
+                modalPdf.style.background = "rgba(0, 0, 0, .82)";
+                modalPdf.style.padding = "12px";
+                modalPdf.style.boxSizing = "border-box";
+
+                cabecalhoPdf.style.display = "flex";
+                cabecalhoPdf.style.alignItems = "center";
+                cabecalhoPdf.style.gap = "8px";
+                cabecalhoPdf.style.padding = "10px 12px";
+                cabecalhoPdf.style.border = "1px solid #334351";
+                cabecalhoPdf.style.borderBottom = "none";
+                cabecalhoPdf.style.borderRadius = "10px 10px 0 0";
+                cabecalhoPdf.style.background = "#101820";
+                cabecalhoPdf.style.color = "#fff";
+
+                tituloPdf.textContent = "Pré-visualização da ficha operacional";
+                tituloPdf.style.flex = "1";
+                tituloPdf.style.fontSize = "13px";
+
+                statusPdf.textContent = "Preparando...";
+                statusPdf.style.color = "#9fb0bd";
+                statusPdf.style.fontSize = "10px";
+
+                acoesPdf.style.display = "flex";
+                acoesPdf.style.alignItems = "center";
+                acoesPdf.style.gap = "6px";
+
+                imprimirPdf.type = "button";
+                imprimirPdf.textContent = "Imprimir / salvar PDF";
+                imprimirPdf.style.padding = "8px 10px";
+                imprimirPdf.style.border = "1px solid #58b7ff";
+                imprimirPdf.style.borderRadius = "7px";
+                imprimirPdf.style.background = "#10283a";
+                imprimirPdf.style.color = "#b9e5ff";
+                imprimirPdf.style.fontWeight = "700";
+                imprimirPdf.style.cursor = "pointer";
+                imprimirPdf.disabled = true;
+
+                fecharPdf.type = "button";
+                fecharPdf.textContent = "Fechar prévia";
+                fecharPdf.style.padding = "8px 10px";
+                fecharPdf.style.border = "1px solid #52606d";
+                fecharPdf.style.borderRadius = "7px";
+                fecharPdf.style.background = "#1b232b";
+                fecharPdf.style.color = "#fff";
+                fecharPdf.style.cursor = "pointer";
+
+                fecharPdf.addEventListener(
+                    "click",
+                    () => modalPdf.remove()
                 );
 
-                if (!janelaPdf) {
-                    window.alert(
-                        "O navegador bloqueou a janela de impressão. Verifique as configurações de pop-up do navegador."
-                    );
-                    return;
-                }
+                imprimirPdf.addEventListener(
+                    "click",
+                    () => {
+                        if (framePdf.contentWindow) {
+                            framePdf.contentWindow.focus();
+                            framePdf.contentWindow.print();
+                        }
+                    }
+                );
+
+                acoesPdf.appendChild(statusPdf);
+                acoesPdf.appendChild(imprimirPdf);
+                acoesPdf.appendChild(fecharPdf);
+                cabecalhoPdf.appendChild(tituloPdf);
+                cabecalhoPdf.appendChild(acoesPdf);
+
+                framePdf.title = "Prévia da ficha operacional";
+                framePdf.style.flex = "1";
+                framePdf.style.width = "100%";
+                framePdf.style.minHeight = "0";
+                framePdf.style.border = "1px solid #334351";
+                framePdf.style.borderRadius = "0 0 10px 10px";
+                framePdf.style.background = "#fff";
+
+                modalPdf.appendChild(cabecalhoPdf);
+                modalPdf.appendChild(framePdf);
+                document.body.appendChild(modalPdf);
 
                 exportarPdf.disabled = true;
                 exportarPdf.textContent = "Preparando PDF...";
+                janelaPdf.document.open();
                 janelaPdf.document.write(`
                     <!doctype html>
                     <html lang="pt-BR">
@@ -8565,11 +8647,9 @@ Nome e assinatura</div>
 </body>
 </html>`);
                     janelaPdf.document.close();
-                    janelaPdf.focus();
-                    janelaPdf.setTimeout(
-                        () => janelaPdf.print(),
-                        500
-                    );
+                    statusPdf.textContent = "Prévia pronta";
+                    imprimirPdf.disabled = false;
+
                 } catch (erro) {
                     console.error(
                         "Erro ao exportar ficha em PDF:",
