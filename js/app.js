@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.373.0 - versão alpha";
+const VERSAO_ATUAL = "v0.374.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9314,20 +9314,20 @@ tr:nth-child(even) { background: #f5f8fa; }
                         .doc(dataId)
                         .delete();
 
-                    const eventoCentralPreservado =
+                    const eventoAtualizado =
                         eventosPorData.get(dataId) || {};
-                    const statusEventoPreservado = String(
-                        eventoCentralPreservado.eventoCentralStatus ||
-                        eventoCentralPreservado.status ||
+                    const statusEvento = String(
+                        eventoAtualizado.eventoCentralStatus ||
+                        eventoAtualizado.status ||
                         "ativo"
                     ).trim().toLowerCase();
+                    const eventoCentralAtivo =
+                        eventoAtualizado.eventoCentral === true &&
+                        statusEvento !== "cancelado";
 
-                    if (
-                        eventoCentralPreservado.eventoCentral === true &&
-                        statusEventoPreservado !== "cancelado"
-                    ) {
+                    if (eventoCentralAtivo) {
                         eventosPorData.set(dataId, {
-                            ...eventoCentralPreservado,
+                            ...eventoAtualizado,
                             presentes: [],
                             faltas: [],
                             justificados: [],
@@ -9358,6 +9358,7 @@ tr:nth-child(even) { background: #f5f8fa; }
                 }
             }
         );
+
         detalhe.appendChild(apagar);
 
         const resumoChamada = document.createElement("div");
