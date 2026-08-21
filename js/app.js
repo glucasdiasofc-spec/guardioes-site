@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.364.0 - versão alpha";
+const VERSAO_ATUAL = "v0.365.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8373,7 +8373,18 @@ async function renderizarPainelSecretarioFrequencia(
                 const imprimirPdf = document.createElement("button");
                 const fecharPdf = document.createElement("button");
                 const framePdf = document.createElement("iframe");
-                const janelaPdf = framePdf.contentWindow;
+                const janelaPdf = {
+                    get document() {
+                        return framePdf.contentDocument ||
+                            framePdf.contentWindow.document;
+                    },
+                    focus() {
+                        if (framePdf.contentWindow) {
+                            framePdf.contentWindow.focus();
+                        }
+                    }
+                };
+
 
                 modalPdf.style.position = "fixed";
                 modalPdf.style.inset = "0";
