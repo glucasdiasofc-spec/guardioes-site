@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.379.0 - versão alpha";
+const VERSAO_ATUAL = "v0.380.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13045,16 +13045,34 @@ function mudarAbaAdmin(idAbaDestino) {
 function controlarExibicaoSelecaoUnidade() {
     const tipoSelecionado = document.getElementById("membro-tipo").value;
     const campoUnidade = document.getElementById("membro-unidade-vinculo");
+    const selectCargo = document.getElementById("membro-cargo");
+    const cargoSelecionado = cargosAdminCache.find(
+        cargo => cargo.id === (selectCargo ? selectCargo.value : "")
+    );
+    const funcaoCargo = String(
+        cargoSelecionado ? cargoSelecionado.funcao : ""
+    ).trim().toLowerCase();
+    const ehConselheiroUnidade =
+        funcaoCargo === "conselheiro_unidade" ||
+        funcaoCargo === "conselheiro de unidade";
 
-    if (campoUnidade) {
-        if (tipoSelecionado === "Liderança") {
-            campoUnidade.style.display = "none";
-            campoUnidade.value = "";
-        } else {
-            campoUnidade.style.display = "block";
-        }
+    if (!campoUnidade) {
+        return;
+    }
+
+    const deveMostrarUnidade =
+        tipoSelecionado !== "Liderança" ||
+        ehConselheiroUnidade;
+
+    campoUnidade.style.display = deveMostrarUnidade
+        ? "block"
+        : "none";
+
+    if (!deveMostrarUnidade) {
+        campoUnidade.value = "";
     }
 }
+
 
 // Pré-visualização do Avatar
 function mostrarPreviaImagem(inputElemento, idImgAlvo) {
@@ -15725,9 +15743,22 @@ function atualizarFuncaoCargoSelecionado(idSelect, idPreview) {
     const preview = document.getElementById(idPreview);
     if (!select || !preview) return;
 
-    const cargo = cargosAdminCache.find(item => item.id === select.value);
-    preview.textContent = cargo ? nomeFuncaoCargo(cargo.funcao) : "Nenhuma função adicional associada.";
+    const cargo = cargosAdminCache.find(
+        item => item.id === select.value
+    );
+    preview.textContent = cargo
+        ? nomeFuncaoCargo(cargo.funcao)
+        : "Nenhuma função adicional associada.";
+
+    if (idSelect === "membro-cargo") {
+        controlarExibicaoSelecaoUnidade();
+    }
+
+    if (idSelect === "edit-membro-cargo") {
+        controlarExibicaoSelecaoUnidadeEdicao();
+    }
 }
+
 
 
 async function salvarNovoMembroAdmin() {
@@ -16196,12 +16227,34 @@ function fecharModalEdicaoMembro() {
 function controlarExibicaoSelecaoUnidadeEdicao() {
     const tipo = document.getElementById("edit-membro-tipo").value;
     const campo = document.getElementById("edit-membro-unidade-vinculo");
+    const selectCargo = document.getElementById("edit-membro-cargo");
+    const cargoSelecionado = cargosAdminCache.find(
+        cargo => cargo.id === (selectCargo ? selectCargo.value : "")
+    );
+    const funcaoCargo = String(
+        cargoSelecionado ? cargoSelecionado.funcao : ""
+    ).trim().toLowerCase();
+    const ehConselheiroUnidade =
+        funcaoCargo === "conselheiro_unidade" ||
+        funcaoCargo === "conselheiro de unidade";
 
-    if (!campo) return;
+    if (!campo) {
+        return;
+    }
 
-    campo.style.display = tipo === "Liderança" ? "none" : "block";
-    if (tipo === "Liderança") campo.value = "";
+    const deveMostrarUnidade =
+        tipo !== "Liderança" ||
+        ehConselheiroUnidade;
+
+    campo.style.display = deveMostrarUnidade
+        ? "block"
+        : "none";
+
+    if (!deveMostrarUnidade) {
+        campo.value = "";
+    }
 }
+
 
 async function salvarEdicaoMembroAdmin() {
     const tipoUsuario = localStorage.getItem("usuarioLogado");
