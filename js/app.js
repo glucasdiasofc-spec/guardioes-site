@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.371.0 - versão alpha";
+const VERSAO_ATUAL = "v0.372.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9105,6 +9105,24 @@ tr:nth-child(even) { background: #f5f8fa; }
         salvar.addEventListener(
             "click",
             async () => {
+                const eventoSelecionado =
+                    eventosPorData.get(dataId) || {};
+                const statusEvento = String(
+                    eventoSelecionado.eventoCentralStatus ||
+                    eventoSelecionado.status ||
+                    "ativo"
+                ).trim().toLowerCase();
+                const existeEventoCentralAtivo =
+                    eventoSelecionado.eventoCentral === true &&
+                    statusEvento !== "cancelado";
+
+                if (!existeEventoCentralAtivo) {
+                    window.alert(
+                        "Não é possível salvar a frequência porque não existe um evento central ativo cadastrado para esta data."
+                    );
+                    return;
+                }
+
                 const faltando = membros.some(membro => {
                     return !estados[membro.username];
                 });
