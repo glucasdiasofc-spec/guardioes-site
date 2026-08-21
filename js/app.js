@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.361.0 - versão alpha";
+const VERSAO_ATUAL = "v0.362.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8350,6 +8350,226 @@ async function renderizarPainelSecretarioFrequencia(
         painelFicha.appendChild(ocorrencias);
         painelFicha.appendChild(patrimonio);
 
+        const exportarPdf = document.createElement("button");
+        exportarPdf.type = "button";
+        exportarPdf.textContent = "Baixar ficha em PDF";
+        exportarPdf.style.width = "100%";
+        exportarPdf.style.padding = "11px";
+        exportarPdf.style.border = "1px solid #58b7ff";
+        exportarPdf.style.borderRadius = "8px";
+        exportarPdf.style.background = "#10283a";
+        exportarPdf.style.color = "#b9e5ff";
+        exportarPdf.style.fontWeight = "700";
+        exportarPdf.style.cursor = "pointer";
+
+        exportarPdf.addEventListener(
+            "click",
+            async () => {
+                exportarPdf.disabled = true;
+                exportarPdf.textContent = "Preparando PDF...";
+
+                try {
+                    const configuracaoSnap = await banco
+                        .collection("configuracoes")
+                        .doc("geral")
+                        .get();
+                    const configuracao = configuracaoSnap.exists
+                        ? configuracaoSnap.data() || {}
+                        : {};
+                    const logoUrl = String(
+                        configuracao.logoAppUrl ||
+                        configuracao.logoUrl ||
+                        ""
+                    ).trim();
+                    const nomeClube = String(
+                        configuracao.nomeClube ||
+                        "Clube Guardiões"
+                    ).trim();
+                    const janelaPdf = window.open(
+                        "",
+                        "_blank",
+                        "width=980,height=760"
+                    );
+
+                    if (!janelaPdf) {
+                        throw new Error(
+                            "O navegador bloqueou a janela de impressão. Permita pop-ups para este site."
+                        );
+                    }
+
+                    const escaparHtmlPdf = valor => String(
+                        valor === null || valor === undefined
+                            ? ""
+                            : valor
+                    )
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/\"/g, "&quot;")
+                        .replace(/'/g, "&#039;");
+                    const rotulos = {
+                        uniforme: {
+                            nao_avaliado: "Não avaliado",
+                            completo: "Completo",
+                            incompleto: "Incompleto",
+                            sem_uniforme: "Sem uniforme"
+                        },
+                        simNao: {
+                            nao_avaliado: "Não avaliado",
+                            sim: "Sim",
+                            nao: "Não"
+                        },
+                        mensalidade: {
+                            nao_avaliado: "Não avaliado",
+                            pago: "Pago",
+                            parcial: "Parcial",
+                            pendente: "Pendente",
+                            isento: "Isento"
+                        }
+                    };
+                    const statusPorMembro =
+                        registroAtual &&
+                        registroAtual.statusPorMembro ||
+                        {};
+                    const avaliacoes = avaliacaoPorMembro || {};
+                    const membrosHtml = membros.map(membro => {
+                        const username = String(
+                            membro.username || ""
+                        ).trim().toLowerCase();
+                        const avaliacao = avaliacoes[username] || {};
+                        const status = String(
+                            statusPorMembro[username] || ""
+                        ).toUpperCase();
+                        const presenca = status === "P"
+                            ? "Presente"
+                            : status === "J"
+                                ? "Justificado"
+                                : status === "A"
+                                    ? "Ausente"
+                                    : "Não registrado";
+                        return `
+                            <tr>
+                                <td>${escaparHtmlPdf(membro.nome || username)}</td>
+                                <td>${escaparHtmlPdf(presenca)}</td>
+                                <td>${escaparHtmlPdf(rotulos.uniforme[avaliacao.uniforme] || "Não avaliado")}</td>
+                                <td>${escaparHtmlPdf(rotulos.simNao[avaliacao.biblia] || "Não avaliado")}</td>
+                                <td>${escaparHtmlPdf(rotulos.simNao[avaliacao.licao] || "Não avaliado")}</td>
+                                <td>${escaparHtmlPdf(rotulos.simNao[avaliacao.tarefa] || "Não avaliado")}</td>
+                                <td>${escaparHtmlPdf(rotulos.mensalidade[avaliacao.mensalidade] || "Não avaliado")}</td>
+                            </tr>
+                        `;
+                    }).join("");
+                    const logoHtml = logoUrl
+                        ? `<img class="logo" src="${escaparHtmlPdf(logoUrl)}" alt="Logo do clube">`
+                        : "";
+                    const frequencia = registroAtual || {};
+                    const presentes = Array.isArray(frequencia.presentes)
+                        ? frequencia.presentes.length
+                        : 0;
+                    const faltas = Array.isArray(frequencia.faltas)
+                        ? frequencia.faltas.length
+                        : 0;
+                    const justificados = Array.isArray(
+                        frequencia.justificados
+                    )
+                        ? frequencia.justificados.length
+                        : 0;
+
+                    janelaPdf.document.open();
+                    janelaPdf.document.write(`<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Ficha operacional - ${escaparHtmlPdf(nomeUnidade)}</title>
+<style>
+@page { size: A4; margin: 15mm; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #17202a; font-family: Arial, sans-serif; font-size: 10px; }
+.cabecalho { display: flex; align-items: center; gap: 16px; border-bottom: 2px solid #173b57; padding-bottom: 12px; margin-bottom: 14px; }
+.logo { width: 68px; height: 68px; object-fit: contain; }
+h1 { margin: 0; font-size: 18px; color: #173b57; }
+h2 { margin: 3px 0 0; font-size: 13px; color: #405465; font-weight: 600; }
+h3 { margin: 18px 0 7px; font-size: 12px; color: #173b57; border-bottom: 1px solid #c5d1da; padding-bottom: 4px; }
+.meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; background: #eef5f9; padding: 9px; border-radius: 6px; }
+.meta strong { color: #405465; }
+.indicadores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 9px; }
+.indicador { border: 1px solid #c5d1da; padding: 7px; border-radius: 6px; text-align: center; }
+.indicador strong { display: block; font-size: 15px; color: #173b57; }
+.indicador span { color: #52606d; }
+table { width: 100%; border-collapse: collapse; margin-top: 7px; font-size: 8px; }
+th { background: #173b57; color: #fff; padding: 6px 4px; text-align: left; }
+td { border: 1px solid #c5d1da; padding: 5px 4px; vertical-align: top; }
+tr:nth-child(even) { background: #f5f8fa; }
+.texto { min-height: 42px; white-space: pre-wrap; border: 1px solid #c5d1da; padding: 8px; border-radius: 5px; }
+.assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 42px; page-break-inside: avoid; }
+.assinatura { text-align: center; padding-top: 9px; border-top: 1px solid #17202a; }
+.rodape { margin-top: 18px; color: #687782; font-size: 8px; text-align: center; }
+@media print { .nao-imprimir { display: none; } }
+</style>
+</head>
+<body>
+<header class="cabecalho">
+    ${logoHtml}
+    <div>
+        <h1>${escaparHtmlPdf(nomeClube)}</h1>
+        <h2>Ficha operacional da unidade</h2>
+    </div>
+</header>
+<section class="meta">
+    <div><strong>Unidade:</strong> ${escaparHtmlPdf(nomeUnidade)}</div>
+    <div><strong>Evento:</strong> ${escaparHtmlPdf(eventoAtual.titulo || "Evento")}</div>
+    <div><strong>Data:</strong> ${escaparHtmlPdf(formatarData(dataId))}</div>
+    <div><strong>Tipo:</strong> ${escaparHtmlPdf(eventoAtual.tipo || eventoAtual.tipoAtividade || "Atividade")}</div>
+</section>
+<section class="indicadores">
+    <div class="indicador"><strong>${presentes}</strong><span>Presentes</span></div>
+    <div class="indicador"><strong>${faltas + justificados}</strong><span>Ausências totais</span></div>
+    <div class="indicador"><strong>${justificados}</strong><span>Justificados</span></div>
+</section>
+<h3>Avaliação dos participantes</h3>
+<table>
+<thead><tr><th>Participante</th><th>Frequência</th><th>Uniforme</th><th>Bíblia</th><th>Lição</th><th>Tarefa</th><th>Mensalidade</th></tr></thead>
+<tbody>${membrosHtml || "<tr><td colspan=\"7\">Nenhum participante encontrado.</td></tr>"}</tbody>
+</table>
+<h3>Observações da unidade</h3>
+<div class="texto">${escaparHtmlPdf(observacoes.value.trim() || "Nenhuma observação registrada.")}</div>
+<h3>Ocorrências e justificativas administrativas</h3>
+<div class="texto">${escaparHtmlPdf(ocorrencias.value.trim() || "Nenhuma ocorrência registrada.")}</div>
+<h3>Patrimônio e materiais</h3>
+<div class="texto">${escaparHtmlPdf(patrimonio.value.trim() || "Nenhuma informação patrimonial registrada.")}</div>
+<div class="assinaturas">
+    <div class="assinatura">Secretário(a) da Unidade  
+  
+Nome e assinatura</div>
+    <div class="assinatura">Responsável pela Unidade  
+  
+Nome e assinatura</div>
+</div>
+<div class="rodape">Documento gerado pelo Clube Guardiões · ${escaparHtmlPdf(new Date().toLocaleString("pt-BR"))}</div>
+</body>
+</html>`);
+                    janelaPdf.document.close();
+                    janelaPdf.focus();
+                    janelaPdf.setTimeout(
+                        () => janelaPdf.print(),
+                        500
+                    );
+                } catch (erro) {
+                    console.error(
+                        "Erro ao exportar ficha em PDF:",
+                        erro
+                    );
+                    window.alert(
+                        erro.message ||
+                        "Não foi possível preparar a ficha em PDF."
+                    );
+                } finally {
+                    exportarPdf.disabled = false;
+                    exportarPdf.textContent = "Baixar ficha em PDF";
+                }
+            }
+        );
+
         salvar.type = "button";
         salvar.textContent = "Salvar ficha da unidade";
         salvar.style.width = "100%";
@@ -8423,6 +8643,7 @@ async function renderizarPainelSecretarioFrequencia(
                 }
             }
         );
+        painelFicha.appendChild(exportarPdf);
         painelFicha.appendChild(salvar);
         detalhe.appendChild(painelFicha);
         painelFicha.scrollIntoView({
