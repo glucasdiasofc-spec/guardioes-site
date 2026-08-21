@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.358.0 - versão alpha";
+const VERSAO_ATUAL = "v0.359.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -14152,6 +14152,180 @@ async function renderizarPainelSecretarioClubeEventos(
         );
         painelRelatorio.appendChild(resumo);
 
+        const painelAssinatura = document.createElement("section");
+        const tituloAssinatura = document.createElement("h4");
+        const descricaoAssinatura = document.createElement("p");
+        const areaAssinatura = document.createElement("div");
+        const imagemAssinatura = document.createElement("img");
+        const estadoAssinatura = document.createElement("p");
+        const botaoAssinar = document.createElement("button");
+        const usernameAssinaturaRelatorio = String(
+            localStorage.getItem("usernameLogado") || ""
+        ).trim().toLowerCase();
+        let assinaturaAprovadaRelatorio = null;
+
+        painelAssinatura.style.display = "flex";
+        painelAssinatura.style.flexDirection = "column";
+        painelAssinatura.style.gap = "8px";
+        painelAssinatura.style.marginTop = "4px";
+        painelAssinatura.style.padding = "12px";
+        painelAssinatura.style.border = "1px solid #596b7a";
+        painelAssinatura.style.borderRadius = "10px";
+        painelAssinatura.style.background = "#0d1115";
+
+        tituloAssinatura.textContent = "Assinatura digital";
+        tituloAssinatura.style.margin = "0";
+        tituloAssinatura.style.color = "#fff";
+        tituloAssinatura.style.fontSize = "13px";
+
+        descricaoAssinatura.textContent =
+            "A assinatura abaixo foi cadastrada e aprovada pelo administrador.";
+        descricaoAssinatura.style.margin = "0";
+        descricaoAssinatura.style.color = "#a8a8a8";
+        descricaoAssinatura.style.fontSize = "11px";
+
+        areaAssinatura.style.display = "flex";
+        areaAssinatura.style.alignItems = "center";
+        areaAssinatura.style.justifyContent = "center";
+        areaAssinatura.style.minHeight = "90px";
+        areaAssinatura.style.padding = "8px";
+        areaAssinatura.style.border = "1px dashed #52606d";
+        areaAssinatura.style.borderRadius = "8px";
+        areaAssinatura.style.background = "#fff";
+        areaAssinatura.style.boxSizing = "border-box";
+
+        imagemAssinatura.alt = "Assinatura digital aprovada";
+        imagemAssinatura.style.maxWidth = "100%";
+        imagemAssinatura.style.maxHeight = "80px";
+        imagemAssinatura.style.objectFit = "contain";
+        imagemAssinatura.style.display = "none";
+        areaAssinatura.appendChild(imagemAssinatura);
+
+        estadoAssinatura.style.margin = "0";
+        estadoAssinatura.style.color = "#a8a8a8";
+        estadoAssinatura.style.fontSize = "11px";
+        estadoAssinatura.textContent = "Carregando assinatura aprovada...";
+
+        botaoAssinar.type = "button";
+        botaoAssinar.textContent = "Assinar relatório";
+        botaoAssinar.style.width = "100%";
+        botaoAssinar.style.padding = "11px";
+        botaoAssinar.style.border = "none";
+        botaoAssinar.style.borderRadius = "8px";
+        botaoAssinar.style.background = "#20c997";
+        botaoAssinar.style.color = "#071b16";
+        botaoAssinar.style.fontWeight = "700";
+        botaoAssinar.style.cursor = "pointer";
+        botaoAssinar.disabled = true;
+
+        painelAssinatura.appendChild(tituloAssinatura);
+        painelAssinatura.appendChild(descricaoAssinatura);
+        painelAssinatura.appendChild(areaAssinatura);
+        painelAssinatura.appendChild(estadoAssinatura);
+        painelAssinatura.appendChild(botaoAssinar);
+        painelRelatorio.appendChild(painelAssinatura);
+
+        if (usernameAssinaturaRelatorio) {
+            const assinaturaSnap = await banco
+                .collection("assinaturas_usuarios")
+                .doc(usernameAssinaturaRelatorio)
+                .get();
+
+            if (assinaturaSnap.exists) {
+                const dadosAssinatura = assinaturaSnap.data() || {};
+                const pngUrl = String(
+                    dadosAssinatura.pngUrl ||
+                    dadosAssinatura.url ||
+                    ""
+                ).trim();
+
+                if (pngUrl) {
+                    assinaturaAprovadaRelatorio = {
+                        username: usernameAssinaturaRelatorio,
+                        pngUrl
+                    };
+                    imagemAssinatura.src = pngUrl;
+                    imagemAssinatura.style.display = "block";
+                    botaoAssinar.disabled = false;
+
+                    const assinaturaRegistrada =
+                        relatorioAtual.assinaturasDigitais &&
+                        relatorioAtual.assinaturasDigitais[
+                            usernameAssinaturaRelatorio
+                        ];
+
+                    if (assinaturaRegistrada) {
+                        estadoAssinatura.textContent =
+                            "Você já assinou este relatório. É possível atualizar o registro da assinatura.";
+                        botaoAssinar.textContent =
+                            "Atualizar minha assinatura";
+                    } else {
+                        estadoAssinatura.textContent =
+                            "Sua assinatura está pronta para ser aplicada.";
+                    }
+                } else {
+                    estadoAssinatura.textContent =
+                        "A assinatura aprovada não possui uma URL válida.";
+                }
+            } else {
+                estadoAssinatura.textContent =
+                    "O administrador ainda não cadastrou uma assinatura para este usuário.";
+            }
+        } else {
+            estadoAssinatura.textContent =
+                "Não foi possível identificar o usuário autenticado.";
+        }
+
+        botaoAssinar.addEventListener(
+            "click",
+            async () => {
+                if (
+                    !assinaturaAprovadaRelatorio ||
+                    !usernameAssinaturaRelatorio
+                ) {
+                    return;
+                }
+
+                botaoAssinar.disabled = true;
+                botaoAssinar.textContent = "Salvando assinatura...";
+
+                try {
+                    const assinaturasDigitais = {
+                        ...(relatorioAtual.assinaturasDigitais || {}),
+                        [usernameAssinaturaRelatorio]: {
+                            username: usernameAssinaturaRelatorio,
+                            pngUrl: assinaturaAprovadaRelatorio.pngUrl,
+                            assinadoEm:
+                                firebase.firestore.FieldValue.serverTimestamp()
+                        }
+                    };
+
+                    await relatorioRef.set({
+                        assinaturasDigitais
+                    }, {
+                        merge: true
+                    });
+
+                    relatorioAtual.assinaturasDigitais =
+                        assinaturasDigitais;
+                    estadoAssinatura.textContent =
+                        "Assinatura aplicada a este relatório com sucesso.";
+                    botaoAssinar.textContent =
+                        "Assinatura aplicada";
+                } catch (erro) {
+                    console.error(
+                        "Erro ao aplicar assinatura no relatório:",
+                        erro
+                    );
+                    estadoAssinatura.textContent =
+                        "Não foi possível aplicar a assinatura. Verifique sua conexão e as regras do Firestore.";
+                    botaoAssinar.disabled = false;
+                    botaoAssinar.textContent =
+                        "Tentar assinar novamente";
+                }
+            }
+        );
+
         const avisoAutomatico = document.createElement("p");
         avisoAutomatico.textContent =
             "Os indicadores de frequência são preenchidos automaticamente a partir das chamadas das unidades.";
@@ -15718,6 +15892,13 @@ async function deletarMembro(id, idFoto) {
 }
 
 async function prepararEdicaoMembro(id) {
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
+
+    if (tipoUsuario !== "admin") {
+        alert("Somente o administrador pode alterar assinaturas.");
+        return;
+    }
+
     if (!window.ClubeDB || !window.ClubeDB.textoDB) return;
 
     try {
@@ -15766,6 +15947,88 @@ async function prepararEdicaoMembro(id) {
         document.getElementById("edit-previa-membro-img").src =
             dados.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
 
+        const assinaturaPreview = document.getElementById(
+            "edit-previa-assinatura-png"
+         );
+        const assinaturaVazia = document.getElementById(
+            "edit-previa-assinatura-vazia"
+        );
+        const assinaturaInput = document.getElementById(
+            "edit-membro-assinatura-png"
+        );
+
+        if (assinaturaPreview) {
+            assinaturaPreview.removeAttribute("src");
+            assinaturaPreview.style.display = "none";
+        }
+
+        if (assinaturaVazia) {
+            assinaturaVazia.style.display = "block";
+        }
+
+        if (assinaturaInput) {
+            assinaturaInput.value = "";
+            assinaturaInput.onchange = () => {
+                const arquivo = assinaturaInput.files &&
+                    assinaturaInput.files[0];
+
+                if (!arquivo) {
+                    return;
+                }
+
+                if (
+                    arquivo.type !== "image/png" &&
+                    !arquivo.name.toLowerCase().endsWith(".png")
+                ) {
+                    alert("A assinatura precisa ser um arquivo PNG.");
+                    assinaturaInput.value = "";
+                    return;
+                }
+
+                const leitor = new FileReader();
+                leitor.onload = evento => {
+                    if (assinaturaPreview) {
+                        assinaturaPreview.src = evento.target.result;
+                        assinaturaPreview.style.display = "block";
+                    }
+
+                    if (assinaturaVazia) {
+                        assinaturaVazia.style.display = "none";
+                    }
+                };
+                leitor.readAsDataURL(arquivo);
+            };
+        }
+
+        const usernameAssinatura = String(
+            dados.username || ""
+        ).trim().toLowerCase();
+
+        if (usernameAssinatura) {
+            const assinaturaDocumento = await window.ClubeDB.textoDB
+                .collection("assinaturas_usuarios")
+                .doc(usernameAssinatura)
+                .get();
+
+            if (assinaturaDocumento.exists) {
+                const dadosAssinatura = assinaturaDocumento.data() || {};
+                const urlAssinatura = String(
+                    dadosAssinatura.pngUrl ||
+                    dadosAssinatura.url ||
+                    ""
+                ).trim();
+
+                if (urlAssinatura && assinaturaPreview) {
+                    assinaturaPreview.src = urlAssinatura;
+                    assinaturaPreview.style.display = "block";
+
+                    if (assinaturaVazia) {
+                        assinaturaVazia.style.display = "none";
+                    }
+                }
+            }
+        }
+
         controlarExibicaoSelecaoUnidadeEdicao( );
 
         document.getElementById("edit-membro-foto").value = "";
@@ -15775,6 +16038,7 @@ async function prepararEdicaoMembro(id) {
         alert("Não foi possível carregar os dados do membro: " + erro.message);
     }
 }
+
 
 
 function fecharModalEdicaoMembro() {
@@ -15793,11 +16057,24 @@ function controlarExibicaoSelecaoUnidadeEdicao() {
 }
 
 async function salvarEdicaoMembroAdmin() {
+    const tipoUsuario = localStorage.getItem("usuarioLogado");
+
+    if (tipoUsuario !== "admin") {
+        alert("Somente o administrador pode cadastrar ou alterar assinaturas.");
+        return;
+    }
+
     const id = document.getElementById("edit-membro-id").value;
     const cargoId = document.getElementById("edit-membro-cargo").value;
     const cargoSelecionado = cargosAdminCache.find(cargo => cargo.id === cargoId);
     const fotoInput = document.getElementById("edit-membro-foto");
     const arquivoFoto = fotoInput ? fotoInput.files[0] : null;
+    const assinaturaInput = document.getElementById(
+        "edit-membro-assinatura-png"
+    );
+    const arquivoAssinatura = assinaturaInput
+        ? assinaturaInput.files[0]
+        : null;
     const senhaDigitada = document.getElementById("edit-membro-senha").value.trim();
 
     const dadosBasicos = {
@@ -15827,6 +16104,15 @@ async function salvarEdicaoMembroAdmin() {
         return;
     }
 
+    if (
+        arquivoAssinatura &&
+        arquivoAssinatura.type !== "image/png" &&
+        !arquivoAssinatura.name.toLowerCase().endsWith(".png")
+    ) {
+        alert("A assinatura precisa ser um arquivo PNG.");
+        return;
+    }
+
     try {
         const referencia = window.ClubeDB.textoDB
             .collection("usuarios")
@@ -15841,6 +16127,10 @@ async function salvarEdicaoMembroAdmin() {
 
         const dadosAtuais = documentoAtual.data() || {};
         const senhaAtual = dadosAtuais.senha || "";
+        const usernameAntigo = String(
+            dadosAtuais.username || ""
+        ).trim().toLowerCase();
+        const usernameNovo = dadosBasicos.username;
 
         // Se o administrador digitou uma nova senha, ela substitui a antiga.
         // Se deixou vazio, a senha existente é mantida.
@@ -15851,12 +16141,30 @@ async function salvarEdicaoMembroAdmin() {
             return;
         }
 
+        let urlAssinaturaNova = "";
+
+        if (arquivoAssinatura) {
+            urlAssinaturaNova = await subirImagemParaNuvem(
+                arquivoAssinatura
+            );
+
+            if (!urlAssinaturaNova) {
+                throw new Error(
+                    "Não foi possível enviar a assinatura PNG para o servidor de imagens."
+                );
+            }
+        }
+
         const dadosAtualizados = {
             ...dadosBasicos,
             senha: senhaFinal
         };
 
-        if (arquivoFoto && window.ClubeDB.acoesAdmin && window.ClubeDB.acoesAdmin.cadastrarMembro) {
+        if (
+            arquivoFoto &&
+            window.ClubeDB.acoesAdmin &&
+            window.ClubeDB.acoesAdmin.cadastrarMembro
+        ) {
             const dadosComFoto = {
                 ...dadosAtualizados,
                 fotoUrl: dadosAtuais.fotoUrl || ""
@@ -15871,6 +16179,60 @@ async function salvarEdicaoMembroAdmin() {
             await referencia.update(dadosAtualizados);
         }
 
+        const assinaturaNovaRef = window.ClubeDB.textoDB
+            .collection("assinaturas_usuarios")
+            .doc(usernameNovo);
+        const assinaturaAntigaRef = usernameAntigo
+            ? window.ClubeDB.textoDB
+                .collection("assinaturas_usuarios")
+                .doc(usernameAntigo)
+            : null;
+
+        if (urlAssinaturaNova) {
+            await assinaturaNovaRef.set({
+                username: usernameNovo,
+                pngUrl: urlAssinaturaNova,
+                nomeUsuario: dadosBasicos.nomeReal,
+                atualizadoPor: localStorage.getItem(
+                    "usernameLogado"
+                ) || "admin",
+                atualizadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp()
+            }, {
+                merge: true
+            });
+
+            if (
+                assinaturaAntigaRef &&
+                usernameAntigo &&
+                usernameAntigo !== usernameNovo
+            ) {
+                await assinaturaAntigaRef.delete();
+            }
+        } else if (
+            assinaturaAntigaRef &&
+            usernameAntigo &&
+            usernameAntigo !== usernameNovo
+        ) {
+            const assinaturaAntigaSnap = await assinaturaAntigaRef.get();
+
+            if (assinaturaAntigaSnap.exists) {
+                await assinaturaNovaRef.set({
+                    ...assinaturaAntigaSnap.data(),
+                    username: usernameNovo,
+                    nomeUsuario: dadosBasicos.nomeReal,
+                    atualizadoPor: localStorage.getItem(
+                        "usernameLogado"
+                    ) || "admin",
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                }, {
+                    merge: true
+                });
+                await assinaturaAntigaRef.delete();
+            }
+        }
+
         alert(`🎉 Membro ${dadosAtualizados.nomeReal} atualizado com sucesso!`);
         fecharModalEdicaoMembro();
         await carregarMembrosCadastrados();
@@ -15879,6 +16241,7 @@ async function salvarEdicaoMembroAdmin() {
         alert("Erro ao atualizar membro: " + erro.message);
     }
 }
+
 
 
 
