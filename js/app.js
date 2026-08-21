@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.374.0 - versão alpha";
+const VERSAO_ATUAL = "v0.375.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9611,17 +9611,22 @@ tr:nth-child(even) { background: #f5f8fa; }
             celula.style.gap = "4px";
             celula.style.minHeight = "76px";
             celula.style.padding = "6px 4px";
-            celula.style.border = frequenciaSalva
-                ? "1px solid #20c997"
-                : dataId === hojeId
-                    ? "1px solid #58b7ff"
-                    : "1px solid #262626";
+            celula.style.border = diaSelecionado
+                ? "1px solid #0095f6"
+                : frequenciaSalva
+                    ? "1px solid #20c997"
+                    : dataId === hojeId
+                        ? "1px solid #58b7ff"
+                        : "1px solid #262626";
             celula.style.borderRadius = "6px";
-            celula.style.background = frequenciaSalva
-                ? "#103c32"
-                : existeEventoCentral
-                    ? "#172b3b"
-                    : "#121212";
+            celula.style.background = diaSelecionado
+                ? "#0f2f4d"
+                : frequenciaSalva
+                    ? "#103c32"
+                    : existeEventoCentral
+                        ? "#172b3b"
+                        : "#121212";
+
             celula.style.color = "#fff";
             celula.style.textAlign = "left";
             celula.style.cursor = existeEventoCentral
@@ -9640,22 +9645,23 @@ tr:nth-child(even) { background: #f5f8fa; }
             numero.style.display = "block";
             numero.style.fontSize = "11px";
             numero.style.fontWeight = "700";
-            numero.style.color = frequenciaSalva
-                ? "#8ff0ce"
-                : diaSelecionado
-                    ? "#8dccff"
+            numero.style.color = diaSelecionado
+                ? "#8dccff"
+                : frequenciaSalva
+                    ? "#8ff0ce"
                     : dataId === hojeId
                         ? "#58b7ff"
                         : "#d7d9db";
+
 
             listaEventos.style.display = "flex";
             listaEventos.style.flexDirection = "column";
             listaEventos.style.gap = "2px";
             listaEventos.style.minWidth = "0";
-            listaEventos.style.color = frequenciaSalva
-                ? "#c7ffec"
-                : diaSelecionado
-                    ? "#d9efff"
+            listaEventos.style.color = diaSelecionado
+                ? "#d9efff"
+                : frequenciaSalva
+                    ? "#c7ffec"
                     : "#d7d9db";
             listaEventos.style.fontSize = "9px";
             listaEventos.style.lineHeight = "1.2";
