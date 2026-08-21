@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.365.0 - versão alpha";
+const VERSAO_ATUAL = "v0.366.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8386,14 +8386,21 @@ async function renderizarPainelSecretarioFrequencia(
                 };
 
 
+                const overflowBodyAnterior = document.body.style.overflow;
+                document.body.style.overflow = "hidden";
+
                 modalPdf.style.position = "fixed";
                 modalPdf.style.inset = "0";
-                modalPdf.style.zIndex = "99999";
+                modalPdf.style.zIndex = "2147483647";
                 modalPdf.style.display = "flex";
                 modalPdf.style.flexDirection = "column";
-                modalPdf.style.background = "rgba(0, 0, 0, .82)";
+                modalPdf.style.width = "100vw";
+                modalPdf.style.height = "100dvh";
+                modalPdf.style.overflow = "hidden";
+                modalPdf.style.background = "#000";
                 modalPdf.style.padding = "12px";
                 modalPdf.style.boxSizing = "border-box";
+                modalPdf.style.pointerEvents = "auto";
 
                 cabecalhoPdf.style.display = "flex";
                 cabecalhoPdf.style.alignItems = "center";
@@ -8439,7 +8446,11 @@ async function renderizarPainelSecretarioFrequencia(
 
                 fecharPdf.addEventListener(
                     "click",
-                    () => modalPdf.remove()
+                    () => {
+                        document.body.style.overflow =
+                            overflowBodyAnterior;
+                        modalPdf.remove();
+                    }
                 );
 
                 imprimirPdf.addEventListener(
@@ -8505,6 +8516,29 @@ async function renderizarPainelSecretarioFrequencia(
                         "Clube Guardiões"
                     ).trim();
 
+                    const usernameAssinaturaPdf = String(
+                        usernameLogado ||
+                        localStorage.getItem("usernameLogado") ||
+                        ""
+                    ).trim().toLowerCase();
+                    let assinaturaPngUrl = "";
+
+                    if (usernameAssinaturaPdf) {
+                        const assinaturaSnap = await banco
+                            .collection("assinaturas_usuarios")
+                            .doc(usernameAssinaturaPdf)
+                            .get();
+
+                        if (assinaturaSnap.exists) {
+                            const dadosAssinatura =
+                                assinaturaSnap.data() || {};
+                            assinaturaPngUrl = String(
+                                dadosAssinatura.pngUrl ||
+                                dadosAssinatura.url ||
+                                ""
+                            ).trim();
+                        }
+                    }
 
                     const escaparHtmlPdf = valor => String(
                         valor === null || valor === undefined
@@ -8571,6 +8605,14 @@ async function renderizarPainelSecretarioFrequencia(
                     const logoHtml = logoUrl
                         ? `<img class="logo" src="${escaparHtmlPdf(logoUrl)}" alt="Logo do clube">`
                         : "";
+                    const assinaturaDigitalHtml = assinaturaPngUrl
+                        ? `<div class="assinatura-digital">
+                               <span>Assinatura digital aprovada</span>
+                               <img src="${escaparHtmlPdf(assinaturaPngUrl)}" alt="Assinatura digital">
+                           </div>`
+                        : `<div class="assinatura-digital assinatura-ausente">
+                               Assinatura digital não cadastrada
+                           </div>`;
                     const frequencia = registroAtual || {};
                     const presentes = Array.isArray(frequencia.presentes)
                         ? frequencia.presentes.length
@@ -8612,6 +8654,9 @@ tr:nth-child(even) { background: #f5f8fa; }
 .texto { min-height: 42px; white-space: pre-wrap; border: 1px solid #c5d1da; padding: 8px; border-radius: 5px; }
 .assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 42px; page-break-inside: avoid; }
 .assinatura { text-align: center; padding-top: 9px; border-top: 1px solid #17202a; }
+.assinatura-digital { display: flex; flex-direction: column; align-items: center; gap: 5px; min-height: 78px; margin-bottom: 14px; color: #52606d; font-size: 8px; }
+.assinatura-digital img { max-width: 190px; max-height: 68px; object-fit: contain; }
+.assinatura-ausente { justify-content: center; border: 1px dashed #c5d1da; padding: 8px; }
 .rodape { margin-top: 18px; color: #687782; font-size: 8px; text-align: center; }
 @media print { .nao-imprimir { display: none; } }
 </style>
@@ -8647,6 +8692,7 @@ tr:nth-child(even) { background: #f5f8fa; }
 <h3>Patrimônio e materiais</h3>
 <div class="texto">${escaparHtmlPdf(patrimonio.value.trim() || "Nenhuma informação patrimonial registrada.")}</div>
 <div class="assinaturas">
+    ${assinaturaDigitalHtml}
     <div class="assinatura">Secretário(a) da Unidade  
   
 Nome e assinatura</div>
