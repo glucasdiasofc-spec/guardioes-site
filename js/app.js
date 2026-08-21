@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.370.0 - versão alpha";
+const VERSAO_ATUAL = "v0.371.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -10184,11 +10184,59 @@ async function carregarPerfilDoUsuario() {
 
     try {
         const banco = window.ClubeDB.textoDB;
-        const snapshotUsuario = await banco
+        const usuarioAuthAtual = window.ClubeDB.loginDB
+            ? window.ClubeDB.loginDB.currentUser
+            : null;
+
+        let snapshotUsuario = await banco
             .collection("usuarios")
             .where("username", "==", username)
             .limit(1)
             .get();
+
+        if (
+            snapshotUsuario.empty &&
+            usuarioAuthAtual &&
+            usuarioAuthAtual.uid
+        ) {
+            const documentoPorUid = await banco
+                .collection("usuarios")
+                .doc(usuarioAuthAtual.uid)
+                .get();
+
+            if (documentoPorUid.exists) {
+                snapshotUsuario = {
+                    empty: false,
+                    docs: [documentoPorUid]
+                };
+            }
+        }
+
+        if (
+            snapshotUsuario.empty &&
+            usuarioAuthAtual &&
+            usuarioAuthAtual.email
+        ) {
+            const usernameDoEmail = String(
+                usuarioAuthAtual.email
+            )
+                .split("@")[0]
+                .trim()
+                .toLowerCase();
+
+            if (
+                usernameDoEmail &&
+                usernameDoEmail !== String(username || "")
+                    .trim()
+                    .toLowerCase()
+            ) {
+                snapshotUsuario = await banco
+                    .collection("usuarios")
+                    .where("username", "==", usernameDoEmail)
+                    .limit(1)
+                    .get();
+            }
+        }
 
         if (snapshotUsuario.empty) {
             if (nomeEl) {
@@ -10208,13 +10256,29 @@ async function carregarPerfilDoUsuario() {
             }
             if (vazioEl) {
                 vazioEl.style.display = "block";
-                vazioEl.textContent = "Não foi possível localizar os dados deste perfil.";
+                vazioEl.textContent =
+                    "Não foi possível localizar os dados deste perfil.";
             }
             return;
         }
 
-
         const dados = snapshotUsuario.docs[0].data() || {};
+        const usernameCanonico = String(
+            dados.username || ""
+        ).trim().toLowerCase();
+
+        if (
+            usernameCanonico &&
+            usernameCanonico !== String(username || "")
+                .trim()
+                .toLowerCase()
+        ) {
+            localStorage.setItem(
+                "usernameLogado",
+                usernameCanonico
+            );
+        }
+
         const usuarioFirebase = window.ClubeDB.loginDB
             ? window.ClubeDB.loginDB.currentUser
             : null;
