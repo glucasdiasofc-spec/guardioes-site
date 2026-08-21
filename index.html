@@ -184,10 +184,26 @@
         </div>
 
         <div class="formulario-admin">
-            <input type="text" id="edit-membro-nome-real" placeholder="Nome Completo">
-            <input type="text" id="edit-membro-nome-assinatura" placeholder="Nome completo para aparecer na assinatura">
-            <input type="text" id="edit-membro-cargo-assinatura" placeholder="Cargo para aparecer na assinatura">
-            <input type="text" id="edit-membro-username" placeholder="Nome de Usuário">
+            <label style="display: flex; flex-direction: column; gap: 5px; color: #d7d9db; font-size: 11px;">
+                Nome completo do cadastro
+                <input type="text" id="edit-membro-nome-real" placeholder="Nome Completo">
+            </label>
+
+            <label style="display: flex; flex-direction: column; gap: 5px; color: #d7d9db; font-size: 11px;">
+                Nome completo para aparecer na assinatura
+                <input type="text" id="edit-membro-nome-assinatura" placeholder="Ex.: Teste Assinatura da Silva" style="text-transform: none;">
+            </label>
+
+            <label style="display: flex; flex-direction: column; gap: 5px; color: #d7d9db; font-size: 11px;">
+                Cargo para aparecer na assinatura
+                <input type="text" id="edit-membro-cargo-assinatura" placeholder="Ex.: Secretário(a) de Unidade" style="text-transform: none;">
+            </label>
+
+            <label style="display: flex; flex-direction: column; gap: 5px; color: #d7d9db; font-size: 11px;">
+                Nome de usuário para login
+                <input type="text" id="edit-membro-username" placeholder="Ex.: teste" autocomplete="username" autocapitalize="none" spellcheck="false">
+            </label>
+            
             <input type="password" id="edit-membro-senha" placeholder="Deixe em branco para manter a senha atual" autocomplete="new-password">
 
             <select id="edit-membro-tipo" onchange="controlarExibicaoSelecaoUnidadeEdicao( )">
