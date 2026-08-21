@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.372.0 - versão alpha";
+const VERSAO_ATUAL = "v0.373.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9314,12 +9314,36 @@ tr:nth-child(even) { background: #f5f8fa; }
                         .doc(dataId)
                         .delete();
 
-                    eventosPorData.delete(dataId);
+                    const eventoCentralPreservado =
+                        eventosPorData.get(dataId) || {};
+                    const statusEventoPreservado = String(
+                        eventoCentralPreservado.eventoCentralStatus ||
+                        eventoCentralPreservado.status ||
+                        "ativo"
+                    ).trim().toLowerCase();
+
+                    if (
+                        eventoCentralPreservado.eventoCentral === true &&
+                        statusEventoPreservado !== "cancelado"
+                    ) {
+                        eventosPorData.set(dataId, {
+                            ...eventoCentralPreservado,
+                            presentes: [],
+                            faltas: [],
+                            justificados: [],
+                            statusPorMembro: {},
+                            justificativasPorMembro: {},
+                            frequenciaSalva: false
+                        });
+                    } else {
+                        eventosPorData.delete(dataId);
+                    }
+
                     detalhe.innerHTML = "";
                     detalhe.style.display = "none";
                     renderizarCalendario();
                     status.textContent =
-                        "Chamada apagada com sucesso.";
+                        "Chamada apagada com sucesso. O evento continua no calendário.";
                 } catch (erro) {
                     console.error(
                         "Erro ao apagar frequência:",
