@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.368.0 - versão alpha";
+const VERSAO_ATUAL = "v0.369.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -10191,8 +10191,28 @@ async function carregarPerfilDoUsuario() {
             .get();
 
         if (snapshotUsuario.empty) {
+            if (nomeEl) {
+                nomeEl.textContent = username || "Usuário";
+            }
+            if (cargoEl) {
+                cargoEl.textContent = "Membro";
+            }
+            if (unidadeEl) {
+                unidadeEl.textContent = "Sem Unidade";
+            }
+            if (nascimentoEl) {
+                nascimentoEl.textContent = "Nascido em: --/--/----";
+            }
+            if (avatarEl) {
+                avatarEl.src = avatarPadrao;
+            }
+            if (vazioEl) {
+                vazioEl.style.display = "block";
+                vazioEl.textContent = "Não foi possível localizar os dados deste perfil.";
+            }
             return;
         }
+
 
         const dados = snapshotUsuario.docs[0].data() || {};
         const usuarioFirebase = window.ClubeDB.loginDB
@@ -10480,8 +10500,40 @@ async function carregarPerfilDoUsuario() {
         }
     } catch (erro) {
         console.error("Erro ao carregar dados do perfil:", erro);
+
+        if (nomeEl && nomeEl.textContent === "Carregando...") {
+            nomeEl.textContent = username || "Usuário";
+        }
+
+        if (cargoEl && cargoEl.textContent === "Carregando...") {
+            cargoEl.textContent = "Membro";
+        }
+
+        if (unidadeEl && unidadeEl.textContent === "Carregando...") {
+            unidadeEl.textContent = "Sem Unidade";
+        }
+
+        if (nascimentoEl && nascimentoEl.textContent === "Carregando...") {
+            nascimentoEl.textContent = "Nascido em: --/--/----";
+        }
+
+        if (avatarEl && !avatarEl.getAttribute("src")) {
+            avatarEl.src = avatarPadrao;
+        }
+
+        if (gridEl) {
+            gridEl.innerHTML = "";
+            gridEl.style.display = "none";
+        }
+
+        if (vazioEl) {
+            vazioEl.style.display = "block";
+            vazioEl.textContent =
+                "Não foi possível carregar as publicações agora.";
+        }
     }
 }
+
 
 // Alternar sub-abas do próprio perfil (Publicações vs Conquistas)
 function mudarSubTabPerfil(subAba) {
