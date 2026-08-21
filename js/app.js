@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.375.0 - versão alpha";
+const VERSAO_ATUAL = "v0.376.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9339,6 +9339,7 @@ tr:nth-child(even) { background: #f5f8fa; }
                         eventosPorData.delete(dataId);
                     }
 
+                    calendario.dataset.diaSelecionado = dataId;
                     detalhe.innerHTML = "";
                     detalhe.style.display = "none";
                     renderizarCalendario();
@@ -9591,10 +9592,15 @@ tr:nth-child(even) { background: #f5f8fa; }
             const existeEventoCentral = Boolean(
                 evento && evento.eventoCentral === true
             );
+            const possuiStatusDeFrequencia = Boolean(
+                evento &&
+                evento.statusPorMembro &&
+                Object.keys(evento.statusPorMembro).length > 0
+            );
             const frequenciaSalva = Boolean(
                 evento && (
                     evento.frequenciaSalva === true ||
-                    evento.statusPorMembro
+                    possuiStatusDeFrequencia
                 )
             );
             const diaSelecionado =
