@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.367.0 - versão alpha";
+const VERSAO_ATUAL = "v0.368.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8522,8 +8522,11 @@ async function renderizarPainelSecretarioFrequencia(
                         ""
                     ).trim().toLowerCase();
                     let assinaturaPngUrl = "";
+                    let nomeAssinaturaPdf = usernameAssinaturaPdf;
+                    let cargoAssinaturaPdf = "Responsável";
 
                     if (usernameAssinaturaPdf) {
+
                         const assinaturaSnap = await banco
                             .collection("assinaturas_usuarios")
                             .doc(usernameAssinaturaPdf)
@@ -8537,6 +8540,16 @@ async function renderizarPainelSecretarioFrequencia(
                                 dadosAssinatura.url ||
                                 ""
                             ).trim();
+                            nomeAssinaturaPdf = String(
+                                dadosAssinatura.nomeAssinatura ||
+                                dadosAssinatura.nomeUsuario ||
+                                usernameAssinaturaPdf
+                            ).trim();
+                            cargoAssinaturaPdf = String(
+                                dadosAssinatura.cargoAssinatura ||
+                                "Responsável"
+                            ).trim();
+
                         }
                     }
 
@@ -8652,11 +8665,14 @@ th { background: #173b57; color: #fff; padding: 6px 4px; text-align: left; }
 td { border: 1px solid #c5d1da; padding: 5px 4px; vertical-align: top; }
 tr:nth-child(even) { background: #f5f8fa; }
 .texto { min-height: 42px; white-space: pre-wrap; border: 1px solid #c5d1da; padding: 8px; border-radius: 5px; }
-.assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 42px; page-break-inside: avoid; }
-.assinatura { text-align: center; padding-top: 9px; border-top: 1px solid #17202a; }
-.assinatura-digital { display: flex; flex-direction: column; align-items: center; gap: 5px; min-height: 78px; margin-bottom: 14px; color: #52606d; font-size: 8px; }
-.assinatura-digital img { max-width: 190px; max-height: 68px; object-fit: contain; }
+.assinaturas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: end; margin-top: 30px; page-break-inside: avoid; }
+.bloco-assinatura { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; min-width: 0; min-height: 142px; text-align: center; }
+.assinatura-digital { display: flex; align-items: center; justify-content: flex-end; height: 78px; margin: 0; color: #52606d; font-size: 8px; }
+.assinatura-digital img { display: block; width: auto; max-width: 100%; height: 68px; max-height: 68px; object-fit: contain; margin: 0 auto; }
 .assinatura-ausente { justify-content: center; border: 1px dashed #c5d1da; padding: 8px; }
+.linha-assinatura { width: 100%; height: 1px; margin-top: 4px; border-top: 1px solid #17202a; }
+.nome-assinatura { margin-top: 7px; color: #17202a; font-size: 10px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.cargo-assinatura { margin-top: 3px; color: #52606d; font-size: 9px; line-height: 1.25; overflow-wrap: anywhere; }
 .rodape { margin-top: 18px; color: #687782; font-size: 8px; text-align: center; }
 @media print { .nao-imprimir { display: none; } }
 </style>
@@ -8692,13 +8708,18 @@ tr:nth-child(even) { background: #f5f8fa; }
 <h3>Patrimônio e materiais</h3>
 <div class="texto">${escaparHtmlPdf(patrimonio.value.trim() || "Nenhuma informação patrimonial registrada.")}</div>
 <div class="assinaturas">
-    ${assinaturaDigitalHtml}
-    <div class="assinatura">Secretário(a) da Unidade  
-  
-Nome e assinatura</div>
-    <div class="assinatura">Responsável pela Unidade  
-  
-Nome e assinatura</div>
+    <div class="bloco-assinatura">
+        ${assinaturaDigitalHtml}
+        <div class="linha-assinatura"></div>
+        <div class="nome-assinatura">${escaparHtmlPdf(nomeAssinaturaPdf || "Nome não informado")}</div>
+        <div class="cargo-assinatura">${escaparHtmlPdf(cargoAssinaturaPdf || "Cargo não informado")}</div>
+    </div>
+    <div class="bloco-assinatura">
+        <div class="assinatura-digital assinatura-ausente">Assinatura física</div>
+        <div class="linha-assinatura"></div>
+        <div class="nome-assinatura">Responsável pela Unidade</div>
+        <div class="cargo-assinatura">Assinatura física</div>
+    </div>
 </div>
 <div class="rodape">Documento gerado pelo Clube Guardiões · ${escaparHtmlPdf(new Date().toLocaleString("pt-BR"))}</div>
 </body>
@@ -16213,6 +16234,33 @@ async function salvarEdicaoMembroAdmin() {
                 });
                 await assinaturaAntigaRef.delete();
             }
+        }
+
+        const assinaturaAtualSnap = await assinaturaNovaRef.get();
+
+        if (
+            assinaturaAtualSnap.exists &&
+            !urlAssinaturaNova
+        ) {
+            await assinaturaNovaRef.set({
+                ...assinaturaAtualSnap.data(),
+                username: usernameNovo,
+                nomeAssinatura:
+                    dadosBasicos.nomeAssinatura ||
+                    dadosBasicos.nomeReal,
+                cargoAssinatura:
+                    dadosBasicos.cargoAssinatura ||
+                    dadosBasicos.cargo ||
+                    "Responsável",
+                nomeUsuario: dadosBasicos.nomeReal,
+                atualizadoPor: localStorage.getItem(
+                    "usernameLogado"
+                ) || "admin",
+                atualizadoEm:
+                    firebase.firestore.FieldValue.serverTimestamp()
+            }, {
+                merge: true
+            });
         }
 
         alert(`🎉 Membro ${dadosAtualizados.nomeReal} atualizado com sucesso!`);
