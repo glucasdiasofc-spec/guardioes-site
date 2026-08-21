@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.377.0 - versão alpha";
+const VERSAO_ATUAL = "v0.378.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13286,7 +13286,8 @@ function nomeFuncaoCargo(funcao) {
     const nomes = {
         nenhuma: "Nenhuma função adicional",
         secretario_unidade: "Secretário(a) de Unidade",
-        secretario_clube: "Secretário(a) do Clube"
+        secretario_clube: "Secretário(a) do Clube",
+        conselheiro_unidade: "Conselheiro(a) de Unidade"
     };
     return nomes[funcao] || "Função personalizada";
 }
