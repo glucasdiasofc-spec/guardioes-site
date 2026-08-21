@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.362.0 - versão alpha";
+const VERSAO_ATUAL = "v0.363.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8365,8 +8365,34 @@ async function renderizarPainelSecretarioFrequencia(
         exportarPdf.addEventListener(
             "click",
             async () => {
+                const janelaPdf = window.open(
+                    "",
+                    "_blank",
+                    "width=980,height=760"
+                );
+
+                if (!janelaPdf) {
+                    window.alert(
+                        "O navegador bloqueou a janela de impressão. Verifique as configurações de pop-up do navegador."
+                    );
+                    return;
+                }
+
                 exportarPdf.disabled = true;
                 exportarPdf.textContent = "Preparando PDF...";
+                janelaPdf.document.write(`
+                    <!doctype html>
+                    <html lang="pt-BR">
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>Preparando ficha em PDF</title>
+                    </head>
+                    <body style="font-family:Arial,sans-serif;padding:32px;color:#173b57">
+                        Preparando a ficha operacional...
+                    </body>
+                    </html>
+                `);
+                janelaPdf.document.close();
 
                 try {
                     const configuracaoSnap = await banco
@@ -8385,17 +8411,7 @@ async function renderizarPainelSecretarioFrequencia(
                         configuracao.nomeClube ||
                         "Clube Guardiões"
                     ).trim();
-                    const janelaPdf = window.open(
-                        "",
-                        "_blank",
-                        "width=980,height=760"
-                    );
 
-                    if (!janelaPdf) {
-                        throw new Error(
-                            "O navegador bloqueou a janela de impressão. Permita pop-ups para este site."
-                        );
-                    }
 
                     const escaparHtmlPdf = valor => String(
                         valor === null || valor === undefined
