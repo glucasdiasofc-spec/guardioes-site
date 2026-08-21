@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.366.0 - versão alpha";
+const VERSAO_ATUAL = "v0.367.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -15851,6 +15851,28 @@ async function prepararEdicaoMembro(id) {
 
         document.getElementById("edit-membro-id").value = id;
         document.getElementById("edit-membro-nome-real").value = dados.nomeReal || "";
+
+        const campoNomeAssinatura = document.getElementById(
+            "edit-membro-nome-assinatura"
+        );
+        const campoCargoAssinatura = document.getElementById(
+            "edit-membro-cargo-assinatura"
+        );
+
+        if (campoNomeAssinatura) {
+            campoNomeAssinatura.value =
+                dados.nomeAssinatura ||
+                dados.nomeReal ||
+                "";
+        }
+
+        if (campoCargoAssinatura) {
+            campoCargoAssinatura.value =
+                dados.cargoAssinatura ||
+                dados.cargo ||
+                "";
+        }
+
         document.getElementById("edit-membro-username").value = dados.username || "";
 
         // O campo vazio significa: manter a senha atual.
@@ -16009,8 +16031,21 @@ async function salvarEdicaoMembroAdmin() {
         : null;
     const senhaDigitada = document.getElementById("edit-membro-senha").value.trim();
 
+    const campoNomeAssinatura = document.getElementById(
+        "edit-membro-nome-assinatura"
+    );
+    const campoCargoAssinatura = document.getElementById(
+        "edit-membro-cargo-assinatura"
+    );
+
     const dadosBasicos = {
         nomeReal: document.getElementById("edit-membro-nome-real").value.trim(),
+        nomeAssinatura: campoNomeAssinatura
+            ? campoNomeAssinatura.value.trim()
+            : "",
+        cargoAssinatura: campoCargoAssinatura
+            ? campoCargoAssinatura.value.trim()
+            : "",
         username: document.getElementById("edit-membro-username").value.trim().toLowerCase(),
         tipo: document.getElementById("edit-membro-tipo").value,
         unidade: document.getElementById("edit-membro-unidade-vinculo").value,
@@ -16019,6 +16054,7 @@ async function salvarEdicaoMembroAdmin() {
         cargoFuncao: cargoSelecionado ? cargoSelecionado.funcao : "nenhuma",
         dataNascimento: document.getElementById("edit-membro-nascimento").value
     };
+
 
     if (
         !id ||
@@ -16124,6 +16160,13 @@ async function salvarEdicaoMembroAdmin() {
             await assinaturaNovaRef.set({
                 username: usernameNovo,
                 pngUrl: urlAssinaturaNova,
+                nomeAssinatura:
+                    dadosBasicos.nomeAssinatura ||
+                    dadosBasicos.nomeReal,
+                cargoAssinatura:
+                    dadosBasicos.cargoAssinatura ||
+                    dadosBasicos.cargo ||
+                    "Responsável",
                 nomeUsuario: dadosBasicos.nomeReal,
                 atualizadoPor: localStorage.getItem(
                     "usernameLogado"
@@ -16152,6 +16195,13 @@ async function salvarEdicaoMembroAdmin() {
                 await assinaturaNovaRef.set({
                     ...assinaturaAntigaSnap.data(),
                     username: usernameNovo,
+                    nomeAssinatura:
+                        dadosBasicos.nomeAssinatura ||
+                        dadosBasicos.nomeReal,
+                    cargoAssinatura:
+                        dadosBasicos.cargoAssinatura ||
+                        dadosBasicos.cargo ||
+                        "Responsável",
                     nomeUsuario: dadosBasicos.nomeReal,
                     atualizadoPor: localStorage.getItem(
                         "usernameLogado"
