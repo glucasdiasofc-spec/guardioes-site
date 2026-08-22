@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.400.0 - versão alpha";
+const VERSAO_ATUAL = "v0.401.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -2743,11 +2743,17 @@ function criarCardGrupoChat(
     const quantidade = Number(
         quantidadeParticipantes || 0
     );
+    const avatarPadraoGrupo = String(
+        window.AVATAR_GRUPO_PADRAO ||
+        window.AVATAR_USUARIO_PADRAO ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+     ).trim();
+    const avatarFallbackFinal =
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
     const imagem = String(
         fotoGrupoUrl ||
-        window.AVATAR_USUARIO_PADRAO ||
-        ""
-    );
+        avatarPadraoGrupo
+     ).trim() || avatarPadraoGrupo;
 
     return `
         <div
@@ -2757,7 +2763,13 @@ function criarCardGrupoChat(
             onclick="abrirSalaGrupoChat('${id}', '${nome.replace(/'/g, "\\'")}')"
             style="display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; transition: background-color 0.2s ease;"
         >
-            <img src="${imagem}" alt="Foto do grupo" style="width: 50px; height: 50px; flex-shrink: 0; border-radius: 50%; object-fit: cover; border: 1px solid #262626;">
+            <img
+                src="${imagem}"
+                alt="Foto do grupo"
+                data-fallback-grupo="0"
+                onerror="if (this.dataset.fallbackGrupo === '1') { this.onerror = null; this.src = '${avatarFallbackFinal}'; } else { this.dataset.fallbackGrupo = '1'; this.src = '${avatarPadraoGrupo}'; }"
+                style="width: 50px; height: 50px; flex-shrink: 0; border-radius: 50%; object-fit: cover; border: 1px solid #262626;"
+            >
             <div style="flex: 1; min-width: 0;">
                 <div style="display: flex; align-items: center; gap: 8px; color: #fff; font-size: 15px; font-weight: 600;">
                     <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${nome}</span>
@@ -2768,6 +2780,7 @@ function criarCardGrupoChat(
         </div>
     `;
 }
+
 
 
 function criarCardContatoChat(
