@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.382.0 - versão alpha";
+const VERSAO_ATUAL = "v0.383.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -85,52 +85,60 @@ async function executarLoginMembro() {
             "Validando...";
     }
 
-    /*
-     * =====================================================
-     * AUTENTICAÇÃO ÚNICA PELO FIREBASE AUTH
-     * =====================================================
-     *
-     * Agora tanto o administrador quanto os membros
-     * possuem uma sessão Firebase Authentication.
-     *
-     * Isso é importante porque o Cloudflare Worker
-     * precisa validar o Firebase ID Token antes de
-     * aceitar uma publicação.
-     */
-
     try {
-        /*
-         * Administrador:
-         *
-         * O campo de login continua sendo:
-         *
-         * admin
-         *
-         * Mas a autenticação real acontece por:
-         *
-         * admin@guardioesdbv.com
-         */
-        const ehAdministrador =
-            usuarioInput.toLowerCase() === "admin";
-
+        const entradaLogin = usuarioInput.trim().toLowerCase();
+        const ehAdministrador = entradaLogin === "admin";
+        const entradaEhEmail = entradaLogin.includes("@");
         const emailFirebase =
             ehAdministrador
                 ? "admin@guardioesdbv.com"
-                : `${usuarioInput.toLowerCase()}@guardioesdbv.com`;
+                : entradaEhEmail
+                    ? entradaLogin
+                    : `${entradaLogin}@guardioesdbv.com`;
 
-        /*
-         * Faz login real no Firebase Authentication.
-         */
         await window.ClubeDB.loginDB
             .signInWithEmailAndPassword(
                 emailFirebase,
                 senhaInput
             );
 
-        /*
-         * Salva a sessão local utilizada
-         * pelo restante do seu site.
-         */
+        let usernameSessao = ehAdministrador
+            ? "admin"
+            : entradaEhEmail
+                ? entradaLogin.split("@")[0]
+                : entradaLogin;
+
+        if (!ehAdministrador) {
+            const usuarioFirebase =
+                window.ClubeDB.loginDB.currentUser;
+
+            if (usuarioFirebase && usuarioFirebase.uid) {
+                try {
+                    const perfilSnap = await window.ClubeDB.textoDB
+                        .collection("usuarios")
+                        .doc(usuarioFirebase.uid)
+                        .get();
+
+                    if (perfilSnap.exists) {
+                        const dadosPerfil =
+                            perfilSnap.data() || {};
+                        const usernamePerfil = String(
+                            dadosPerfil.username || ""
+                        ).trim().toLowerCase();
+
+                        if (usernamePerfil) {
+                            usernameSessao = usernamePerfil;
+                        }
+                    }
+                } catch (erroPerfil) {
+                    console.warn(
+                        "Não foi possível sincronizar o username do perfil:",
+                        erroPerfil
+                    );
+                }
+            }
+        }
+
         localStorage.setItem(
             "sessaoAdminLogado",
             "true"
@@ -145,14 +153,9 @@ async function executarLoginMembro() {
 
         localStorage.setItem(
             "usernameLogado",
-            ehAdministrador
-                ? "admin"
-                : usuarioInput.toLowerCase()
+            usernameSessao
         );
 
-        /*
-         * Limpa os campos de login.
-         */
         document.getElementById(
             "login-username"
         ).value = "";
@@ -161,11 +164,6 @@ async function executarLoginMembro() {
             "login-senha"
         ).value = "";
 
-        /*
-         * =====================================================
-         * FLUXO DO ADMINISTRADOR
-         * =====================================================
-         */
         if (ehAdministrador) {
             document.getElementById(
                 "tela-login"
@@ -176,9 +174,7 @@ async function executarLoginMembro() {
             ).style.display = "flex";
 
             carregarUnidadesCadastradas();
-
             carregarMembrosCadastrados();
-
             carregarCargosParaSelect();
 
             if (
@@ -191,60 +187,41 @@ async function executarLoginMembro() {
             return;
         }
 
-        /*
-         * =====================================================
-         * FLUXO DOS MEMBROS
-         * =====================================================
-         *
-         * O membro continua indo diretamente para o site.
-         */
         document.getElementById(
             "tela-login"
         ).style.display = "none";
 
         irParaSite();
-
     } catch (erro) {
-
         console.error(
             "Erro de login:",
             erro
         );
 
-        /*
-         * Trata especificamente alguns erros comuns
-         * para facilitar a identificação do problema.
-         */
         if (
             erro &&
-            erro.code ===
-                "auth/user-not-found"
+            erro.code === "auth/user-not-found"
         ) {
             if (erroDisplay) {
                 erroDisplay.textContent =
                     "Usuário não encontrado.";
             }
-
         } else if (
             erro &&
-            erro.code ===
-                "auth/wrong-password"
+            erro.code === "auth/wrong-password"
         ) {
             if (erroDisplay) {
                 erroDisplay.textContent =
                     "Senha incorreta.";
             }
-
         } else if (
             erro &&
-            erro.code ===
-                "auth/invalid-credential"
+            erro.code === "auth/invalid-credential"
         ) {
             if (erroDisplay) {
                 erroDisplay.textContent =
                     "Usuário ou senha incorretos.";
             }
-
         } else {
             if (erroDisplay) {
                 erroDisplay.textContent =
@@ -253,6 +230,7 @@ async function executarLoginMembro() {
         }
     }
 }
+
 
 const VAPID_PUBLIC_KEY_PROPRIA = "BEqg1YF_tRSajW2-drR0Qv1d6BUpOUkUtYpJjlQG6y5wnjWGcQ4WP5y7ranaDKTCS3ovefcwCXToY-_tnsUE6q8";
 const WORKER_NOTIFICACOES_URL = "https://telegram.glucasdiasofc.workers.dev";
