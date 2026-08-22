@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.406.0 - versão alpha";
+const VERSAO_ATUAL = "v0.407.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -10072,6 +10072,871 @@ tr:nth-child(even) { background: #f5f8fa; }
 
 
 
+async function renderizarPainelConselheiroEventosUnidade(
+    container,
+    banco,
+    unidadeId,
+    nomeUnidade,
+    usernameLogado
+) {
+    const secao = document.createElement("section");
+    const titulo = document.createElement("h2");
+    const descricao = document.createElement("p");
+    const barraMes = document.createElement("div");
+    const voltarMes = document.createElement("button");
+    const avancarMes = document.createElement("button");
+    const tituloMes = document.createElement("strong");
+    const diasSemana = document.createElement("div");
+    const calendario = document.createElement("div");
+    const detalhe = document.createElement("div");
+    const status = document.createElement("p");
+    const criarEvento = document.createElement("button");
+    const nomesMeses = [
+        "JANEIRO",
+        "FEVEREIRO",
+        "MARÇO",
+        "ABRIL",
+        "MAIO",
+        "JUNHO",
+        "JULHO",
+        "AGOSTO",
+        "SETEMBRO",
+        "OUTUBRO",
+        "NOVEMBRO",
+        "DEZEMBRO"
+    ];
+    const nomesDias = [
+        "DOM",
+        "SEG",
+        "TER",
+        "QUA",
+        "QUI",
+        "SEX",
+        "SÁB"
+    ];
+    const tiposPadrao = [
+        {
+            id: "reuniao",
+            nome: "Reunião",
+            cor: "#58b7ff"
+        },
+        {
+            id: "acao",
+            nome: "Ação",
+            cor: "#20c997"
+        },
+        {
+            id: "acampamento",
+            nome: "Acampamento",
+            cor: "#f0ad4e"
+        },
+        {
+            id: "agenda",
+            nome: "Agenda",
+            cor: "#bd8cff"
+        },
+        {
+            id: "outra_atividade",
+            nome: "Outra atividade",
+            cor: "#a8a8a8"
+        }
+    ];
+    let mesAtual = new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        1
+    );
+    let diaSelecionado = "";
+    let eventos = [];
+    let tipos = tiposPadrao.map(item => ({
+        ...item
+    }));
+
+    const aplicarEstilo = (elemento, estilos) => {
+        Object.entries(estilos).forEach(
+            ([propriedade, valor]) => {
+                elemento.style[propriedade] = valor;
+            }
+        );
+    };
+
+    const criarDataId = data => [
+        data.getFullYear(),
+        String(data.getMonth() + 1).padStart(2, "0"),
+        String(data.getDate()).padStart(2, "0")
+    ].join("-");
+
+    const formatarDataLocal = dataId => {
+        const partes = String(dataId || "").split("-");
+        return partes.length === 3
+            ? `${partes[2]}/${partes[1]}/${partes[0]}`
+            : String(dataId || "");
+    };
+
+    const localizarTipo = evento => {
+        const tipoId = String(
+            evento && (
+                evento.tipoId ||
+                evento.tipo ||
+                ""
+            )
+        ).trim();
+
+        return tipos.find(tipo => tipo.id === tipoId) || {
+            id: tipoId || "outra_atividade",
+            nome: String(
+                evento && (
+                    evento.tipoNome ||
+                    evento.tipo ||
+                    "Outra atividade"
+                )
+            ).trim(),
+            cor: "#a8a8a8"
+        };
+    };
+
+    const prepararBotao = (
+        botao,
+        principal = false,
+        perigo = false
+    ) => {
+        botao.type = "button";
+        aplicarEstilo(botao, {
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "8px 10px",
+            border: "1px solid #3a3a3a",
+            borderRadius: "8px",
+            background: principal
+                ? "#0095f6"
+                : "#1c1c1c",
+            color: principal
+                ? "#fff"
+                : perigo
+                    ? "#ff8b8b"
+                    : "#d7d9db",
+            fontSize: "11px",
+            fontWeight: principal ? "700" : "400",
+            lineHeight: "1.2",
+            cursor: "pointer",
+            boxSizing: "border-box"
+        });
+    };
+
+    const prepararCampo = campo => {
+        aplicarEstilo(campo, {
+            display: "block",
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "9px 10px",
+            border: "1px solid #3a3a3a",
+            borderRadius: "8px",
+            background: "#1c1c1c",
+            color: "#fff",
+            fontSize: "12px"
+        });
+    };
+
+    const criarLabel = (texto, campo) => {
+        const label = document.createElement("label");
+        const legenda = document.createElement("span");
+
+        legenda.textContent = texto;
+        legenda.style.color = "#d7d9db";
+        legenda.style.fontSize = "11px";
+        label.style.display = "flex";
+        label.style.flexDirection = "column";
+        label.style.gap = "4px";
+        label.appendChild(legenda);
+        label.appendChild(campo);
+        return label;
+    };
+
+    const carregarTipos = async () => {
+        try {
+            const snapshot = await banco
+                .collection("configuracoes_clube")
+                .doc("tipos_eventos")
+                .get();
+            const dados = snapshot.exists
+                ? snapshot.data() || {}
+                : {};
+            const tiposSalvos = Array.isArray(dados.tipos)
+                ? dados.tipos
+                    .filter(item => item && item.ativo !== false)
+                    .map(item => ({
+                        id: String(item.id || "").trim(),
+                        nome: String(item.nome || "").trim(),
+                        cor: String(item.cor || "#a8a8a8").trim()
+                    }))
+                    .filter(item => item.id && item.nome)
+                : [];
+
+            if (tiposSalvos.length) {
+                tipos = tiposSalvos;
+            }
+        } catch (erro) {
+            console.warn(
+                "Não foi possível carregar os tipos de eventos do clube:",
+                erro
+            );
+        }
+    };
+
+    const carregarEventos = async () => {
+        status.textContent = "Carregando eventos...";
+
+        const [eventosCentrais, eventosUnidade] =
+            await Promise.all([
+                banco
+                    .collection("eventos_clube")
+                    .get(),
+                banco
+                    .collection("eventos_unidades")
+                    .doc(unidadeId)
+                    .collection("itens")
+                    .get()
+            ]);
+
+        const lista = [];
+
+        eventosCentrais.forEach(documento => {
+            const dados = documento.data() || {};
+            const data = String(dados.data || "").trim();
+
+            if (!data) {
+                return;
+            }
+
+            lista.push({
+                ...dados,
+                id: documento.id,
+                data,
+                origemEvento: "central",
+                somenteLeitura: true,
+                status: String(
+                    dados.status || "ativo"
+                ).trim().toLowerCase()
+            });
+        });
+
+        eventosUnidade.forEach(documento => {
+            const dados = documento.data() || {};
+            const data = String(dados.data || "").trim();
+
+            if (!data) {
+                return;
+            }
+
+            lista.push({
+                ...dados,
+                id: documento.id,
+                data,
+                unidadeId,
+                origemEvento: "unidade",
+                somenteLeitura: false,
+                status: String(
+                    dados.status || "ativo"
+                ).trim().toLowerCase()
+            });
+        });
+
+        eventos = lista.sort((a, b) => {
+            return String(a.data || "").localeCompare(
+                String(b.data || "")
+            );
+        });
+
+        status.textContent = "";
+    };
+
+    const renderizarDetalhe = () => {
+        detalhe.innerHTML = "";
+
+        if (!diaSelecionado) {
+            return;
+        }
+
+        const eventosDoDia = eventos.filter(evento => {
+            return String(evento.data || "") ===
+                diaSelecionado;
+        });
+
+        const cabecalho = document.createElement("div");
+        const tituloDia = document.createElement("strong");
+        const descricaoDia = document.createElement("p");
+
+        cabecalho.style.display = "flex";
+        cabecalho.style.flexDirection = "column";
+        cabecalho.style.gap = "4px";
+        tituloDia.textContent =
+            `Eventos de ${formatarDataLocal(diaSelecionado)}`;
+        tituloDia.style.color = "#fff";
+        tituloDia.style.fontSize = "14px";
+        descricaoDia.textContent = eventosDoDia.length
+            ? "Eventos centrais são informativos. Eventos da unidade podem ser administrados pelo Conselheiro."
+            : "Nenhum evento cadastrado para esta data.";
+        descricaoDia.style.margin = "0";
+        descricaoDia.style.color = "#8e9aa5";
+        descricaoDia.style.fontSize = "11px";
+        cabecalho.appendChild(tituloDia);
+        cabecalho.appendChild(descricaoDia);
+        detalhe.appendChild(cabecalho);
+
+        eventosDoDia.forEach(evento => {
+            const card = document.createElement("article");
+            const topo = document.createElement("div");
+            const tituloEvento = document.createElement("strong");
+            const tipo = document.createElement("span");
+            const descricaoEvento = document.createElement("p");
+            const origem = document.createElement("small");
+            const acoes = document.createElement("div");
+
+            aplicarEstilo(card, {
+                display: "flex",
+                flexDirection: "column",
+                gap: "7px",
+                padding: "11px",
+                border: `1px solid ${localizarTipo(evento).cor}`,
+                borderRadius: "10px",
+                background: evento.origemEvento === "central"
+                    ? "#101820"
+                    : "#12231f"
+            });
+            topo.style.display = "flex";
+            topo.style.alignItems = "center";
+            topo.style.gap = "8px";
+            tituloEvento.textContent = String(
+                evento.titulo || "Evento sem título"
+            );
+            tituloEvento.style.flex = "1";
+            tituloEvento.style.color = "#fff";
+            tituloEvento.style.fontSize = "13px";
+            tipo.textContent = localizarTipo(evento).nome;
+            tipo.style.color = localizarTipo(evento).cor;
+            tipo.style.fontSize = "10px";
+            tipo.style.fontWeight = "700";
+            descricaoEvento.textContent = String(
+                evento.descricao || "Sem descrição."
+            );
+            descricaoEvento.style.margin = "0";
+            descricaoEvento.style.color = "#c7d0d8";
+            descricaoEvento.style.fontSize = "11px";
+            origem.textContent = evento.origemEvento === "central"
+                ? "Evento central do clube · somente leitura"
+                : `Evento da unidade ${nomeUnidade}`;
+            origem.style.color = "#8e9aa5";
+            origem.style.fontSize = "10px";
+            acoes.style.display = "flex";
+            acoes.style.gap = "6px";
+            acoes.style.flexWrap = "wrap";
+
+            topo.appendChild(tituloEvento);
+            topo.appendChild(tipo);
+            card.appendChild(topo);
+            card.appendChild(descricaoEvento);
+            card.appendChild(origem);
+
+            if (evento.origemEvento === "unidade") {
+                const editar = document.createElement("button");
+                const apagar = document.createElement("button");
+
+                prepararBotao(editar);
+                editar.textContent = "Editar";
+                editar.addEventListener(
+                    "click",
+                    () => abrirFormularioEvento(evento)
+                );
+
+                prepararBotao(apagar, false, true);
+                apagar.textContent = "Apagar";
+                apagar.addEventListener(
+                    "click",
+                    async () => {
+                        if (!window.confirm(
+                            "Apagar este evento da unidade?"
+                        )) {
+                            return;
+                        }
+
+                        try {
+                            await banco
+                                .collection("eventos_unidades")
+                                .doc(unidadeId)
+                                .collection("itens")
+                                .doc(evento.id)
+                                .delete();
+                            await carregarEventos();
+                            renderizarCalendario();
+                            renderizarDetalhe();
+                            status.textContent =
+                                "Evento da unidade apagado.";
+                        } catch (erro) {
+                            console.error(
+                                "Erro ao apagar evento da unidade:",
+                                erro
+                            );
+                            window.alert(
+                                "Não foi possível apagar o evento. Verifique as regras do Firestore."
+                            );
+                        }
+                    }
+                );
+
+                acoes.appendChild(editar);
+                acoes.appendChild(apagar);
+                card.appendChild(acoes);
+            }
+
+            detalhe.appendChild(card);
+        });
+    };
+
+    const renderizarCalendario = () => {
+        calendario.innerHTML = "";
+        tituloMes.textContent =
+            `${nomesMeses[mesAtual.getMonth()]} ${mesAtual.getFullYear()}`;
+
+        const primeiroDia = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth(),
+            1
+        ).getDay();
+        const totalDias = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth() + 1,
+            0
+        ).getDate();
+        const hojeId = criarDataId(new Date());
+
+        for (let indice = 0; indice < primeiroDia; indice += 1) {
+            const vazio = document.createElement("div");
+            vazio.style.minHeight = "76px";
+            calendario.appendChild(vazio);
+        }
+
+        for (let dia = 1; dia <= totalDias; dia += 1) {
+            const data = new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth(),
+                dia
+            );
+            const dataId = criarDataId(data);
+            const eventosDoDia = eventos.filter(evento => {
+                return String(evento.data || "") === dataId;
+            });
+            const celula = document.createElement("button");
+            const numero = document.createElement("strong");
+            const lista = document.createElement("span");
+
+            prepararBotao(celula);
+            aplicarEstilo(celula, {
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "stretch",
+                justifyContent: "flex-start",
+                gap: "4px",
+                width: "100%",
+                minHeight: "76px",
+                padding: "6px 4px",
+                border: dataId === diaSelecionado
+                    ? "2px solid #0095f6"
+                    : dataId === hojeId
+                        ? "1px solid #58b7ff"
+                        : "1px solid #262626",
+                borderRadius: "6px",
+                background: dataId === diaSelecionado
+                    ? "#123d60"
+                    : eventosDoDia.length
+                        ? "#172b3b"
+                        : "#121212",
+                color: "#fff",
+                textAlign: "left",
+                boxSizing: "border-box"
+            });
+
+            numero.textContent = dataId === hojeId
+                ? `${dia} · HOJE`
+                : String(dia);
+            numero.style.color = dataId === diaSelecionado
+                ? "#8dccff"
+                : dataId === hojeId
+                    ? "#58b7ff"
+                    : "#d7d9db";
+            numero.style.fontSize = "11px";
+
+            lista.style.display = "flex";
+            lista.style.flexDirection = "column";
+            lista.style.gap = "2px";
+            lista.style.color = "#d7d9db";
+            lista.style.fontSize = "9px";
+            lista.style.overflow = "hidden";
+
+            eventosDoDia.slice(0, 2).forEach(evento => {
+                const item = document.createElement("span");
+                const tipo = localizarTipo(evento);
+                item.textContent = evento.origemEvento === "central"
+                    ? `Clube · ${tipo.nome}`
+                    : `Unidade · ${tipo.nome}`;
+                item.style.color = tipo.cor;
+                item.style.overflow = "hidden";
+                item.style.textOverflow = "ellipsis";
+                item.style.whiteSpace = "nowrap";
+                lista.appendChild(item);
+            });
+
+            if (eventosDoDia.length > 2) {
+                const mais = document.createElement("span");
+                mais.textContent =
+                    `+ ${eventosDoDia.length - 2} evento(s)`;
+                mais.style.color = "#8e9aa5";
+                lista.appendChild(mais);
+            }
+
+            celula.appendChild(numero);
+            celula.appendChild(lista);
+            celula.addEventListener(
+                "click",
+                () => {
+                    diaSelecionado = dataId;
+                    renderizarCalendario();
+                    renderizarDetalhe();
+                }
+            );
+            calendario.appendChild(celula);
+        }
+    };
+
+    const abrirFormularioEvento = eventoAtual => {
+        const formulario = document.createElement("form");
+        const tituloFormulario = document.createElement("strong");
+        const data = document.createElement("input");
+        const tipo = document.createElement("select");
+        const tituloEvento = document.createElement("input");
+        const descricaoEvento = document.createElement("textarea");
+        const situacao = document.createElement("select");
+        const acoes = document.createElement("div");
+        const fechar = document.createElement("button");
+        const salvar = document.createElement("button");
+
+        formulario.style.display = "flex";
+        formulario.style.flexDirection = "column";
+        formulario.style.gap = "9px";
+        formulario.style.padding = "14px";
+        formulario.style.marginBottom = "10px";
+        formulario.style.border = "1px solid #20c997";
+        formulario.style.borderRadius = "12px";
+        formulario.style.background = "#0d0d0d";
+
+        tituloFormulario.textContent = eventoAtual
+            ? "Editar evento da unidade"
+            : "Novo evento da unidade";
+        tituloFormulario.style.color = "#fff";
+        tituloFormulario.style.fontSize = "14px";
+
+        data.type = "date";
+        data.value = eventoAtual && eventoAtual.data
+            ? String(eventoAtual.data)
+            : diaSelecionado || criarDataId(new Date());
+        data.required = true;
+        prepararCampo(data);
+
+        tipos.forEach(item => {
+            const option = document.createElement("option");
+            option.value = item.id;
+            option.textContent = item.nome;
+            tipo.appendChild(option);
+        });
+        tipo.value = eventoAtual
+            ? String(
+                eventoAtual.tipoId ||
+                eventoAtual.tipo ||
+                ""
+            )
+            : tipos[0]
+                ? tipos[0].id
+                : "reuniao";
+        prepararCampo(tipo);
+
+        tituloEvento.type = "text";
+        tituloEvento.placeholder = "Título do evento";
+        tituloEvento.value = eventoAtual
+            ? String(eventoAtual.titulo || "")
+            : "";
+        tituloEvento.required = true;
+        tituloEvento.maxLength = 160;
+        prepararCampo(tituloEvento);
+
+        descricaoEvento.rows = 3;
+        descricaoEvento.placeholder =
+            "Descrição ou orientações (opcional)";
+        descricaoEvento.value = eventoAtual
+            ? String(eventoAtual.descricao || "")
+            : "";
+        prepararCampo(descricaoEvento);
+
+        const ativo = document.createElement("option");
+        const cancelado = document.createElement("option");
+        ativo.value = "ativo";
+        ativo.textContent = "Evento ativo";
+        cancelado.value = "cancelado";
+        cancelado.textContent = "Evento cancelado";
+        situacao.appendChild(ativo);
+        situacao.appendChild(cancelado);
+        situacao.value = eventoAtual &&
+            eventoAtual.status === "cancelado"
+            ? "cancelado"
+            : "ativo";
+        prepararCampo(situacao);
+
+        prepararBotao(fechar);
+        fechar.textContent = "Fechar";
+        prepararBotao(salvar, true);
+        salvar.type = "submit";
+        salvar.textContent = eventoAtual
+            ? "Salvar alterações"
+            : "Criar evento";
+        acoes.style.display = "flex";
+        acoes.style.justifyContent = "flex-end";
+        acoes.style.gap = "8px";
+        acoes.style.flexWrap = "wrap";
+        acoes.appendChild(fechar);
+        acoes.appendChild(salvar);
+
+        formulario.appendChild(tituloFormulario);
+        formulario.appendChild(
+            criarLabel("Data", data)
+        );
+        formulario.appendChild(
+            criarLabel("Tipo de evento", tipo)
+        );
+        formulario.appendChild(
+            criarLabel("Título", tituloEvento)
+        );
+        formulario.appendChild(
+            criarLabel("Descrição", descricaoEvento)
+        );
+        formulario.appendChild(
+            criarLabel("Situação", situacao)
+        );
+        formulario.appendChild(acoes);
+
+        fechar.addEventListener(
+            "click",
+            () => formulario.remove()
+        );
+        formulario.addEventListener(
+            "submit",
+            async eventoSubmit => {
+                eventoSubmit.preventDefault();
+                const dataValor = String(
+                    data.value || ""
+                ).trim();
+                const tipoValor = String(
+                    tipo.value || ""
+                ).trim();
+                const tituloValor = String(
+                    tituloEvento.value || ""
+                ).trim();
+                const tipoSelecionado = tipos.find(item => {
+                    return item.id === tipoValor;
+                }) || tiposPadrao[0];
+
+                if (!dataValor || !tituloValor) {
+                    window.alert(
+                        "Informe a data e o título do evento."
+                    );
+                    return;
+                }
+
+                salvar.disabled = true;
+                salvar.textContent = "Salvando...";
+
+                const dadosEvento = {
+                    data: dataValor,
+                    tipoId: tipoSelecionado.id,
+                    tipoNome: tipoSelecionado.nome,
+                    titulo: tituloValor,
+                    descricao: String(
+                        descricaoEvento.value || ""
+                    ).trim(),
+                    status: situacao.value === "cancelado"
+                        ? "cancelado"
+                        : "ativo",
+                    unidadeId,
+                    unidade: nomeUnidade,
+                    origemEvento: "unidade",
+                    atualizadoPor: usernameLogado,
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                try {
+                    const referencia = banco
+                        .collection("eventos_unidades")
+                        .doc(unidadeId)
+                        .collection("itens");
+
+                    if (eventoAtual && eventoAtual.id) {
+                        await referencia
+                            .doc(eventoAtual.id)
+                            .set(dadosEvento, {
+                                merge: true
+                            });
+                    } else {
+                        await referencia.add({
+                            ...dadosEvento,
+                            criadoPor: usernameLogado,
+                            criadoEm:
+                                firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+
+                    diaSelecionado = dataValor;
+                    await carregarEventos();
+                    formulario.remove();
+                    renderizarCalendario();
+                    renderizarDetalhe();
+                    status.textContent =
+                        "Evento da unidade salvo com sucesso.";
+                } catch (erro) {
+                    console.error(
+                        "Erro ao salvar evento da unidade:",
+                        erro
+                    );
+                    window.alert(
+                        "Não foi possível salvar o evento da unidade. Verifique as regras do Firestore."
+                    );
+                    salvar.disabled = false;
+                    salvar.textContent = eventoAtual
+                        ? "Salvar alterações"
+                        : "Criar evento";
+                }
+            }
+        );
+
+        detalhe.prepend(formulario);
+    };
+
+    aplicarEstilo(secao, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        marginTop: "16px",
+        padding: "14px",
+        border: "1px solid #26384a",
+        borderRadius: "14px",
+        background: "#0d1115"
+    });
+    titulo.textContent = "Calendário da unidade";
+    titulo.style.margin = "0";
+    titulo.style.fontSize = "16px";
+    descricao.textContent =
+        "Eventos centrais aparecem como referência. O Conselheiro pode administrar somente os eventos desta unidade.";
+    descricao.style.margin = "0";
+    descricao.style.color = "#a8a8a8";
+    descricao.style.fontSize = "11px";
+    descricao.style.lineHeight = "1.5";
+
+    barraMes.style.display = "flex";
+    barraMes.style.alignItems = "center";
+    barraMes.style.justifyContent = "space-between";
+    barraMes.style.gap = "8px";
+    barraMes.style.flexWrap = "wrap";
+    prepararBotao(voltarMes);
+    voltarMes.textContent = "‹";
+    prepararBotao(avancarMes);
+    avancarMes.textContent = "›";
+    tituloMes.style.flex = "1";
+    tituloMes.style.textAlign = "center";
+    tituloMes.style.fontSize = "13px";
+    tituloMes.style.color = "#fff";
+    barraMes.appendChild(voltarMes);
+    barraMes.appendChild(tituloMes);
+    barraMes.appendChild(avancarMes);
+
+    diasSemana.style.display = "grid";
+    diasSemana.style.gridTemplateColumns =
+        "repeat(7, minmax(0, 1fr))";
+    diasSemana.style.gap = "4px";
+    nomesDias.forEach(nomeDia => {
+        const dia = document.createElement("span");
+        dia.textContent = nomeDia;
+        dia.style.color = "#8e9aa5";
+        dia.style.fontSize = "9px";
+        dia.style.textAlign = "center";
+        diasSemana.appendChild(dia);
+    });
+
+    calendario.style.display = "grid";
+    calendario.style.gridTemplateColumns =
+        "repeat(7, minmax(0, 1fr))";
+    calendario.style.gap = "4px";
+
+    detalhe.style.display = "flex";
+    detalhe.style.flexDirection = "column";
+    detalhe.style.gap = "8px";
+
+    prepararBotao(criarEvento, true);
+    criarEvento.textContent = "Criar evento da unidade";
+    criarEvento.style.width = "100%";
+    criarEvento.addEventListener(
+        "click",
+        () => abrirFormularioEvento(null)
+    );
+
+    status.style.margin = "0";
+    status.style.color = "#8e9aa5";
+    status.style.fontSize = "10px";
+
+    voltarMes.addEventListener(
+        "click",
+        () => {
+            mesAtual = new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth() - 1,
+                1
+            );
+            renderizarCalendario();
+        }
+    );
+    avancarMes.addEventListener(
+        "click",
+        () => {
+            mesAtual = new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth() + 1,
+                1
+            );
+            renderizarCalendario();
+        }
+    );
+
+    secao.appendChild(titulo);
+    secao.appendChild(descricao);
+    secao.appendChild(barraMes);
+    secao.appendChild(diasSemana);
+    secao.appendChild(calendario);
+    secao.appendChild(detalhe);
+    secao.appendChild(criarEvento);
+    secao.appendChild(status);
+    container.appendChild(secao);
+
+    try {
+        await carregarTipos();
+        await carregarEventos();
+        renderizarCalendario();
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar calendário do Conselheiro:",
+            erro
+        );
+        status.textContent =
+            "Não foi possível carregar os eventos da unidade.";
+    }
+}
+
 async function abrirPainelUnidade() {
     const username = String(
         localStorage.getItem("usernameLogado") || ""
@@ -10436,13 +11301,21 @@ async function abrirPainelUnidade() {
             tituloFuncoes.style.fontSize = "16px";
             const aviso = document.createElement("p");
             aviso.textContent =
-                "Este painel pertence exclusivamente à sua unidade. A criação de eventos e o fluxo de relatórios da unidade serão exibidos aqui.";
+                "Este painel pertence exclusivamente à sua unidade. Eventos centrais são informativos; eventos da unidade podem ser administrados pelo Conselheiro.";
             aviso.style.color = "#a8a8a8";
             aviso.style.fontSize = "13px";
             aviso.style.lineHeight = "1.5";
             conteudo.appendChild(tituloFuncoes);
             conteudo.appendChild(aviso);
+            await renderizarPainelConselheiroEventosUnidade(
+                conteudo,
+                banco,
+                unidadeId,
+                nomeExibicao,
+                username
+            );
         } else {
+
 
             const vazio = document.createElement("p");
             vazio.textContent =
