@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.397.0 - versão alpha";
+const VERSAO_ATUAL = "v0.398.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1421,30 +1421,95 @@ function irParaPainel() {
 
 // Carrega os cargos cadastrados no Firestore para os campos de seleção de membros
 async function carregarCargosParaSelect() {
-    const selectCadastro = document.getElementById("membro-cargo");
-    const selectEdicao = document.getElementById("edit-membro-cargo");
+    const selectCadastro = document.getElementById(
+        "membro-cargo"
+    );
+    const selectEdicao = document.getElementById(
+        "edit-membro-cargo"
+    );
 
-    if (!selectCadastro && !selectEdicao) return;
+    if (!selectCadastro && !selectEdicao) {
+        return;
+    }
 
     try {
-        const db = window.ClubeDB ? window.ClubeDB.textoDB : firebase.firestore();
-        const snapshot = await db.collection("cargos").get();
+        const db = window.ClubeDB
+            ? window.ClubeDB.textoDB
+            : firebase.firestore();
+        const snapshot = await db
+            .collection("cargos")
+            .get();
 
-        let optionsHTML = '<option value="">Selecionar Cargo...</option>';
+        // O cache é necessário para que o cadastro reconheça
+        // conselheiro_unidade antes de o formulário ser enviado.
+        cargosAdminCache = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
 
-        snapshot.forEach((doc) => {
-            const data = doc.data();
-            const nomeCargo = data.nome || data.cargo || doc.id;
-            const funcaoCargo = data.funcao || "nenhuma";
-            optionsHTML += `<option value="${doc.id}" data-funcao="${funcaoCargo}">${nomeCargo}</option>`;
+        let optionsHTML =
+            '<option value="">Selecionar Cargo...</option>';
+
+        cargosAdminCache.forEach(cargo => {
+            const nomeCargo = String(
+                cargo.nome ||
+                cargo.cargo ||
+                cargo.id
+            );
+            const funcaoCargo = String(
+                cargo.funcao ||
+                "nenhuma"
+            ).trim();
+
+            optionsHTML +=
+                `<option value="${escaparHtml(cargo.id)}" data-funcao="${escaparHtml(funcaoCargo)}">${escaparHtml(nomeCargo)}</option>`;
         });
 
-        if (selectCadastro) selectCadastro.innerHTML = optionsHTML;
-        if (selectEdicao) selectEdicao.innerHTML = optionsHTML;
+        if (selectCadastro) {
+            const valorAnterior = selectCadastro.value;
+            selectCadastro.innerHTML = optionsHTML;
+
+            if (
+                valorAnterior &&
+                cargosAdminCache.some(
+                    cargo => cargo.id === valorAnterior
+                )
+            ) {
+                selectCadastro.value = valorAnterior;
+            }
+        }
+
+        if (selectEdicao) {
+            const valorAnterior = selectEdicao.value;
+            selectEdicao.innerHTML = optionsHTML;
+
+            if (
+                valorAnterior &&
+                cargosAdminCache.some(
+                    cargo => cargo.id === valorAnterior
+                )
+            ) {
+                selectEdicao.value = valorAnterior;
+            }
+        }
+
+        // Recalcula o estado inicial sem alterar o valor escolhido.
+        atualizarFuncaoCargoSelecionado(
+            "membro-cargo",
+            "membro-funcao-preview"
+        );
+        atualizarFuncaoCargoSelecionado(
+            "edit-membro-cargo",
+            "edit-membro-funcao-preview"
+        );
     } catch (erro) {
-        console.error("Erro ao carregar cargos para os selects:", erro);
+        console.error(
+            "Erro ao carregar cargos para os selects:",
+            erro
+        );
     }
 }
+
 
 // Atualiza a prévia da função associada ao cargo selecionado
 function atualizarFuncaoCargoSelecionado(selectId, previewId) {
