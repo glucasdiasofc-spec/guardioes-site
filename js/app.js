@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.388.0 - versão alpha";
+const VERSAO_ATUAL = "v0.389.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -1899,6 +1899,14 @@ async function carregarListaDeContatosChat() {
                 return;
             }
 
+            const contaArquivada =
+                usuario.statusConta === "arquivada" ||
+                usuario.contaAtiva === false;
+
+            if (contaArquivada) {
+                return;
+            }
+
             const contato = {
                 username,
                 nome: usuario.nomeReal || username,
@@ -1912,6 +1920,7 @@ async function carregarListaDeContatosChat() {
                     ] || 0
                 )
             };
+
 
             if (usuario.tipo === "Liderança") {
                 gruposIndividuais.lideranca.push(contato);
