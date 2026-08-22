@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.401.0 - versão alpha";
+const VERSAO_ATUAL = "v0.402.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -6238,8 +6238,11 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
             _salaGrupoAtiva.nomeGrupo,
             `${participantes.length} participantes`,
             _salaGrupoAtiva.fotoGrupoUrl ||
-                window.AVATAR_USUARIO_PADRAO
-        );
+                window.AVATAR_GRUPO_PADRAO ||
+                window.AVATAR_USUARIO_PADRAO ||
+                "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+         );
+
         configurarBotaoVisualizarMembrosGrupoChat(
             _salaGrupoAtiva
         );
@@ -6273,7 +6276,9 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
                 "chat-avatar-atual"
             );
             const foto = _salaGrupoAtiva.fotoGrupoUrl ||
-                window.AVATAR_USUARIO_PADRAO;
+                window.AVATAR_GRUPO_PADRAO ||
+                window.AVATAR_USUARIO_PADRAO ||
+                "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
 
             if (nomeEl) {
                 nomeEl.textContent =
@@ -6286,8 +6291,11 @@ async function abrirSalaGrupoChat(chatId, nomeGrupo) {
             if (avatarEl) {
                 avatarEl.src = foto;
                 avatarEl.onerror = () => {
+                    avatarEl.onerror = null;
                     avatarEl.src =
-                        window.AVATAR_USUARIO_PADRAO;
+                        window.AVATAR_GRUPO_PADRAO ||
+                        window.AVATAR_USUARIO_PADRAO ||
+                        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
                 };
             }
         };
