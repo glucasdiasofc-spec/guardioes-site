@@ -113,37 +113,95 @@ async function criarUnidade(nome, arquivoImagem) {
  * Cadastra um novo membro (Líder ou Desbravador) associando as permissões ocultas do Admin
  */
 async function cadastrarMembro(dadosMembro, arquivoImagem) {
+    let authCadastro = null;
+
     try {
-        let dadosFoto = { url: "", idPublico: "" };
+        let dadosFoto = {
+            url: "",
+            idPublico: ""
+        };
+
         if (arquivoImagem) {
-            dadosFoto = await uploadFotoCloudinary(arquivoImagem);
+            dadosFoto = await uploadFotoCloudinary(
+                arquivoImagem
+            );
         }
 
-        const emailBastidores = `${dadosMembro.username.toLowerCase()}@guardioesdbv.com`;
-        const credencial = await auth.createUserWithEmailAndPassword(emailBastidores, dadosMembro.senha);
+        const usernameNormalizado = String(
+            dadosMembro.username || ""
+        ).trim().toLowerCase();
+        const emailBastidores =
+            `${usernameNormalizado}@guardioesdbv.com`;
+
+        // Usa uma instância Auth separada para criar o membro.
+        // A instância principal continua autenticada como admin.
+        let appCadastro;
+
+        try {
+            appCadastro = firebase.app("cadastroMembros");
+        } catch (erroApp) {
+            appCadastro = firebase.initializeApp(
+                firebaseConfig,
+                "cadastroMembros"
+            );
+        }
+
+        authCadastro = appCadastro.auth();
+
+        const credencial = await authCadastro
+            .createUserWithEmailAndPassword(
+                emailBastidores,
+                dadosMembro.senha
+            );
         const uid = credencial.user.uid;
 
         await db.collection("usuarios").doc(uid).set({
-            username: dadosMembro.username.toLowerCase(),
+            username: usernameNormalizado,
             nomeReal: dadosMembro.nomeReal,
-            tipo: dadosMembro.tipo, // "Liderança" ou "Desbravador"
+            tipo: dadosMembro.tipo,
             cargo: dadosMembro.cargo,
-            unidade: dadosMembro.tipo === "Liderança" ? null : dadosMembro.unidade, // Líderes não têm unidade
+            cargoId: dadosMembro.cargoId || "",
+            cargoFuncao:
+                dadosMembro.cargoFuncao || "nenhuma",
+            // Lideranças comuns continuam sem unidade;
+            // Conselheiro(a) pode manter a unidade selecionada.
+            unidade: String(
+                dadosMembro.unidade || ""
+            ).trim() || null,
             fotoUrl: dadosFoto.url,
             fotoIdPublico: dadosFoto.idPublico,
             dataNascimento: dadosMembro.dataNascimento,
-            dataInvestidura: dadosMembro.dataInvestidura || null,
-            ocultoNaLideranca: dadosMembro.ocultoNaLideranca || false,
-            criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            dataInvestidura:
+                dadosMembro.dataInvestidura || null,
+            ocultoNaLideranca:
+                dadosMembro.ocultoNaLideranca || false,
+            criadoEm:
+                firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        console.log(`👤 Membro [${dadosMembro.username}] registrado com sucesso.`);
+        console.log(
+            `👤 Membro [${usernameNormalizado}] registrado com sucesso.`
+        );
         return true;
     } catch (erro) {
-        console.error("❌ Erro ao cadastrar membro:", erro);
+        console.error(
+            "❌ Erro ao cadastrar membro:",
+            erro
+        );
         throw erro;
+    } finally {
+        // A instância secundária não deve permanecer autenticada.
+        if (authCadastro) {
+            await authCadastro.signOut().catch(
+                erroSaida => console.warn(
+                    "A instância secundária não pôde ser encerrada:",
+                    erroSaida
+                )
+            );
+        }
     }
 }
+
 
 /**
  * Salva uma nova publicação no banco
