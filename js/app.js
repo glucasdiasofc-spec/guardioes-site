@@ -3,11 +3,11 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.399.0 - versão alpha";
+const VERSAO_ATUAL = "v0.400.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
-
+window.AVATAR_GRUPO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
 
 
 /*
@@ -11338,8 +11338,28 @@ async function carregarLogoClubeConfig() {
                 }
             }
 
-            // 4. Aplica o avatar padrão dos usuários
-            if (dados.avatarPadraoUrl) {
+            // 4. Aplica a foto padrão dos grupos
+            window.AVATAR_GRUPO_PADRAO = String(
+                dados.avatarPadraoGrupoUrl ||
+                "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+             ).trim();
+
+            const previaAvatarGrupo = document.getElementById(
+                "previa-avatar-grupo-padrao"
+            );
+
+            if (previaAvatarGrupo) {
+                previaAvatarGrupo.src =
+                    window.AVATAR_GRUPO_PADRAO;
+                previaAvatarGrupo.onerror = () => {
+                    previaAvatarGrupo.onerror = null;
+                    previaAvatarGrupo.src =
+                        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+                };
+            }
+
+            // 5. Aplica o avatar padrão dos usuários
+            if (dados.avatarPadraoUrl ) {
                 window.AVATAR_USUARIO_PADRAO =
                     String(dados.avatarPadraoUrl).trim();
 
