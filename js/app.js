@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.408.0 - versão alpha";
+const VERSAO_ATUAL = "v0.409.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8234,8 +8234,7 @@ async function renderizarPainelSecretarioFrequencia(
 
         const [
             eventosClubeSnap,
-            registrosSnap,
-            eventosUnidadeSnap
+            registrosSnap
         ] = await Promise.all([
             banco
                 .collection("eventos_clube")
@@ -8244,13 +8243,31 @@ async function renderizarPainelSecretarioFrequencia(
                 .collection("frequencias_unidades")
                 .doc(unidadeId)
                 .collection("registros")
-                .get(),
-            banco
-                .collection("eventos_unidades")
-                .doc(unidadeId)
-                .collection("itens")
                 .get()
         ]);
+
+        let eventosUnidadeSnap = await banco
+            .collection("eventos_unidades")
+            .doc(unidadeId)
+            .collection("itens")
+            .get();
+
+        // Compatibilidade: se a unidade tiver sido renomeada
+        // antes deste recurso, procura também pelo campo unidadeId.
+        if (eventosUnidadeSnap.empty) {
+            try {
+                eventosUnidadeSnap = await banco
+                    .collectionGroup("itens")
+                    .where("unidadeId", "==", unidadeId)
+                    .get();
+            } catch (erroBuscaAlternativa) {
+                console.warn(
+                    "Não foi possível fazer a busca alternativa dos eventos unitários:",
+                    erroBuscaAlternativa
+                );
+            }
+        }
+
 
 
         eventosClubeSnap.forEach(documento => {
@@ -9435,10 +9452,33 @@ tr:nth-child(even) { background: #f5f8fa; }
                 const existeEventoCentralAtivo =
                     eventoSelecionado.eventoCentral === true &&
                     statusEvento !== "cancelado";
+                const eventosUnitariosSelecionados = [
+                    ...(eventoSelecionado.eventoUnidade
+                        ? [eventoSelecionado]
+                        : []),
+                    ...(Array.isArray(
+                        eventoSelecionado.eventosUnidade
+                    )
+                        ? eventoSelecionado.eventosUnidade
+                        : [])
+                ];
+                const existeEventoUnidadeAtivo =
+                    eventosUnitariosSelecionados.some(
+                        eventoUnidade => {
+                            return String(
+                                eventoUnidade.eventoUnidadeStatus ||
+                                eventoUnidade.status ||
+                                "ativo"
+                            ).trim().toLowerCase() !== "cancelado";
+                        }
+                    );
 
-                if (!existeEventoCentralAtivo) {
+                if (
+                    !existeEventoCentralAtivo &&
+                    !existeEventoUnidadeAtivo
+                ) {
                     window.alert(
-                        "Não é possível salvar a frequência porque não existe um evento central ativo cadastrado para esta data."
+                        "Não é possível salvar a frequência porque não existe um evento ativo do clube ou da unidade para esta data."
                     );
                     return;
                 }
@@ -9924,6 +9964,14 @@ tr:nth-child(even) { background: #f5f8fa; }
             ];
             const possuiEventoUnidade =
                 eventosDaUnidade.length > 0;
+            const possuiEventoUnidadeAtivo =
+                eventosDaUnidade.some(eventoUnidade => {
+                    return String(
+                        eventoUnidade.eventoUnidadeStatus ||
+                        eventoUnidade.status ||
+                        "ativo"
+                    ).trim().toLowerCase() !== "cancelado";
+                });
             const possuiStatusDeFrequencia = Boolean(
                 evento &&
                 evento.statusPorMembro &&
@@ -9967,9 +10015,11 @@ tr:nth-child(even) { background: #f5f8fa; }
 
             celula.style.color = "#fff";
             celula.style.textAlign = "left";
-            celula.style.cursor = existeEventoCentral
-                ? "pointer"
-                : "default";
+            celula.style.cursor =
+                existeEventoCentral ||
+                possuiEventoUnidadeAtivo
+                    ? "pointer"
+                    : "default";
             celula.style.boxSizing = "border-box";
 
             if (diaSelecionado) {
@@ -10099,21 +10149,37 @@ tr:nth-child(even) { background: #f5f8fa; }
                     calendario.dataset.diaSelecionado = dataId;
                     renderizarCalendario();
 
-                    if (!existeEventoCentral) {
-                        return;
-                    }
-
                     if (
-                        String(
-                            evento.eventoCentralStatus ||
-                            evento.status ||
-                            "ativo"
-                        ).trim().toLowerCase() === "cancelado"
+                        !existeEventoCentral &&
+                        !possuiEventoUnidadeAtivo
                     ) {
                         return;
                     }
 
-                    abrirChamada(dataId, evento);
+                    const eventoCentralAtivo =
+                        existeEventoCentral &&
+                        String(
+                            evento.eventoCentralStatus ||
+                            evento.status ||
+                            "ativo"
+                        ).trim().toLowerCase() !== "cancelado";
+
+                    if (
+                        !eventoCentralAtivo &&
+                        !possuiEventoUnidadeAtivo
+                    ) {
+                        return;
+                    }
+
+                    const eventoParaChamada =
+                        eventoCentralAtivo
+                            ? evento
+                            : eventosDaUnidade[0];
+
+                    abrirChamada(
+                        dataId,
+                        eventoParaChamada
+                    );
                 }
             );
             calendario.appendChild(celula);
