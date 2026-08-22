@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.383.0 - versão alpha";
+const VERSAO_ATUAL = "v0.384.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -10246,15 +10246,12 @@ async function carregarPerfilDoUsuario() {
         const usuarioAuthAtual = window.ClubeDB.loginDB
             ? window.ClubeDB.loginDB.currentUser
             : null;
-
-        let snapshotUsuario = await banco
-            .collection("usuarios")
-            .where("username", "==", username)
-            .limit(1)
-            .get();
+        let snapshotUsuario = {
+            empty: true,
+            docs: []
+        };
 
         if (
-            snapshotUsuario.empty &&
             usuarioAuthAtual &&
             usuarioAuthAtual.uid
         ) {
@@ -10271,6 +10268,16 @@ async function carregarPerfilDoUsuario() {
             }
         }
 
+        if (snapshotUsuario.empty && username) {
+            snapshotUsuario = await banco
+                .collection("usuarios")
+                .where("username", "==", String(username)
+                    .trim()
+                    .toLowerCase())
+                .limit(1)
+                .get();
+        }
+
         if (
             snapshotUsuario.empty &&
             usuarioAuthAtual &&
@@ -10283,12 +10290,7 @@ async function carregarPerfilDoUsuario() {
                 .trim()
                 .toLowerCase();
 
-            if (
-                usernameDoEmail &&
-                usernameDoEmail !== String(username || "")
-                    .trim()
-                    .toLowerCase()
-            ) {
+            if (usernameDoEmail) {
                 snapshotUsuario = await banco
                     .collection("usuarios")
                     .where("username", "==", usernameDoEmail)
@@ -10296,6 +10298,7 @@ async function carregarPerfilDoUsuario() {
                     .get();
             }
         }
+
 
         if (snapshotUsuario.empty) {
             if (nomeEl) {
