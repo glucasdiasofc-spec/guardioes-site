@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.390.0 - versão alpha";
+const VERSAO_ATUAL = "v0.391.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -21636,34 +21636,77 @@ async function excluirItemAdmin() {
 // ==========================================
 
 async function carregarUsuariosParaGestaoConquistas() {
-    const container = document.getElementById("lista-usuarios-conquistas");
-    if (!container) return;
-    container.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Carregando usuários...</p>";
+    const container = document.getElementById(
+        "lista-usuarios-conquistas"
+    );
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML =
+        "<p style='color: #8e8e8e; text-align: center;'>Carregando usuários...</p>";
+
+    const avatarPadrao = String(
+        window.AVATAR_USUARIO_PADRAO ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+     ).trim();
 
     try {
-        const snap = await window.ClubeDB.textoDB.collection("usuarios").orderBy("username").get();
-        if (snap.empty) {
-            container.innerHTML = "<p style='color: #8e8e8e; text-align: center;'>Nenhum usuário encontrado.</p>";
+        const snap = await window.ClubeDB.textoDB
+            .collection("usuarios")
+            .orderBy("username")
+            .get();
+
+        const documentosAtivos = snap.docs.filter(doc => {
+            const dados = doc.data() || {};
+
+            return dados.statusConta !== "arquivada" &&
+                dados.contaAtiva !== false;
+        });
+
+        if (!documentosAtivos.length) {
+            container.innerHTML =
+                "<p style='color: #8e8e8e; text-align: center;'>Nenhum usuário ativo encontrado.</p>";
             return;
         }
 
-        container.innerHTML = snap.docs.map(doc => {
-            const u = doc.data();
+        container.innerHTML = documentosAtivos.map(doc => {
+            const u = doc.data() || {};
+            const username = String(u.username || "").trim();
+            const nome = String(
+                u.nomeReal ||
+                username ||
+                "Usuário"
+            ).trim();
+            const foto = String(
+                u.fotoUrl ||
+                avatarPadrao
+            ).trim() || avatarPadrao;
+            const usernameSeguro = username.replace(/'/g, "\\'");
+
             return `
-                <div onclick="abrirModalGestaoConquistas('${u.username}')" style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.2s;">
-                    <img src="${u.fotoUrl || 'https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png'}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #333;">
+                <div onclick="abrirModalGestaoConquistas('${usernameSeguro}')" style="background: #121212; border: 1px solid #262626; padding: 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.2s;">
+                    <img src="${escaparHtml(foto)}" alt="Foto de ${escaparHtml(nome)}" onerror="this.onerror=null;this.src='${escaparHtml(avatarPadrao)}';" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #333;">
                     <div style="flex: 1;">
-                        <div style="color: #fff; font-weight: bold; font-size: 14px;">${u.nomeReal || u.username}</div>
-                        <div style="color: #8e8e8e; font-size: 12px;">@${u.username} • ${u.tipo}</div>
+                        <div style="color: #fff; font-weight: bold; font-size: 14px;">${escaparHtml(nome)}</div>
+                        <div style="color: #8e8e8e; font-size: 12px;">@${escaparHtml(username)} • ${escaparHtml(u.tipo || "Membro")}</div>
                     </div>
                     <div style="color: #0095f6; font-size: 18px;">›</div>
                 </div>
             `;
-        } ).join("");
-    } catch (e) {
-        container.innerHTML = "<p style='color: #ff4d4d; text-align: center;'>Erro ao carregar usuários.</p>";
+        }).join("");
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar usuários para gestão de conquistas:",
+            erro
+        );
+
+        container.innerHTML =
+            "<p style='color: #ff4d4d; text-align: center;'>Erro ao carregar usuários.</p>";
     }
 }
+
 
 let usuarioSendoGerenciado = null;
 
