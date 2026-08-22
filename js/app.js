@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.387.0 - versão alpha";
+const VERSAO_ATUAL = "v0.388.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -16108,36 +16108,52 @@ async function arquivarMembro(id) {
         ? window.ClubeDB.textoDB
         : null;
 
+    const autenticacao =
+        window.firebase && typeof firebase.auth === "function"
+            ? firebase.auth()
+            : null;
+
+    const usuarioLogado = autenticacao
+        ? autenticacao.currentUser
+        : null;
+
+    const uidAdministrador =
+        "pXV7pIYNyGeIRdSVWtJ1mMJWByc2";
+
     if (!banco || !id) {
         alert("Não foi possível identificar o membro para arquivar.");
         return;
     }
 
-    const usuarioLogado = window.ClubeDB &&
-        window.ClubeDB.loginDB
-        ? window.ClubeDB.loginDB.currentUser
-        : null;
-
     if (!usuarioLogado || !usuarioLogado.uid) {
-        alert("A sessão administrativa não está disponível.");
+        alert("Sua sessão expirou. Saia da conta, entre novamente como administrador e tente outra vez.");
+        return;
+    }
+
+    if (usuarioLogado.uid !== uidAdministrador) {
+        alert(
+            "A conta atualmente conectada não é a conta administrativa autorizada.\n\n" +
+            "UID conectado: " + usuarioLogado.uid
+        );
         return;
     }
 
     if (usuarioLogado.uid === id) {
-        alert("Por segurança, você não pode arquivar a própria conta enquanto estiver logado nela.");
+        alert("Por segurança, a conta administrativa não pode ser arquivada.");
         return;
     }
 
     const referenciaMembro = banco
         .collection("usuarios")
-        .doc(id);
+        .doc(String(id));
 
     try {
+        await usuarioLogado.getIdToken(true);
+
         const documentoMembro = await referenciaMembro.get();
 
         if (!documentoMembro.exists) {
-            alert("Este membro já não existe no banco de dados.");
-            await carregarMembrosCadastrados();
+            alert("Este membro não foi encontrado no banco de dados.");
             return;
         }
 
@@ -16149,8 +16165,8 @@ async function arquivarMembro(id) {
         ).trim();
 
         if (!window.confirm(
-            `Arquivar ${nomeMembro}?\n\n` +
-            "O perfil ficará oculto das listas, mas nenhum dado histórico será apagado."
+            "Arquivar " + nomeMembro + "?\n\n" +
+            "O perfil ficará oculto das listas, mas frequências, fichas, relatórios, mensagens, fotos e assinaturas serão preservados."
         )) {
             return;
         }
@@ -16164,17 +16180,22 @@ async function arquivarMembro(id) {
         });
 
         alert(
-            `Perfil de ${nomeMembro} arquivado. Os dados foram preservados.`
+            "Perfil de " + nomeMembro +
+            " arquivado com sucesso. Nenhum dado histórico foi apagado."
         );
+
         await carregarMembrosCadastrados();
     } catch (erro) {
         console.error("Erro ao arquivar membro:", erro);
+
         alert(
-            "Não foi possível arquivar o membro. Erro: " +
-            (erro.message || "desconhecido")
+            "Não foi possível arquivar o membro.\n\n" +
+            "UID da sessão: " + usuarioLogado.uid + "\n" +
+            "Erro: " + (erro.message || "desconhecido")
         );
     }
 }
+
 
 async function deletarMembro(id, idFoto) {
     const banco = window.ClubeDB && window.ClubeDB.textoDB
