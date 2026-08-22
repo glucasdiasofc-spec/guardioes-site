@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.385.0 - versão alpha";
+const VERSAO_ATUAL = "v0.386.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -15997,28 +15997,43 @@ async function carregarMembrosCadastrados() {
         const snapshot = await window.ClubeDB.textoDB
             .collection("usuarios")
             .get();
+        const membrosVisiveis = snapshot.docs.filter(doc => {
+            const dados = doc.data() || {};
+            return dados.statusConta !== "arquivada" &&
+                dados.contaAtiva !== false;
+        });
 
-        if (snapshot.empty) {
+        if (!membrosVisiveis.length) {
             container.innerHTML = "<p style='color:#aaa;'>Nenhum membro cadastrado ainda.</p>";
             return;
         }
 
         container.innerHTML = "<h3 style='margin-bottom:15px;'>Membros Cadastrados</h3>";
 
-        snapshot.forEach(doc => {
-            const membro = doc.data() || {};
-            const id = doc.id;
-            let foto = membro.fotoUrl || window.AVATAR_USUARIO_PADRAO;
-if (membro.fotoUrl && membro.fotoUrl !== window.AVATAR_USUARIO_PADRAO) {
-    foto += (foto.includes("?") ? "&" : "?") + "v=" + Date.now();
-}
+        const avatarPadrao =
+            window.AVATAR_USUARIO_PADRAO ||
+            "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
 
-            const card = document.createElement("div" );
+        membrosVisiveis.forEach(doc => {
+            const membro = doc.data( ) || {};
+            const id = doc.id;
+            let foto = membro.fotoUrl || avatarPadrao;
+
+            if (
+                membro.fotoUrl &&
+                membro.fotoUrl !== avatarPadrao
+            ) {
+                foto += (foto.includes("?") ? "&" : "?") +
+                    "v=" + Date.now();
+            }
+
+            const card = document.createElement("div");
             card.className = "item-membro";
-            card.style.cssText = "display:flex;align-items:center;gap:15px;margin-bottom:15px;padding:10px;background:#2b2b2b;border-radius:8px;";
+            card.style.cssText =
+                "display:flex;align-items:center;gap:15px;margin-bottom:15px;padding:10px;background:#2b2b2b;border-radius:8px;";
 
             card.innerHTML = `
-                <img src="${escaparHtml(foto)}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;">
+                <img src="${escaparHtml(foto)}" alt="Foto de ${escaparHtml(membro.nomeReal || "membro")}" onerror="this.onerror=null;this.src='${escaparHtml(avatarPadrao)}';" style="width:50px;height:50px;border-radius:50%;object-fit:cover;">
                 <div style="flex:1;">
                     <div style="font-weight:bold;">${escaparHtml(membro.nomeReal || "Sem Nome")}</div>
                     <div style="font-size:12px;color:#aaa;">
@@ -16030,7 +16045,7 @@ if (membro.fotoUrl && membro.fotoUrl !== window.AVATAR_USUARIO_PADRAO) {
                     ✏️ Editar
                 </button>
                 <button type="button" data-apagar-membro="${escaparHtml(id)}" style="padding:5px 10px;font-size:12px;background:#ff4d4d;color:white;border:none;border-radius:4px;cursor:pointer;">
-                    🗑️ Apagar
+                    🗑️ Arquivar
                 </button>
             `;
 
@@ -16038,13 +16053,17 @@ if (membro.fotoUrl && membro.fotoUrl !== window.AVATAR_USUARIO_PADRAO) {
             const botaoApagar = card.querySelector("[data-apagar-membro]");
 
             if (botaoEditar) {
-                botaoEditar.addEventListener("click", () => prepararEdicaoMembro(id));
+                botaoEditar.addEventListener(
+                    "click",
+                    () => prepararEdicaoMembro(id)
+                );
             }
 
             if (botaoApagar) {
-                botaoApagar.addEventListener("click", () => {
-                    deletarMembro(id, membro.fotoIdPublico || "");
-                });
+                botaoApagar.addEventListener(
+                    "click",
+                    () => deletarMembro(id, membro.fotoIdPublico || "")
+                );
             }
 
             container.appendChild(card);
@@ -16054,8 +16073,7 @@ if (membro.fotoUrl && membro.fotoUrl !== window.AVATAR_USUARIO_PADRAO) {
 
         container.innerHTML = `
             <p style="color:#ff6b6b;">
-                Não foi possível carregar os membros.  
-
+                Não foi possível carregar os membros.
                 <small>${escaparHtml(erro.message || "Erro desconhecido")}</small>
             </p>
             <button type="button" onclick="carregarMembrosCadastrados()">
@@ -16069,13 +16087,14 @@ if (membro.fotoUrl && membro.fotoUrl !== window.AVATAR_USUARIO_PADRAO) {
 
 
 
+
 async function deletarMembro(id, idFoto) {
     const banco = window.ClubeDB && window.ClubeDB.textoDB
         ? window.ClubeDB.textoDB
         : null;
 
     if (!banco || !id) {
-        alert("Não foi possível identificar o membro para apagar.");
+        alert("Não foi possível identificar o membro para arquivar.");
         return;
     }
 
@@ -16085,11 +16104,13 @@ async function deletarMembro(id, idFoto) {
         : null;
 
     if (usuarioLogado && usuarioLogado.uid === id) {
-        alert("Por segurança, você não pode apagar a própria conta enquanto estiver logado nela.");
+        alert("Por segurança, você não pode arquivar a própria conta enquanto estiver logado nela.");
         return;
     }
 
-    const referenciaMembro = banco.collection("usuarios").doc(id);
+    const referenciaMembro = banco
+        .collection("usuarios")
+        .doc(id);
 
     try {
         const documentoMembro = await referenciaMembro.get();
@@ -16101,81 +16122,42 @@ async function deletarMembro(id, idFoto) {
         }
 
         const membro = documentoMembro.data() || {};
-        const username = String(membro.username || "").trim();
-        const nomeMembro = membro.nomeReal || username || "este membro";
-        const fotoIdFinal = idFoto || membro.fotoIdPublico || "";
+        const nomeMembro = String(
+            membro.nomeReal ||
+            membro.username ||
+            "este membro"
+        ).trim();
 
         if (!confirm(
-            `Tem certeza que deseja apagar ${nomeMembro}?\n\n` +
-            "Os progressos e solicitações de aprovação desse membro também serão removidos."
+            `Arquivar ${nomeMembro}?\n\n` +
+            "O perfil sairá das listas administrativas e do chat, mas frequências, fichas, relatórios, mensagens e assinatura serão preservados."
         )) {
             return;
         }
 
-        const apagarConsultaEmLotes = async consulta => {
-            while (true) {
-                const resultado = await consulta.limit(400).get();
+        await referenciaMembro.update({
+            statusConta: "arquivada",
+            contaAtiva: false,
+            arquivadoEm:
+                firebase.firestore.FieldValue.serverTimestamp(),
+            arquivadoPor: usuarioLogado
+                ? usuarioLogado.uid
+                : "admin"
+        });
 
-                if (resultado.empty) {
-                    return;
-                }
-
-                const lote = banco.batch();
-
-                resultado.docs.forEach(documento => {
-                    lote.delete(documento.ref);
-                });
-
-                await lote.commit();
-            }
-        };
-
-        if (username) {
-            const colecoesVinculadas = [
-                "progresso_especialidades",
-                "progresso_mestrados",
-                "progresso_classes",
-                "pendencias_aprovacao"
-            ];
-
-            for (const colecao of colecoesVinculadas) {
-                await apagarConsultaEmLotes(
-                    banco
-                        .collection(colecao)
-                        .where("usuario", "==", username)
-                );
-            }
-        }
-
-        await referenciaMembro.delete();
-
-        if (
-            fotoIdFinal &&
-            fotoIdFinal !== "undefined" &&
-            window.ClubeDB.acoesAdmin &&
-            typeof window.ClubeDB.acoesAdmin.excluirFoto === "function"
-        ) {
-            try {
-                await window.ClubeDB.acoesAdmin.excluirFoto(fotoIdFinal);
-            } catch (erroFoto) {
-                console.warn(
-                    "O membro foi apagado, mas a foto não pôde ser removida:",
-                    erroFoto
-                );
-            }
-        }
-
-        alert(`Membro ${nomeMembro} apagado com sucesso.`);
-        await carregarMembrosCadastrados();
-
-    } catch (erro) {
-        console.error("Erro ao apagar membro:", erro);
         alert(
-            "Não foi possível apagar o membro. Erro: " +
+            `Perfil de ${nomeMembro} arquivado. Os dados históricos foram preservados.`
+        );
+        await carregarMembrosCadastrados();
+    } catch (erro) {
+        console.error("Erro ao arquivar membro:", erro);
+        alert(
+            "Não foi possível arquivar o membro. Erro: " +
             (erro.message || "desconhecido")
         );
     }
 }
+
 
 async function prepararEdicaoMembro(id) {
     const tipoUsuario = localStorage.getItem("usuarioLogado");
