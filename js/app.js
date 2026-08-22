@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.407.0 - versão alpha";
+const VERSAO_ATUAL = "v0.408.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8232,17 +8232,26 @@ async function renderizarPainelSecretarioFrequencia(
         status.textContent = "Carregando eventos...";
         eventosPorData.clear();
 
-        const [eventosClubeSnap, registrosSnap] =
-            await Promise.all([
-                banco
-                    .collection("eventos_clube")
-                    .get(),
-                banco
-                    .collection("frequencias_unidades")
-                    .doc(unidadeId)
-                    .collection("registros")
-                    .get()
-            ]);
+        const [
+            eventosClubeSnap,
+            registrosSnap,
+            eventosUnidadeSnap
+        ] = await Promise.all([
+            banco
+                .collection("eventos_clube")
+                .get(),
+            banco
+                .collection("frequencias_unidades")
+                .doc(unidadeId)
+                .collection("registros")
+                .get(),
+            banco
+                .collection("eventos_unidades")
+                .doc(unidadeId)
+                .collection("itens")
+                .get()
+        ]);
+
 
         eventosClubeSnap.forEach(documento => {
             const dados = documento.data() || {};
@@ -8271,6 +8280,48 @@ async function renderizarPainelSecretarioFrequencia(
                     dados.titulo || ""
                 ).trim()
             });
+        });
+
+        eventosUnidadeSnap.forEach(documento => {
+            const dados = documento.data() || {};
+            const data = String(
+                dados.data || documento.id || ""
+            ).trim();
+
+            if (!data) {
+                return;
+            }
+
+            const eventoUnidade = {
+                ...dados,
+                data,
+                eventoUnidade: true,
+                eventoUnidadeId: documento.id,
+                unidadeId,
+                eventoUnidadeStatus: String(
+                    dados.status || "ativo"
+                ).trim().toLowerCase()
+            };
+            const eventoExistente = eventosPorData.get(data);
+
+            if (
+                eventoExistente &&
+                eventoExistente.eventoCentral === true
+            ) {
+                eventosPorData.set(data, {
+                    ...eventoExistente,
+                    eventosUnidade: [
+                        ...(Array.isArray(
+                            eventoExistente.eventosUnidade
+                        )
+                            ? eventoExistente.eventosUnidade
+                            : []),
+                        eventoUnidade
+                    ]
+                });
+            } else {
+                eventosPorData.set(data, eventoUnidade);
+            }
         });
 
         registrosSnap.forEach(documento => {
@@ -9861,6 +9912,18 @@ tr:nth-child(even) { background: #f5f8fa; }
             const existeEventoCentral = Boolean(
                 evento && evento.eventoCentral === true
             );
+            const eventosDaUnidade = [
+                ...(evento && Array.isArray(
+                    evento.eventosUnidade
+                )
+                    ? evento.eventosUnidade
+                    : []),
+                ...(evento && evento.eventoUnidade
+                    ? [evento]
+                    : [])
+            ];
+            const possuiEventoUnidade =
+                eventosDaUnidade.length > 0;
             const possuiStatusDeFrequencia = Boolean(
                 evento &&
                 evento.statusPorMembro &&
@@ -9998,6 +10061,33 @@ tr:nth-child(even) { background: #f5f8fa; }
                     cancelado.style.color = "#ff9b9b";
                     listaEventos.appendChild(cancelado);
                 }
+            }
+
+            if (possuiEventoUnidade) {
+                eventosDaUnidade.forEach(eventoUnidade => {
+                    const eventoTexto = document.createElement(
+                        "span"
+                    );
+                    const tituloEvento = String(
+                        eventoUnidade.titulo ||
+                        eventoUnidade.tituloEvento ||
+                        "Evento da unidade"
+                    ).trim();
+                    const tipoEvento = tiposAtividade[
+                        eventoUnidade.tipoId ||
+                        eventoUnidade.tipoAtividade ||
+                        eventoUnidade.tipo
+                    ] || "📅 Evento da unidade";
+
+                    eventoTexto.textContent = tituloEvento
+                        ? `${tipoEvento} · ${tituloEvento}`
+                        : tipoEvento;
+                    eventoTexto.style.color = "#20c997";
+                    eventoTexto.style.overflow = "hidden";
+                    eventoTexto.style.textOverflow = "ellipsis";
+                    eventoTexto.style.whiteSpace = "nowrap";
+                    listaEventos.appendChild(eventoTexto);
+                });
             }
 
             celula.appendChild(numero);
