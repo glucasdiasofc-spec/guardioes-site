@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.402.0 - versão alpha";
+const VERSAO_ATUAL = "v0.403.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -2532,8 +2532,35 @@ function abrirModalCriarGrupoChat() {
         ).trim().toLowerCase()
     ]);
     nome.value = "";
+
+    const fotoInput = document.getElementById(
+        "input-foto-grupo-chat"
+    );
+    const previaFotoGrupo = document.getElementById(
+        "previa-foto-grupo-chat"
+    );
+    const avatarPadraoGrupo = String(
+        window.AVATAR_GRUPO_PADRAO ||
+        window.AVATAR_USUARIO_PADRAO ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+     ).trim();
+
+    if (fotoInput) {
+        fotoInput.value = "";
+    }
+
+    if (previaFotoGrupo) {
+        previaFotoGrupo.src = avatarPadraoGrupo;
+        previaFotoGrupo.style.display = "block";
+        previaFotoGrupo.onerror = () => {
+            previaFotoGrupo.onerror = null;
+            previaFotoGrupo.src =
+                "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        };
+    }
+
     modal.style.display = "flex";
-    carregarParticipantesGrupoChat();
+    carregarParticipantesGrupoChat( );
     nome.focus();
     atualizarContadorParticipantesGrupoChat();
 }
@@ -2545,38 +2572,51 @@ function mostrarPreviaImagemGrupoChat(input) {
     const arquivo = input &&
         input.files &&
         input.files[0];
+    const avatarPadraoGrupo = String(
+        window.AVATAR_GRUPO_PADRAO ||
+        window.AVATAR_USUARIO_PADRAO ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+     ).trim();
 
     if (!imagem || !arquivo) {
         if (imagem) {
-            imagem.removeAttribute("src");
-            imagem.style.display = "none";
+            imagem.src = avatarPadraoGrupo;
+            imagem.style.display = "block";
+            imagem.onerror = () => {
+                imagem.onerror = null;
+                imagem.src =
+                    "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+            };
         }
         return;
     }
 
-    if (!arquivo.type.startsWith("image/")) {
+    if (!arquivo.type.startsWith("image/" )) {
         input.value = "";
-        imagem.removeAttribute("src");
-        imagem.style.display = "none";
-        window.alert("Selecione um arquivo de imagem válido.");
+        imagem.src = avatarPadraoGrupo;
+        imagem.style.display = "block";
+        window.alert(
+            "Selecione um arquivo de imagem válido."
+        );
         return;
     }
 
     const leitor = new FileReader();
 
     leitor.onload = evento => {
-        imagem.src = String(
+        const resultado = String(
             evento.target &&
             evento.target.result ||
             ""
         );
-        imagem.style.display = imagem.src
-            ? "block"
-            : "none";
+
+        imagem.src = resultado || avatarPadraoGrupo;
+        imagem.style.display = "block";
     };
 
     leitor.readAsDataURL(arquivo);
 }
+
 
 async function criarGrupoChat() {
     const nomeEl = document.getElementById(
