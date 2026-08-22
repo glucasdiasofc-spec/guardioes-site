@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.391.0 - versão alpha";
+const VERSAO_ATUAL = "v0.392.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -11278,14 +11278,34 @@ async function carregarLogoClubeConfig() {
                 window.AVATAR_USUARIO_PADRAO =
                     String(dados.avatarPadraoUrl).trim();
 
+                const avatarPadraoAtual =
+                    window.AVATAR_USUARIO_PADRAO;
+
                 const previaAvatar = document.getElementById(
                     "previa-avatar-padrao"
                 );
+                const previaCadastro = document.getElementById(
+                    "previa-membro-img"
+                );
+                const previaEdicao = document.getElementById(
+                    "edit-previa-membro-img"
+                );
 
-                if (previaAvatar) {
-                    previaAvatar.src =
-                        window.AVATAR_USUARIO_PADRAO;
-                }
+                [
+                    previaAvatar,
+                    previaCadastro,
+                    previaEdicao
+                ].forEach(imagem => {
+                    if (!imagem) {
+                        return;
+                    }
+
+                    imagem.src = avatarPadraoAtual;
+                    imagem.onerror = () => {
+                        imagem.onerror = null;
+                        imagem.src = avatarPadraoAtual;
+                    };
+                });
 
                 // Os cartões admin podem ter sido renderizados
                 // antes da leitura da configuração. Renderiza-os
@@ -11301,6 +11321,7 @@ async function carregarLogoClubeConfig() {
                     carregarMembrosCadastrados();
                 }
             }
+
 
 
             // 5. Reaplica o tamanho salvo da logo após o F5
