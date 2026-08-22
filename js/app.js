@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.381.0 - versão alpha";
+const VERSAO_ATUAL = "v0.382.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -16411,21 +16411,23 @@ async function salvarEdicaoMembroAdmin() {
         if (
             arquivoFoto &&
             window.ClubeDB.acoesAdmin &&
-            window.ClubeDB.acoesAdmin.cadastrarMembro
+            typeof window.ClubeDB.acoesAdmin.uploadFoto === "function"
         ) {
+            const dadosFotoNova = await window.ClubeDB.acoesAdmin.uploadFoto(
+                arquivoFoto
+            );
+
             const dadosComFoto = {
                 ...dadosAtualizados,
-                fotoUrl: dadosAtuais.fotoUrl || ""
+                fotoUrl: dadosFotoNova.url || "",
+                fotoIdPublico: dadosFotoNova.idPublico || ""
             };
 
             await referencia.update(dadosComFoto);
-            await window.ClubeDB.acoesAdmin.cadastrarMembro(
-                dadosAtualizados,
-                arquivoFoto
-            );
         } else {
             await referencia.update(dadosAtualizados);
         }
+
 
         const assinaturaNovaRef = window.ClubeDB.textoDB
             .collection("assinaturas_usuarios")
