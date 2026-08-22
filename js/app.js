@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.396.0 - versão alpha";
+const VERSAO_ATUAL = "v0.397.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13423,45 +13423,154 @@ async function carregarUnidadesCadastradas() {
 
 
 async function iniciarEdicaoUnidade(id, nomeAtual, fotoIdAntiga) {
-    // 1. Edita o nome normalmente
-    const novoNome = prompt("Digite o novo nome da unidade:", nomeAtual);
-    if (!novoNome) return;
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB
+        ? window.ClubeDB.textoDB
+        : null;
 
-    // 2. Pergunta sobre a foto
-    if (confirm("Deseja trocar a foto da unidade?")) {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        
-        // Quando o usuário selecionar o arquivo, a mágica acontece
-        input.onchange = async (e) => {
-            const arquivo = e.target.files[0];
-            if (!arquivo) return;
+    if (!banco || !id) {
+        alert("Não foi possível identificar a unidade.");
+        return;
+    }
+
+    const novoNome = String(
+        prompt("Digite o novo nome da unidade:", nomeAtual) || ""
+    ).trim();
+
+    if (!novoNome) {
+        return;
+    }
+
+    const nomeAnterior = String(
+        nomeAtual || ""
+    ).trim();
+
+    const atualizarNomeDosPerfis = async () => {
+        if (!nomeAnterior || nomeAnterior === novoNome) {
+            return;
+        }
+
+        const usuariosSnap = await banco
+            .collection("usuarios")
+            .where("unidade", "==", nomeAnterior)
+            .get();
+
+        for (let inicio = 0; inicio < usuariosSnap.docs.length; inicio += 400) {
+            const lote = banco.batch();
+            const documentosLote = usuariosSnap.docs.slice(
+                inicio,
+                inicio + 400
+            );
+
+            documentosLote.forEach(documento => {
+                lote.update(documento.ref, {
+                    unidade: novoNome
+                });
+            });
+
+            if (documentosLote.length) {
+                await lote.commit();
+            }
+        }
+    };
+
+    const atualizarUnidadeEPerfis = async dadosUnidade => {
+        await banco
+            .collection("unidades")
+            .doc(id)
+            .set(dadosUnidade, {
+                merge: true
+            });
+
+        await atualizarNomeDosPerfis();
+    };
+
+    if (window.confirm("Deseja trocar a foto da unidade?")) {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+
+        input.onchange = async evento => {
+            const arquivo = evento.target.files &&
+                evento.target.files[0];
+
+            if (!arquivo) {
+                return;
+            }
 
             try {
-                // Apenas deleta a antiga se ela existir no Cloudinary
-                if (fotoIdAntiga && window.ClubeDB && window.ClubeDB.acoesAdmin) {
-                    await window.ClubeDB.acoesAdmin.excluirFoto(fotoIdAntiga);
+                const dadosFoto = await window.ClubeDB.acoesAdmin
+                    .uploadFoto(arquivo);
+
+                await atualizarUnidadeEPerfis({
+                    nome: novoNome,
+                    fotoUrl: dadosFoto.url,
+                    fotoIdPublico: dadosFoto.idPublico,
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                if (
+                    fotoIdAntiga &&
+                    window.ClubeDB.acoesAdmin &&
+                    typeof window.ClubeDB.acoesAdmin.excluirFoto ===
+                        "function"
+                ) {
+                    try {
+                        await window.ClubeDB.acoesAdmin.excluirFoto(
+                            fotoIdAntiga
+                        );
+                    } catch (erroFoto) {
+                        console.warn(
+                            "A unidade foi atualizada, mas a foto antiga não pôde ser removida:",
+                            erroFoto
+                        );
+                    }
                 }
 
-                // Faz o upload da nova e cria a entrada no banco
-                // Mantemos o nome atualizado e trocamos a foto
-                await window.ClubeDB.acoesAdmin.criarUnidade(novoNome, arquivo);
-                
-                alert("Foto trocada com sucesso!");
-                carregarUnidadesCadastradas();
-            } catch (err) {
-                console.error(err);
-                alert("Erro ao trocar a foto: " + err.message);
+                alert(
+                    "Unidade atualizada. O novo nome foi aplicado a todos os perfis vinculados."
+                );
+                await carregarUnidadesCadastradas();
+            } catch (erro) {
+                console.error(
+                    "Erro ao atualizar unidade com foto:",
+                    erro
+                );
+                alert(
+                    "Não foi possível atualizar a unidade: " +
+                    (erro.message || "erro desconhecido")
+                );
             }
         };
-        input.click(); // Abre o seletor de arquivos
-    } else {
-        // Se não quiser trocar a foto, apenas atualiza o nome no Firestore
-        await window.ClubeDB.textoDB.collection("unidades").doc(id).update({ nome: novoNome });
-        carregarUnidadesCadastradas();
+
+        input.click();
+        return;
+    }
+
+    try {
+        await atualizarUnidadeEPerfis({
+            nome: novoNome,
+            atualizadoEm:
+                firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert(
+            "Unidade renomeada. O novo nome foi aplicado a todos os perfis vinculados."
+        );
+        await carregarUnidadesCadastradas();
+    } catch (erro) {
+        console.error(
+            "Erro ao renomear unidade:",
+            erro
+        );
+        alert(
+            "Não foi possível renomear a unidade: " +
+            (erro.message || "erro desconhecido")
+        );
     }
 }
+
 
 async function deletarUnidadeComFoto(id, idFoto) {
     if (!confirm("Tem certeza que deseja apagar esta unidade permanentemente?")) return;
