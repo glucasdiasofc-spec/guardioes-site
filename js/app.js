@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.386.0 - versão alpha";
+const VERSAO_ATUAL = "v0.387.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -15997,14 +15997,14 @@ async function carregarMembrosCadastrados() {
         const snapshot = await window.ClubeDB.textoDB
             .collection("usuarios")
             .get();
-        const membrosVisiveis = snapshot.docs.filter(doc => {
+        const membrosAtivos = snapshot.docs.filter(doc => {
             const dados = doc.data() || {};
             return dados.statusConta !== "arquivada" &&
                 dados.contaAtiva !== false;
         });
 
-        if (!membrosVisiveis.length) {
-            container.innerHTML = "<p style='color:#aaa;'>Nenhum membro cadastrado ainda.</p>";
+        if (!membrosAtivos.length) {
+            container.innerHTML = "<p style='color:#aaa;'>Nenhum membro ativo cadastrado ainda.</p>";
             return;
         }
 
@@ -16014,7 +16014,7 @@ async function carregarMembrosCadastrados() {
             window.AVATAR_USUARIO_PADRAO ||
             "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
 
-        membrosVisiveis.forEach(doc => {
+        membrosAtivos.forEach(doc => {
             const membro = doc.data( ) || {};
             const id = doc.id;
             let foto = membro.fotoUrl || avatarPadrao;
@@ -16044,12 +16044,16 @@ async function carregarMembrosCadastrados() {
                 <button type="button" data-editar-membro="${escaparHtml(id)}" style="padding:5px 10px;font-size:12px;cursor:pointer;border-radius:4px;border:none;">
                     ✏️ Editar
                 </button>
+                <button type="button" data-arquivar-membro="${escaparHtml(id)}" style="padding:5px 10px;font-size:12px;background:#b7791f;color:white;border:none;border-radius:4px;cursor:pointer;">
+                    📦 Arquivar
+                </button>
                 <button type="button" data-apagar-membro="${escaparHtml(id)}" style="padding:5px 10px;font-size:12px;background:#ff4d4d;color:white;border:none;border-radius:4px;cursor:pointer;">
-                    🗑️ Arquivar
+                    🗑️ Apagar
                 </button>
             `;
 
             const botaoEditar = card.querySelector("[data-editar-membro]");
+            const botaoArquivar = card.querySelector("[data-arquivar-membro]");
             const botaoApagar = card.querySelector("[data-apagar-membro]");
 
             if (botaoEditar) {
@@ -16059,10 +16063,22 @@ async function carregarMembrosCadastrados() {
                 );
             }
 
+            if (botaoArquivar) {
+                botaoArquivar.addEventListener(
+                    "click",
+                    () => arquivarMembro(id)
+                );
+            }
+
             if (botaoApagar) {
                 botaoApagar.addEventListener(
                     "click",
-                    () => deletarMembro(id, membro.fotoIdPublico || "")
+                    () => {
+                        deletarMembro(
+                            id,
+                            membro.fotoIdPublico || ""
+                        );
+                    }
                 );
             }
 
@@ -16087,6 +16103,78 @@ async function carregarMembrosCadastrados() {
 
 
 
+async function arquivarMembro(id) {
+    const banco = window.ClubeDB && window.ClubeDB.textoDB
+        ? window.ClubeDB.textoDB
+        : null;
+
+    if (!banco || !id) {
+        alert("Não foi possível identificar o membro para arquivar.");
+        return;
+    }
+
+    const usuarioLogado = window.ClubeDB &&
+        window.ClubeDB.loginDB
+        ? window.ClubeDB.loginDB.currentUser
+        : null;
+
+    if (!usuarioLogado || !usuarioLogado.uid) {
+        alert("A sessão administrativa não está disponível.");
+        return;
+    }
+
+    if (usuarioLogado.uid === id) {
+        alert("Por segurança, você não pode arquivar a própria conta enquanto estiver logado nela.");
+        return;
+    }
+
+    const referenciaMembro = banco
+        .collection("usuarios")
+        .doc(id);
+
+    try {
+        const documentoMembro = await referenciaMembro.get();
+
+        if (!documentoMembro.exists) {
+            alert("Este membro já não existe no banco de dados.");
+            await carregarMembrosCadastrados();
+            return;
+        }
+
+        const membro = documentoMembro.data() || {};
+        const nomeMembro = String(
+            membro.nomeReal ||
+            membro.username ||
+            "este membro"
+        ).trim();
+
+        if (!window.confirm(
+            `Arquivar ${nomeMembro}?\n\n` +
+            "O perfil ficará oculto das listas, mas nenhum dado histórico será apagado."
+        )) {
+            return;
+        }
+
+        await referenciaMembro.update({
+            statusConta: "arquivada",
+            contaAtiva: false,
+            arquivadoEm:
+                firebase.firestore.FieldValue.serverTimestamp(),
+            arquivadoPor: usuarioLogado.uid
+        });
+
+        alert(
+            `Perfil de ${nomeMembro} arquivado. Os dados foram preservados.`
+        );
+        await carregarMembrosCadastrados();
+    } catch (erro) {
+        console.error("Erro ao arquivar membro:", erro);
+        alert(
+            "Não foi possível arquivar o membro. Erro: " +
+            (erro.message || "desconhecido")
+        );
+    }
+}
 
 async function deletarMembro(id, idFoto) {
     const banco = window.ClubeDB && window.ClubeDB.textoDB
