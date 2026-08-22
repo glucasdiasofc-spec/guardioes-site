@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.398.0 - versão alpha";
+const VERSAO_ATUAL = "v0.399.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -11444,32 +11444,47 @@ function usarTextoPadraoLogo(tipo = 'site') {
 }
 
 async function salvarLogoClubeAdmin(tipo = 'site') {
-    // Mapeamento exato dos IDs do seu HTML
     let inputId = "";
     let btnId = "";
     let campoBanco = "";
+    let textoSucesso = "Imagem salva com sucesso!";
 
     if (tipo === 'site') {
         inputId = "logo-site-file";
         btnId = "btn-salvar-logo-site";
         campoBanco = "logoUrl";
+        textoSucesso = "Logo do site salva com sucesso!";
     } else if (tipo === 'app') {
         inputId = "logo-app-file";
         btnId = "btn-salvar-logo-app";
         campoBanco = "logoAppUrl";
+        textoSucesso = "Ícone do aplicativo salvo com sucesso!";
     } else if (tipo === 'favicon') {
         inputId = "favicon-file";
         btnId = "btn-salvar-favicon";
         campoBanco = "faviconUrl";
+        textoSucesso = "Miniatura salva com sucesso!";
     } else if (tipo === 'avatar_padrao') {
         inputId = "avatar_padrao-file";
         btnId = "btn-salvar-avatar-padrao";
         campoBanco = "avatarPadraoUrl";
+        textoSucesso = "Avatar padrão dos usuários salvo com sucesso!";
+    } else if (tipo === 'grupo_padrao') {
+        inputId = "grupo_padrao-file";
+        btnId = "btn-salvar-avatar-grupo-padrao";
+        campoBanco = "avatarPadraoGrupoUrl";
+        textoSucesso = "Foto padrão dos grupos salva com sucesso!";
+    } else {
+        alert("Tipo de imagem não reconhecido.");
+        return;
     }
 
     const fileInput = document.getElementById(inputId);
     const btn = document.getElementById(btnId);
-    const arquivo = fileInput ? fileInput.files[0] : null;
+    const arquivo = fileInput &&
+        fileInput.files
+        ? fileInput.files[0]
+        : null;
 
     if (!arquivo) {
         alert("Por favor, selecione uma imagem primeiro!");
@@ -11477,28 +11492,59 @@ async function salvarLogoClubeAdmin(tipo = 'site') {
     }
 
     try {
-        if (btn) { btn.disabled = true; btn.textContent = "Salvando..."; }
-
-        // Faz o upload usando o seu sistema interno do ClubeDB
-        const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
-        const urlFinal = res.url || res.secure_url || res;
-
-        if (urlFinal) {
-            await window.ClubeDB.textoDB.collection("configuracoes").doc("geral").set({
-                [campoBanco]: urlFinal,
-                [campoBanco.replace("Url", "IdPublico")]: res.public_id || ""
-            }, { merge: true });
-
-            alert("Avatar padrão atualizado com sucesso! 🛡️");
-            carregarLogoClubeConfig(); // Recarrega para aplicar a mudança
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Salvando...";
         }
-    } catch (e) {
-        alert("Erro ao salvar: " + e.message);
+
+        const res = await window.ClubeDB.acoesAdmin
+            .uploadFoto(arquivo);
+        const urlFinal = String(
+            res && (res.url || res.secure_url) || res || ""
+        ).trim();
+        const idPublico = res &&
+            (res.idPublico || res.public_id)
+            ? res.idPublico || res.public_id
+            : "";
+
+        if (!urlFinal) {
+            throw new Error(
+                "O servidor de imagens não retornou uma URL válida."
+            );
+        }
+
+        await window.ClubeDB.textoDB
+            .collection("configuracoes")
+            .doc("geral")
+            .set({
+                [campoBanco]: urlFinal,
+                [campoBanco.replace("Url", "IdPublico")]: idPublico
+            }, {
+                merge: true
+            });
+
+        alert(textoSucesso);
+        await carregarLogoClubeConfig();
+    } catch (erro) {
+        console.error(
+            "Erro ao salvar imagem da Customização:",
+            erro
+        );
+        alert(
+            "Erro ao salvar: " +
+            (erro.message || "desconhecido")
+        );
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = "Salvar Avatar"; }
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = tipo === "grupo_padrao"
+                ? "Salvar Foto Padrão dos Grupos"
+                : tipo === "avatar_padrao"
+                    ? "Salvar Avatar"
+                    : "Salvar";
+        }
     }
 }
-
 
 
 

@@ -429,12 +429,27 @@
                         </div>
                         <label class="upload-customizado" style="display: inline-block; margin-bottom: 10px;">
                             Escolher Avatar Padrão
-                            <input type="file" id="avatar_padrao-file" accept="image/*" onchange="mostrarPreviaImagem(this, 'previa-avatar-padrao')">
+                            <input type="file" id="avatar_padrao-file" accept="image/*" onchange="mostrarPreviaImagem(this, 'previa-avatar-padrao' )">
                         </label>
                         <div style="display: flex; gap: 10px;">
                             <button id="btn-salvar-avatar-padrao" onclick="salvarLogoClubeAdmin('avatar_padrao')" style="flex: 1; padding: 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Salvar Avatar</button>
                             <button onclick="removerLogoClubeAdmin('avatar_padrao')" style="flex: 1; padding: 8px; background: #ff4d4d; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Usar Original</button>
                         </div>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid #333;">
+
+                    <!-- 5. FOTO PADRÃO (GRUPOS SEM FOTO) -->
+                    <div>
+                        <label style="font-weight: bold; margin-bottom: 5px; display: block; color: #ccc;">Foto Padrão dos Grupos (Grupos sem foto)</label>
+                        <div class="container-avatar-previa" style="margin-bottom: 10px;">
+                            <img id="previa-avatar-grupo-padrao" src="https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png" class="avatar-previa" style="border-radius: 50%; object-fit: cover; max-height: 80px; width: 80px;" alt="Foto padrão dos grupos">
+                        </div>
+                        <label class="upload-customizado" style="display: inline-block; margin-bottom: 10px;">
+                            Escolher Foto Padrão dos Grupos
+                            <input type="file" id="grupo_padrao-file" accept="image/*" onchange="mostrarPreviaImagem(this, 'previa-avatar-grupo-padrao' )">
+                        </label>
+                        <button id="btn-salvar-avatar-grupo-padrao" type="button" onclick="salvarLogoClubeAdmin('grupo_padrao')" style="width: 100%; padding: 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Salvar Foto Padrão dos Grupos</button>
                     </div>
 
                 </div>
