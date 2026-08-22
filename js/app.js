@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.394.0 - versão alpha";
+const VERSAO_ATUAL = "v0.395.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -16265,7 +16265,8 @@ async function arquivarMembro(id) {
 
 
 async function deletarMembro(id, idFoto) {
-    const banco = window.ClubeDB && window.ClubeDB.textoDB
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB
         ? window.ClubeDB.textoDB
         : null;
 
@@ -16274,21 +16275,28 @@ async function deletarMembro(id, idFoto) {
         return;
     }
 
-    const usuarioLogado = window.ClubeDB &&
-        window.ClubeDB.loginDB
-        ? window.ClubeDB.loginDB.currentUser
+    const usuarioLogado = window.firebase &&
+        typeof firebase.auth === "function"
+        ? firebase.auth().currentUser
         : null;
 
-    if (usuarioLogado && usuarioLogado.uid === id) {
+    if (!usuarioLogado || !usuarioLogado.uid) {
         alert(
-            "Por segurança, você não pode apagar a própria conta enquanto estiver logado nela."
+            "A sessão administrativa não está disponível. Saia e entre novamente como administrador."
+        );
+        return;
+    }
+
+    if (usuarioLogado.uid === String(id)) {
+        alert(
+            "Por segurança, você não pode apagar a própria conta administrativa."
         );
         return;
     }
 
     const referenciaMembro = banco
         .collection("usuarios")
-        .doc(id);
+        .doc(String(id));
 
     try {
         const documentoMembro = await referenciaMembro.get();
@@ -16308,16 +16316,24 @@ async function deletarMembro(id, idFoto) {
             membro.username ||
             "este membro"
         ).trim();
-        const fotoIdFinal = idFoto ||
+        const fotoIdFinal = String(
+            idFoto ||
             membro.fotoIdPublico ||
-            "";
+            ""
+        ).trim();
 
         if (!window.confirm(
             `Tem certeza que deseja apagar ${nomeMembro}?\n\n` +
-            "Os progressos e solicitações de aprovação desse membro também serão removidos."
+            "O perfil será removido do aplicativo. Os progressos vinculados serão limpos quando as regras permitirem. Essa ação não pode ser desfeita."
         )) {
             return;
         }
+
+        // O perfil é a operação principal. Apague-o primeiro para que
+        // uma falha em uma coleção secundária não bloqueie o botão Apagar.
+        await referenciaMembro.delete();
+
+        let houveFalhaNaLimpeza = false;
 
         const apagarConsultaEmLotes = async consulta => {
             while (true) {
@@ -16348,15 +16364,21 @@ async function deletarMembro(id, idFoto) {
             ];
 
             for (const colecao of colecoesVinculadas) {
-                await apagarConsultaEmLotes(
-                    banco
-                        .collection(colecao)
-                        .where("usuario", "==", username)
-                );
+                try {
+                    await apagarConsultaEmLotes(
+                        banco
+                            .collection(colecao)
+                            .where("usuario", "==", username)
+                    );
+                } catch (erroColecao) {
+                    houveFalhaNaLimpeza = true;
+                    console.warn(
+                        `O perfil foi apagado, mas a coleção ${colecao} não pôde ser limpa:`,
+                        erroColecao
+                    );
+                }
             }
         }
-
-        await referenciaMembro.delete();
 
         if (
             fotoIdFinal &&
@@ -16371,24 +16393,32 @@ async function deletarMembro(id, idFoto) {
                 );
             } catch (erroFoto) {
                 console.warn(
-                    "O membro foi apagado, mas a foto não pôde ser removida:",
+                    "O perfil foi apagado, mas a foto não pôde ser removida:",
                     erroFoto
                 );
             }
         }
 
-        alert(
-            `Membro ${nomeMembro} apagado com sucesso.`
-        );
+        if (houveFalhaNaLimpeza) {
+            alert(
+                `O perfil de ${nomeMembro} foi apagado. Algumas coleções de progresso não puderam ser limpas pelas regras atuais.`
+            );
+        } else {
+            alert(
+                `Membro ${nomeMembro} apagado com sucesso.`
+            );
+        }
+
         await carregarMembrosCadastrados();
     } catch (erro) {
         console.error("Erro ao apagar membro:", erro);
         alert(
-            "Não foi possível apagar o membro. Erro: " +
+            "Não foi possível apagar o perfil do membro. Erro: " +
             (erro.message || "desconhecido")
         );
     }
 }
+
 
 
 async function prepararEdicaoMembro(id) {
