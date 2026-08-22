@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.404.0 - versão alpha";
+const VERSAO_ATUAL = "v0.405.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -4866,6 +4866,89 @@ function fecharModalEditarGrupoChat() {
     }
 }
 
+async function apagarFotoGrupoChat() {
+    const grupo = _salaGrupoAtiva;
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB;
+
+    if (!grupo || !grupo.chatId || !banco) {
+        window.alert(
+            "Não foi possível identificar o grupo."
+        );
+        return;
+    }
+
+    if (!grupo.fotoGrupoUrl) {
+        window.alert(
+            "Este grupo já está usando a foto padrão dos grupos."
+        );
+        return;
+    }
+
+    if (!window.confirm(
+        "Apagar a foto própria deste grupo e voltar para a foto padrão?"
+    )) {
+        return;
+    }
+
+    try {
+        await banco
+            .collection("chats")
+            .doc(grupo.chatId)
+            .set(
+                {
+                    fotoGrupoUrl: ""
+                },
+                {
+                    merge: true
+                }
+            );
+
+        grupo.fotoGrupoUrl = "";
+
+        const avatarPadraoGrupo = String(
+            window.AVATAR_GRUPO_PADRAO ||
+            window.AVATAR_USUARIO_PADRAO ||
+            "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+         ).trim();
+        const avatarEl = document.getElementById(
+            "chat-avatar-atual"
+        );
+
+        if (avatarEl) {
+            avatarEl.onerror = null;
+            avatarEl.src = avatarPadraoGrupo;
+            avatarEl.onerror = () => {
+                avatarEl.onerror = null;
+                avatarEl.src =
+                    "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+            };
+        }
+
+        fecharModalEditarGrupoChat( );
+
+        if (
+            typeof carregarListaDeContatosChat ===
+                "function"
+        ) {
+            await carregarListaDeContatosChat();
+        }
+
+        window.alert(
+            "Foto do grupo apagada. A foto padrão dos grupos foi restaurada."
+        );
+    } catch (erro) {
+        console.error(
+            "Erro ao apagar foto do grupo:",
+            erro
+        );
+        window.alert(
+            "Não foi possível apagar a foto do grupo: " +
+            (erro.message || "erro desconhecido")
+        );
+    }
+}
+
 async function salvarEdicaoGrupoChat() {
     const modal = document.getElementById(
         "modal-editar-grupo-chat"
@@ -5185,6 +5268,19 @@ function abrirModalEditarGrupoChat() {
         salvarEdicaoGrupoChat
     );
 
+    apagarFoto.type = "button";
+    apagarFoto.textContent = "Apagar foto";
+    apagarFoto.style.border = "1px solid #ff4d4d";
+    apagarFoto.style.borderRadius = "9px";
+    apagarFoto.style.background = "transparent";
+    apagarFoto.style.color = "#ff7777";
+    apagarFoto.style.padding = "10px 14px";
+    apagarFoto.style.cursor = "pointer";
+    apagarFoto.addEventListener(
+        "click",
+        apagarFotoGrupoChat
+    );
+
     cancelar.type = "button";
     cancelar.textContent = "Cancelar";
     cancelar.style.border = "1px solid #3a3a3a";
@@ -5209,6 +5305,7 @@ function abrirModalEditarGrupoChat() {
     rodape.style.display = "flex";
     rodape.style.justifyContent = "flex-end";
     rodape.style.gap = "8px";
+    rodape.appendChild(apagarFoto);
     rodape.appendChild(cancelar);
     rodape.appendChild(salvar);
     caixa.appendChild(rodape);
