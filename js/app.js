@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.393.0 - versão alpha";
+const VERSAO_ATUAL = "v0.394.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -16270,7 +16270,7 @@ async function deletarMembro(id, idFoto) {
         : null;
 
     if (!banco || !id) {
-        alert("Não foi possível identificar o membro para arquivar.");
+        alert("Não foi possível identificar o membro para apagar.");
         return;
     }
 
@@ -16280,7 +16280,9 @@ async function deletarMembro(id, idFoto) {
         : null;
 
     if (usuarioLogado && usuarioLogado.uid === id) {
-        alert("Por segurança, você não pode arquivar a própria conta enquanto estiver logado nela.");
+        alert(
+            "Por segurança, você não pode apagar a própria conta enquanto estiver logado nela."
+        );
         return;
     }
 
@@ -16298,37 +16300,91 @@ async function deletarMembro(id, idFoto) {
         }
 
         const membro = documentoMembro.data() || {};
+        const username = String(
+            membro.username || ""
+        ).trim().toLowerCase();
         const nomeMembro = String(
             membro.nomeReal ||
             membro.username ||
             "este membro"
         ).trim();
+        const fotoIdFinal = idFoto ||
+            membro.fotoIdPublico ||
+            "";
 
-        if (!confirm(
-            `Arquivar ${nomeMembro}?\n\n` +
-            "O perfil sairá das listas administrativas e do chat, mas frequências, fichas, relatórios, mensagens e assinatura serão preservados."
+        if (!window.confirm(
+            `Tem certeza que deseja apagar ${nomeMembro}?\n\n` +
+            "Os progressos e solicitações de aprovação desse membro também serão removidos."
         )) {
             return;
         }
 
-        await referenciaMembro.update({
-            statusConta: "arquivada",
-            contaAtiva: false,
-            arquivadoEm:
-                firebase.firestore.FieldValue.serverTimestamp(),
-            arquivadoPor: usuarioLogado
-                ? usuarioLogado.uid
-                : "admin"
-        });
+        const apagarConsultaEmLotes = async consulta => {
+            while (true) {
+                const resultado = await consulta
+                    .limit(400)
+                    .get();
+
+                if (resultado.empty) {
+                    return;
+                }
+
+                const lote = banco.batch();
+
+                resultado.docs.forEach(documento => {
+                    lote.delete(documento.ref);
+                });
+
+                await lote.commit();
+            }
+        };
+
+        if (username) {
+            const colecoesVinculadas = [
+                "progresso_especialidades",
+                "progresso_mestrados",
+                "progresso_classes",
+                "pendencias_aprovacao"
+            ];
+
+            for (const colecao of colecoesVinculadas) {
+                await apagarConsultaEmLotes(
+                    banco
+                        .collection(colecao)
+                        .where("usuario", "==", username)
+                );
+            }
+        }
+
+        await referenciaMembro.delete();
+
+        if (
+            fotoIdFinal &&
+            fotoIdFinal !== "undefined" &&
+            window.ClubeDB.acoesAdmin &&
+            typeof window.ClubeDB.acoesAdmin.excluirFoto ===
+                "function"
+        ) {
+            try {
+                await window.ClubeDB.acoesAdmin.excluirFoto(
+                    fotoIdFinal
+                );
+            } catch (erroFoto) {
+                console.warn(
+                    "O membro foi apagado, mas a foto não pôde ser removida:",
+                    erroFoto
+                );
+            }
+        }
 
         alert(
-            `Perfil de ${nomeMembro} arquivado. Os dados históricos foram preservados.`
+            `Membro ${nomeMembro} apagado com sucesso.`
         );
         await carregarMembrosCadastrados();
     } catch (erro) {
-        console.error("Erro ao arquivar membro:", erro);
+        console.error("Erro ao apagar membro:", erro);
         alert(
-            "Não foi possível arquivar o membro. Erro: " +
+            "Não foi possível apagar o membro. Erro: " +
             (erro.message || "desconhecido")
         );
     }
