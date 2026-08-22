@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.403.0 - versão alpha";
+const VERSAO_ATUAL = "v0.404.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -5045,9 +5045,21 @@ function abrirModalEditarGrupoChat() {
     const titulo = document.createElement("strong");
     const fechar = document.createElement("button");
     const nome = document.createElement("input");
+    const previa = document.createElement("img");
     const foto = document.createElement("input");
     const salvar = document.createElement("button");
     const cancelar = document.createElement("button");
+
+    const avatarPadraoGrupo = String(
+        window.AVATAR_GRUPO_PADRAO ||
+        window.AVATAR_USUARIO_PADRAO ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+     ).trim();
+
+    const fotoInicial = String(
+        grupo.fotoGrupoUrl ||
+        avatarPadraoGrupo
+    ).trim() || avatarPadraoGrupo;
 
     modal.id = "modal-editar-grupo-chat";
     modal.style.position = "fixed";
@@ -5105,11 +5117,55 @@ function abrirModalEditarGrupoChat() {
     nome.style.color = "#fff";
     nome.style.outline = "none";
 
+    previa.id = "previa-foto-edicao-grupo-chat";
+    previa.src = fotoInicial;
+    previa.alt = "Foto atual do grupo";
+    previa.style.width = "80px";
+    previa.style.height = "80px";
+    previa.style.borderRadius = "50%";
+    previa.style.objectFit = "cover";
+    previa.style.alignSelf = "center";
+    previa.style.border = "1px solid #3a3a3a";
+    previa.onerror = () => {
+        previa.onerror = null;
+        previa.src =
+            "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+    };
+
     foto.id = "input-editar-foto-grupo-chat";
     foto.type = "file";
     foto.accept = "image/png,image/jpeg,image/webp";
     foto.style.color = "#d7d9db";
     foto.style.fontSize = "12px";
+    foto.addEventListener("change", ( ) => {
+        const arquivo = foto.files && foto.files[0];
+
+        if (!arquivo) {
+            previa.src = avatarPadraoGrupo;
+            return;
+        }
+
+        if (!arquivo.type.startsWith("image/")) {
+            foto.value = "";
+            previa.src = avatarPadraoGrupo;
+            window.alert(
+                "Escolha um arquivo de imagem válido."
+            );
+            return;
+        }
+
+        const leitor = new FileReader();
+
+        leitor.onload = evento => {
+            previa.src = String(
+                evento.target &&
+                evento.target.result ||
+                avatarPadraoGrupo
+            );
+        };
+
+        leitor.readAsDataURL(arquivo);
+    });
 
     salvar.type = "button";
     salvar.textContent = "Salvar";
@@ -5146,6 +5202,7 @@ function abrirModalEditarGrupoChat() {
     topo.appendChild(fechar);
     caixa.appendChild(topo);
     caixa.appendChild(nome);
+    caixa.appendChild(previa);
     caixa.appendChild(foto);
 
     const rodape = document.createElement("div");
@@ -5160,6 +5217,7 @@ function abrirModalEditarGrupoChat() {
     document.body.appendChild(modal);
     nome.focus();
 }
+
 
 function configurarAcoesGrupoChat(dadosGrupo) {
     const cabecalho = document.getElementById(
