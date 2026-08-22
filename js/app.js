@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.384.0 - versão alpha";
+const VERSAO_ATUAL = "v0.385.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -10813,116 +10813,239 @@ function gerenciarFotoPerfilUsuario() {
 }
 
 async function uploadFotoPerfilUsuario(input) {
-    const arquivo = input.files[0];
-    if (!arquivo) return;
+    const arquivo = input && input.files
+        ? input.files[0]
+        : null;
+
+    if (!arquivo) {
+        return;
+    }
+
+    const avatarPadrao =
+        window.AVATAR_USUARIO_PADRAO ||
+        "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+    const avatarEl = document.getElementById(
+        "perfil-usuario-avatar"
+     );
+    const banco = window.ClubeDB &&
+        window.ClubeDB.textoDB
+        ? window.ClubeDB.textoDB
+        : null;
+    const auth = window.ClubeDB &&
+        window.ClubeDB.loginDB
+        ? window.ClubeDB.loginDB
+        : null;
+    const usuarioAuthAtual = auth
+        ? auth.currentUser
+        : null;
 
     try {
-        const username = localStorage.getItem("usernameLogado");
-        if (!username) return;
+        if (!banco || !usuarioAuthAtual || !usuarioAuthAtual.uid) {
+            throw new Error(
+                "A sessão Firebase não está disponível para atualizar esta foto."
+            );
+        }
 
-        // Feedback visual de carregamento rápido
-        const avatarEl = document.getElementById("perfil-usuario-avatar");
-        if (avatarEl) avatarEl.style.opacity = "0.4";
+        if (
+            arquivo.type &&
+            !arquivo.type.startsWith("image/")
+        ) {
+            throw new Error(
+                "Selecione um arquivo de imagem válido."
+            );
+        }
+
+        if (avatarEl) {
+            avatarEl.style.opacity = "0.4";
+        }
 
         let novaUrl = "";
         let novoIdPublico = "";
+        const acoesAdmin = window.ClubeDB.acoesAdmin;
 
-        // 1. Envio dos arquivos para o Cloudinary (Tratando as respostas de forma ultra-segura)
-        if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadFoto === "function") {
-            const res = await window.ClubeDB.acoesAdmin.uploadFoto(arquivo);
-            novaUrl = res.url || res.secure_url || res;
-            novoIdPublico = res.public_id || res.publicId || "";
-        } else if (window.ClubeDB && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.uploadImagem === "function") {
-            const res = await window.ClubeDB.acoesAdmin.uploadImagem(arquivo);
-            novaUrl = res.url || res.secure_url || res;
-            novoIdPublico = res.public_id || res.publicId || "";
+        if (
+            acoesAdmin &&
+            typeof acoesAdmin.uploadFoto === "function"
+        ) {
+            const resposta = await acoesAdmin.uploadFoto(arquivo);
+            novaUrl = String(
+                resposta && typeof resposta === "object"
+                    ? resposta.url || resposta.secure_url || ""
+                    : resposta || ""
+            ).trim();
+            novoIdPublico = String(
+                resposta && typeof resposta === "object"
+                    ? resposta.public_id ||
+                        resposta.publicId ||
+                        ""
+                    : ""
+            ).trim();
+        } else if (
+            acoesAdmin &&
+            typeof acoesAdmin.uploadImagem === "function"
+        ) {
+            const resposta = await acoesAdmin.uploadImagem(arquivo);
+            novaUrl = String(
+                resposta && typeof resposta === "object"
+                    ? resposta.url || resposta.secure_url || ""
+                    : resposta || ""
+            ).trim();
+            novoIdPublico = String(
+                resposta && typeof resposta === "object"
+                    ? resposta.public_id ||
+                        resposta.publicId ||
+                        ""
+                    : ""
+            ).trim();
         } else {
             const formData = new FormData();
             formData.append("file", arquivo);
-            formData.append("upload_preset", "guardioes_preset");
-            
-            const response = await fetch("https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload", {
-                method: "POST",
-                body: formData
-            });
-            if (response.ok) {
-                const data = await response.json();
-                novaUrl = data.secure_url || data.url;
-                novoIdPublico = data.public_id || "";
-            } else {
-                throw new Error("Não foi possível conectar ao servidor de imagens Cloudinary.");
+            formData.append(
+                "upload_preset",
+                "guardioes_preset"
+            );
+
+            const resposta = await fetch(
+                "https://api.cloudinary.com/v1_1/dkozbm1ik/image/upload",
+                {
+                    method: "POST",
+                    body: formData
+                }
+             );
+
+            if (!resposta.ok) {
+                throw new Error(
+                    "Não foi possível conectar ao servidor de imagens Cloudinary."
+                );
+            }
+
+            const dadosImagem = await resposta.json();
+            novaUrl = String(
+                dadosImagem.secure_url ||
+                dadosImagem.url ||
+                ""
+            ).trim();
+            novoIdPublico = String(
+                dadosImagem.public_id ||
+                ""
+            ).trim();
+        }
+
+        if (!novaUrl) {
+            throw new Error(
+                "O servidor de imagens não retornou um endereço válido."
+            );
+        }
+
+        const referenciaUsuario = banco
+            .collection("usuarios")
+            .doc(usuarioAuthAtual.uid);
+        const documentoUsuario = await referenciaUsuario.get();
+
+        if (!documentoUsuario.exists) {
+            throw new Error(
+                "O perfil da conta atual não existe no documento correspondente ao UID do Firebase."
+            );
+        }
+
+        const dadosAtuais = documentoUsuario.data() || {};
+        const usernameAtual = String(
+            dadosAtuais.username ||
+            localStorage.getItem("usernameLogado") ||
+            ""
+        ).trim().toLowerCase();
+        const fotoIdAntiga = String(
+            dadosAtuais.fotoIdPublico ||
+            ""
+        ).trim();
+
+        if (
+            fotoIdAntiga &&
+            acoesAdmin &&
+            typeof acoesAdmin.excluirFoto === "function"
+        ) {
+            try {
+                await acoesAdmin.excluirFoto(fotoIdAntiga);
+            } catch (erroFoto) {
+                console.warn(
+                    "A foto nova será mantida, mas a foto antiga não pôde ser removida:",
+                    erroFoto
+                );
             }
         }
 
-        // 2. Gravando no Firestore com travas anti-undefined
-        if (novaUrl) {
-            const snapshot = await window.ClubeDB.textoDB.collection("usuarios").where("username", "==", username).get();
-            if (!snapshot.empty) {
-                const docId = snapshot.docs[0].id;
-                const dadosAntigos = snapshot.docs[0].data();
-
-                // Remove imagem antiga se ela existir para economizar seu espaço no Cloudinary
-                if (dadosAntigos.fotoIdPublico && window.ClubeDB.acoesAdmin && typeof window.ClubeDB.acoesAdmin.excluirFoto === "function") {
-                    try {
-                        await window.ClubeDB.acoesAdmin.excluirFoto(dadosAntigos.fotoIdPublico);
-                    } catch (errExcluir) {
-                        console.warn("Aviso ao limpar imagem anterior do Cloudinary:", errExcluir);
-                    }
-                }
-
-                // Proteção Máxima contra undefined usando o operador || ""
-                await window.ClubeDB.textoDB.collection("usuarios").doc(docId).update({
-                    fotoUrl: novaUrl || "",
-                    fotoIdPublico: novoIdPublico || ""
-                });
-
-                // 3. Atualizando a foto correta em todas as publicações já feitas pelo usuário
-try {
-    const pubsSnapshot = await window.ClubeDB.textoDB
-        .collection("publicacoes")
-        .where("autorUsername", "==", username)
-        .get();
-
-    if (!pubsSnapshot.empty) {
-        const batch = window.ClubeDB.textoDB.batch();
-
-        const avatarFinal =
-            normalizarUrlPublicacao(novaUrl) ||
-            window.AVATAR_USUARIO_PADRAO;
-
-        pubsSnapshot.docs.forEach(docPub => {
-            batch.update(docPub.ref, {
-                autorFotoUrl: avatarFinal
-            });
+        await referenciaUsuario.update({
+            fotoUrl: novaUrl,
+            fotoIdPublico: novoIdPublico
         });
 
-        await batch.commit();
+        if (usernameAtual) {
+            try {
+                const publicacoesSnap = await banco
+                    .collection("publicacoes")
+                    .where("autorUsername", "==", usernameAtual)
+                    .get();
+
+                if (!publicacoesSnap.empty) {
+                    const lote = banco.batch();
+                    const avatarFinal =
+                        normalizarUrlPublicacao(novaUrl) ||
+                        novaUrl ||
+                        avatarPadrao;
+
+                    publicacoesSnap.docs.forEach(documento => {
+                        lote.update(documento.ref, {
+                            autorFotoUrl: avatarFinal
+                        });
+                    });
+
+                    await lote.commit();
+                }
+            } catch (erroPublicacoes) {
+                console.warn(
+                    "A foto do perfil foi salva, mas as publicações antigas não foram atualizadas:",
+                    erroPublicacoes
+                );
+            }
+        }
+
+        if (avatarEl) {
+            avatarEl.onerror = function () {
+                this.onerror = null;
+                this.src = avatarPadrao;
+            };
+            avatarEl.src = novaUrl;
+        }
+
+        alert(
+            "Sua foto de perfil foi atualizada com sucesso!"
+        );
+        await carregarPerfilDoUsuario();
+        fecharModalFoto();
+    } catch (erro) {
+        console.error(
+            "Erro ao enviar foto do perfil:",
+            erro
+        );
+        alert(
+            "Erro ao atualizar sua foto: " +
+            (erro.message || "erro desconhecido")
+        );
+    } finally {
+        if (avatarEl) {
+            avatarEl.style.opacity = "1";
+            avatarEl.onerror = function () {
+                this.onerror = null;
+                this.src = avatarPadrao;
+            };
+        }
+
+        if (input) {
+            input.value = "";
+        }
     }
-} catch (errPubs) {
-    console.error(
-        "Erro ao atualizar avatar nas publicações do feed:",
-        errPubs
-    );
 }
 
-                alert("Sua foto de perfil foi atualizada com sucesso! 🎉");
-                await carregarPerfilDoUsuario();
-                fecharModalFoto();
-            } else {
-                alert("Usuário não encontrado no banco de dados.");
-            }
-        } else {
-            alert("Não recebemos um link válido da imagem. Tente novamente.");
-        }
-    } catch (e) {
-        alert("Erro ao enviar imagem: " + e.message);
-    } finally {
-        // Restaura a opacidade e limpa o input para permitir selecionar a mesma imagem se quiser
-        const avatarEl = document.getElementById("perfil-usuario-avatar");
-        if (avatarEl) avatarEl.style.opacity = "1";
-        if (input) input.value = "";
-    }
-}
 
 async function removerFotoPerfilUsuario() {
     if (!confirm("Confirmar a remoção da sua foto de perfil?")) return;
