@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.380.0 - versão alpha";
+const VERSAO_ATUAL = "v0.381.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -9864,17 +9864,29 @@ async function abrirPainelUnidade() {
                 cargoNome.includes("secretario") &&
                 cargoNome.includes("unidade")
             );
-
+        const ehConselheiroUnidade =
+            cargoFuncao === "conselheiro_unidade" ||
+            cargoFuncao === "conselheiro de unidade" ||
+            cargoNome === "conselheiro de unidade" ||
+            (
+                cargoNome.includes("conselheiro") &&
+                cargoNome.includes("unidade")
+            );
         const nomeUnidade = String(
             dadosUsuario.unidade || ""
         ).trim();
-
-        if (ehSecretarioUnidade && !nomeUnidade) {
+        if (
+            (ehSecretarioUnidade || ehConselheiroUnidade) &&
+            !nomeUnidade
+        ) {
             window.alert(
-                "O Secretário(a) de Unidade precisa estar vinculado a uma unidade."
+                ehConselheiroUnidade
+                    ? "O Conselheiro(a) de Unidade precisa estar vinculado a uma unidade."
+                    : "O Secretário(a) de Unidade precisa estar vinculado a uma unidade."
             );
             return;
         }
+
 
         let dadosUnidade = {};
         if (nomeUnidade) {
@@ -10013,7 +10025,9 @@ async function abrirPainelUnidade() {
             ? "Secretário(a) do Clube"
             : ehSecretarioUnidade
                 ? "Secretário(a) de Unidade"
-                : "Painel da unidade";
+                : ehConselheiroUnidade
+                    ? "Conselheiro(a) de Unidade"
+                    : "Painel da unidade";
         subtitulo.style.color = "#8e8e8e";
         subtitulo.style.fontSize = "12px";
 
@@ -10130,14 +10144,12 @@ async function abrirPainelUnidade() {
             tituloFuncoes.textContent = "Responsabilidades do secretário(a)";
             tituloFuncoes.style.margin = "18px 0 10px";
             tituloFuncoes.style.fontSize = "16px";
-
             const aviso = document.createElement("p");
             aviso.textContent =
                 "A frequência e os relatórios pertencem à unidade. Os eventos são definidos no calendário central do clube.";
             aviso.style.color = "#a8a8a8";
             aviso.style.fontSize = "13px";
             aviso.style.lineHeight = "1.5";
-
             conteudo.appendChild(tituloFuncoes);
             conteudo.appendChild(aviso);
             await renderizarPainelSecretarioFrequencia(
@@ -10147,8 +10159,22 @@ async function abrirPainelUnidade() {
                 banco,
                 username
             );
-
+        } else if (ehConselheiroUnidade) {
+            const tituloFuncoes = document.createElement("h2");
+            tituloFuncoes.textContent =
+                "Responsabilidades do Conselheiro(a)";
+            tituloFuncoes.style.margin = "18px 0 10px";
+            tituloFuncoes.style.fontSize = "16px";
+            const aviso = document.createElement("p");
+            aviso.textContent =
+                "Este painel pertence exclusivamente à sua unidade. A criação de eventos e o fluxo de relatórios da unidade serão exibidos aqui.";
+            aviso.style.color = "#a8a8a8";
+            aviso.style.fontSize = "13px";
+            aviso.style.lineHeight = "1.5";
+            conteudo.appendChild(tituloFuncoes);
+            conteudo.appendChild(aviso);
         } else {
+
             const vazio = document.createElement("p");
             vazio.textContent =
                 "Nenhuma função adicional foi liberada para este cargo ainda.";
