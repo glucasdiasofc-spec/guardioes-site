@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.392.0 - versão alpha";
+const VERSAO_ATUAL = "v0.393.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -16000,7 +16000,24 @@ async function salvarNovoMembroAdmin() {
         document.getElementById("membro-nascimento").value = "";
         if (fotoInput) fotoInput.value = "";
 
-        document.getElementById("previa-membro-img").src = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        const avatarPadraoDepoisDoCadastro = String(
+            window.AVATAR_USUARIO_PADRAO ||
+            "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+         ).trim();
+
+        const previaMembroDepoisDoCadastro =
+            document.getElementById("previa-membro-img");
+
+        if (previaMembroDepoisDoCadastro) {
+            previaMembroDepoisDoCadastro.src =
+                avatarPadraoDepoisDoCadastro;
+            previaMembroDepoisDoCadastro.onerror = () => {
+                previaMembroDepoisDoCadastro.onerror = null;
+                previaMembroDepoisDoCadastro.src =
+                    "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+            };
+        }
+
         atualizarFuncaoCargoSelecionado("membro-cargo", "membro-funcao-preview" );
         carregarMembrosCadastrados();
     } catch (erro) {
@@ -16393,8 +16410,27 @@ async function prepararEdicaoMembro(id) {
             "edit-membro-funcao-preview"
         );
 
-        document.getElementById("edit-previa-membro-img").src =
-            dados.fotoUrl || "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
+        const avatarPadraoEdicao = String(
+            window.AVATAR_USUARIO_PADRAO ||
+            "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png"
+         ).trim();
+
+        const previaEdicaoMembro = document.getElementById(
+            "edit-previa-membro-img"
+        );
+
+        if (previaEdicaoMembro) {
+            previaEdicaoMembro.src = String(
+                dados.fotoUrl ||
+                avatarPadraoEdicao
+            ).trim() || avatarPadraoEdicao;
+
+            previaEdicaoMembro.onerror = () => {
+                previaEdicaoMembro.onerror = null;
+                previaEdicaoMembro.src = avatarPadraoEdicao;
+            };
+        }
+
 
         const assinaturaPreview = document.getElementById(
             "edit-previa-assinatura-png"
