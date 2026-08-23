@@ -1622,12 +1622,15 @@
 
                             // Gatilho seguro de inicialização
                             document.addEventListener('DOMContentLoaded', () => {
-                                const checkDB = setInterval(() => {
-                                    if (window.ClubeDB && window.ClubeDB.textoDB) {
-                                        clearInterval(checkDB);
-                                        renderizarFeedPublicacoes();
-                                    }
-                                }, 500); // Aguarda o Firestore estar pronto
+                                const sessaoAtiva = localStorage.getItem("sessaoAdminLogado") === "true";
+                                if (sessaoAtiva) {
+                                    const checkDB = setInterval(() => {
+                                        if (window.ClubeDB && window.ClubeDB.textoDB) {
+                                            clearInterval(checkDB);
+                                            renderizarFeedPublicacoes();
+                                        }
+                                    }, 500);
+                                }
                             });
                         </script>
 
