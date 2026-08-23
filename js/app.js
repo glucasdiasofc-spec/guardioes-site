@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.535.0 - versão alpha";
+const VERSAO_ATUAL = "v0.536.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -45,18 +45,63 @@ document.addEventListener("DOMContentLoaded", () => {
     const tipoUsuario = localStorage.getItem("usuarioLogado");
 
     if (loginSalvo === "true") {
-        document.getElementById("tela-login").style.display = "none";
+        const telaLogin = document.getElementById("tela-login");
+        if (telaLogin) telaLogin.style.display = "none";
         
         if (tipoUsuario === "admin") {
-            document.getElementById("tela-admin").style.display = "flex";
+            const telaAdmin = document.getElementById("tela-admin");
+            if (telaAdmin) telaAdmin.style.display = "flex";
             carregarUnidadesCadastradas(); 
             carregarMembrosCadastrados();
             carregarCargosParaSelect();
-            // carregarPendenciasAprovacaoAdmin(); // Agora carregado na aba de especialidades do site
         } else {
-
             irParaSite();
         }
+    } else if (window.ClubeDB && window.ClubeDB.loginDB) {
+        window.ClubeDB.loginDB.onAuthStateChanged(async (usuarioFirebase) => {
+            if (usuarioFirebase && localStorage.getItem("sessaoAdminLogado") !== "true") {
+                const ehAdmin = usuarioFirebase.email === "admin@guardioesdbv.com" || localStorage.getItem("usuarioLogado") === "admin";
+                let usernameSessao = ehAdmin ? "admin" : (localStorage.getItem("usernameLogado") || "");
+
+                if (!ehAdmin && !usernameSessao && window.ClubeDB.textoDB) {
+                    try {
+                        const perfilSnap = await window.ClubeDB.textoDB
+                            .collection("usuarios")
+                            .doc(usuarioFirebase.uid)
+                            .get();
+                        if (perfilSnap.exists) {
+                            const dadosPerfil = perfilSnap.data() || {};
+                            usernameSessao = String(dadosPerfil.username || "").trim().toLowerCase();
+                        }
+                    } catch (e) {
+                        console.warn("Aviso ao sincronizar perfil:", e);
+                    }
+                }
+
+                if (!usernameSessao && usuarioFirebase.email) {
+                    usernameSessao = usuarioFirebase.email.split("@")[0];
+                }
+
+                localStorage.setItem("sessaoAdminLogado", "true");
+                localStorage.setItem("usuarioLogado", ehAdmin ? "admin" : "membro");
+                if (usernameSessao) {
+                    localStorage.setItem("usernameLogado", usernameSessao);
+                }
+
+                const telaLogin = document.getElementById("tela-login");
+                if (telaLogin) telaLogin.style.display = "none";
+
+                if (ehAdmin) {
+                    const telaAdmin = document.getElementById("tela-admin");
+                    if (telaAdmin) telaAdmin.style.display = "flex";
+                    carregarUnidadesCadastradas();
+                    carregarMembrosCadastrados();
+                    carregarCargosParaSelect();
+                } else {
+                    irParaSite();
+                }
+            }
+        });
     }
 });
 
@@ -530,27 +575,6 @@ async function sincronizarPresencaPush() {
             erro
         );
     }
-}
-
-let _cicloAvisoNotificacoes = 0;
-
-function ehIOS() {
-    return (
-        [
-            "iPad Simulator",
-            "iPhone Simulator",
-            "iPod Simulator",
-            "iPad",
-            "iPhone",
-            "iPod"
-        ].includes(navigator.platform) ||
-        (navigator.userAgent.includes("Mac") && "ontouchend" in document)
-    );
-}
-
-function ehAplicativoInstalado() {
-    return window.matchMedia("(display-mode: standalone)").matches ||
-        window.navigator.standalone === true;
 }
 
 let _cicloAvisoNotificacoes = 0;
