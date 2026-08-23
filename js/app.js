@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.412.0 - versão alpha";
+const VERSAO_ATUAL = "v0.535.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -530,6 +530,50 @@ async function sincronizarPresencaPush() {
             erro
         );
     }
+}
+
+let _cicloAvisoNotificacoes = 0;
+
+function ehIOS() {
+    return (
+        [
+            "iPad Simulator",
+            "iPhone Simulator",
+            "iPod Simulator",
+            "iPad",
+            "iPhone",
+            "iPod"
+        ].includes(navigator.platform) ||
+        (navigator.userAgent.includes("Mac") && "ontouchend" in document)
+    );
+}
+
+function ehAplicativoInstalado() {
+    return window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true;
+}
+
+let _cicloAvisoNotificacoes = 0;
+
+function ehIOS() {
+    return (
+        [
+            "iPad Simulator",
+            "iPhone Simulator",
+            "iPod Simulator",
+            "iPad",
+            "iPhone",
+            "iPod"
+        ].includes(navigator.platform) ||
+        (navigator.userAgent.includes("Mac") && "ontouchend" in document)
+    );
+}
+
+function ehAplicativoInstalado() {
+    return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true
+    );
 }
 
 // Direciona o fluxo para a tela de visualização do site
@@ -15275,6 +15319,7 @@ async function renderizarPainelSecretarioClubeEventos(
 
 const frequenciasPorData = new Map();
         const eventosDasUnidades = [];
+        const idsEventosUnidadesVistos = new Set();
 
         await Promise.all(
             unidadesSnapshot.docs.map(async unidadeDocumento => {
@@ -15305,6 +15350,7 @@ const frequenciasPorData = new Map();
                     const dataItem = String(dadosItem.data || "").trim();
                     if (!dataItem) return;
 
+                    idsEventosUnidadesVistos.add(itemDoc.id);
                     eventosDasUnidades.push({
                         id: itemDoc.id,
                         ...dadosItem,
@@ -15380,6 +15426,38 @@ const frequenciasPorData = new Map();
                 });
             })
         );
+
+        try {
+            const todosEventosUnidadesSnap = await banco
+                .collectionGroup("itens")
+                .get();
+
+            todosEventosUnidadesSnap.forEach(itemDoc => {
+                if (idsEventosUnidadesVistos.has(itemDoc.id)) return;
+                const dadosItem = itemDoc.data() || {};
+                const dataItem = String(dadosItem.data || "").trim();
+                if (!dataItem) return;
+
+                idsEventosUnidadesVistos.add(itemDoc.id);
+                eventosDasUnidades.push({
+                    id: itemDoc.id,
+                    ...dadosItem,
+                    data: dataItem,
+                    unidadeId: dadosItem.unidadeId || "",
+                    unidade: String(dadosItem.unidade || "Unidade").trim(),
+                    origemEvento: "unidade",
+                    somenteLeitura: true,
+                    frequencias: [],
+                    totalFrequencias: 0,
+                    totalPresentes: 0,
+                    totalFaltas: 0,
+                    totalJustificados: 0,
+                    usuariosPorUsername
+                });
+            });
+        } catch (erroGroup) {
+            console.warn("Aviso ao buscar collectionGroup de eventos_unidades:", erroGroup);
+        }
 
         const eventosCentrais = eventosSnapshot.docs.map(documento => {
             const dados = documento.data() || {};
@@ -15539,7 +15617,7 @@ const frequenciasPorData = new Map();
                 "color"
             ]);
 
-            eventosDoDia.slice(0, 2).forEach(evento => {
+eventosDoDia.slice(0, 2).forEach(evento => {
                 const item = document.createElement("span");
                 const tipo = localizarTipo(evento);
                 const prefixo = evento.origemEvento === "unidade"
@@ -15547,6 +15625,9 @@ const frequenciasPorData = new Map();
                     : "";
                 item.textContent = `${prefixo}${tipo.nome}`;
                 item.title = `${prefixo}${evento.titulo || tipo.nome}`;
+                item.style.color = evento.origemEvento === "unidade"
+                    ? "#20c997"
+                    : tipo.cor;
                 aplicarEstilo(item, {
                     display: "block",
                     width: "100%",
