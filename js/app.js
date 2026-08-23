@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.537.0 - versão alpha";
+const VERSAO_ATUAL = "v0.538.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8755,6 +8755,95 @@ async function renderizarPainelSecretarioFrequencia(
         painelFicha.appendChild(ocorrencias);
         painelFicha.appendChild(patrimonio);
 
+        const assinaturasFicha =
+            fichaAtual.assinaturas &&
+            typeof fichaAtual.assinaturas === "object"
+                ? fichaAtual.assinaturas
+                : {};
+        const assinaturaSecretario =
+            assinaturasFicha.secretario || null;
+        const assinaturaConselheiro =
+            assinaturasFicha.conselheiro || null;
+        const fichaEmAssinatura = Boolean(
+            assinaturaSecretario &&
+            assinaturaSecretario.username
+        );
+        const fichaTotalmenteAssinada = Boolean(
+            assinaturaSecretario &&
+            assinaturaSecretario.username &&
+            assinaturaConselheiro &&
+            assinaturaConselheiro.username
+        );
+        const statusAssinaturas = document.createElement("div");
+
+        const montarDadosFicha = () => ({
+            eventoId,
+            data: dataId,
+            unidadeId,
+            unidade: nomeUnidade,
+            tipoEvento:
+                eventoAtual.tipo ||
+                eventoAtual.tipoAtividade ||
+                "",
+            tituloEvento:
+                eventoAtual.titulo ||
+                "",
+            statusPorMembro:
+                registroAtual.statusPorMembro ||
+                {},
+            justificativasPorMembro:
+                registroAtual.justificativasPorMembro ||
+                {},
+            presentes:
+                registroAtual.presentes ||
+                [],
+            faltas:
+                registroAtual.faltas ||
+                [],
+            justificados:
+                registroAtual.justificados ||
+                [],
+            avaliacoesPorMembro: avaliacaoPorMembro,
+            observacoes: observacoes.value.trim(),
+            ocorrencias: ocorrencias.value.trim(),
+            patrimonio: patrimonio.value.trim()
+        });
+
+        statusAssinaturas.style.padding = "10px";
+        statusAssinaturas.style.border = "1px solid #334351";
+        statusAssinaturas.style.borderRadius = "8px";
+        statusAssinaturas.style.fontSize = "11px";
+        statusAssinaturas.style.lineHeight = "1.5";
+
+        if (fichaTotalmenteAssinada) {
+            statusAssinaturas.style.background = "#103c32";
+            statusAssinaturas.style.color = "#8ff0ce";
+            statusAssinaturas.textContent =
+                "✓ Ficha concluída e assinada pelo secretário(a) e pelo conselheiro(a) da unidade.";
+        } else if (fichaEmAssinatura) {
+            statusAssinaturas.style.background = "#302713";
+            statusAssinaturas.style.color = "#ffd58a";
+            statusAssinaturas.textContent =
+                "⌛ Ficha enviada e assinada pelo secretário(a). Aguardando a assinatura do conselheiro(a) da unidade.";
+        } else {
+            statusAssinaturas.style.background = "#0d1115";
+            statusAssinaturas.style.color = "#9fb0bd";
+            statusAssinaturas.textContent =
+                "Rascunho: salve a ficha ou envie-a para a assinatura do conselheiro(a).";
+        }
+
+        if (fichaEmAssinatura) {
+            observacoes.disabled = true;
+            ocorrencias.disabled = true;
+            patrimonio.disabled = true;
+
+            lista.querySelectorAll("select").forEach(select => {
+                select.disabled = true;
+            });
+        }
+
+        painelFicha.appendChild(statusAssinaturas);
+
         const exportarPdf = document.createElement("button");
         exportarPdf.type = "button";
         exportarPdf.textContent = "Baixar ficha em PDF";
@@ -8765,7 +8854,16 @@ async function renderizarPainelSecretarioFrequencia(
         exportarPdf.style.background = "#10283a";
         exportarPdf.style.color = "#b9e5ff";
         exportarPdf.style.fontWeight = "700";
-        exportarPdf.style.cursor = "pointer";
+        exportarPdf.style.cursor = fichaTotalmenteAssinada
+            ? "pointer"
+            : "not-allowed";
+        exportarPdf.disabled = !fichaTotalmenteAssinada;
+
+        if (!fichaTotalmenteAssinada) {
+            exportarPdf.textContent =
+                "PDF disponível após as duas assinaturas";
+            exportarPdf.style.opacity = ".55";
+        }
 
         exportarPdf.addEventListener(
             "click",
@@ -8921,42 +9019,45 @@ async function renderizarPainelSecretarioFrequencia(
                         "Clube Guardiões"
                     ).trim();
 
-                    const usernameAssinaturaPdf = String(
-                        usernameLogado ||
-                        localStorage.getItem("usernameLogado") ||
-                        ""
-                    ).trim().toLowerCase();
-                    let assinaturaPngUrl = "";
-                    let nomeAssinaturaPdf = usernameAssinaturaPdf;
-                    let cargoAssinaturaPdf = "Responsável";
+                    const assinaturasPdf =
+                        fichaAtual.assinaturas &&
+                        typeof fichaAtual.assinaturas === "object"
+                            ? fichaAtual.assinaturas
+                            : {};
 
-                    if (usernameAssinaturaPdf) {
+                    const assinaturaSecretarioPdf =
+                        assinaturasPdf.secretario || {};
 
-                        const assinaturaSnap = await banco
-                            .collection("assinaturas_usuarios")
-                            .doc(usernameAssinaturaPdf)
-                            .get();
+                    const assinaturaConselheiroPdf =
+                        assinaturasPdf.conselheiro || {};
 
-                        if (assinaturaSnap.exists) {
-                            const dadosAssinatura =
-                                assinaturaSnap.data() || {};
-                            assinaturaPngUrl = String(
-                                dadosAssinatura.pngUrl ||
-                                dadosAssinatura.url ||
-                                ""
-                            ).trim();
-                            nomeAssinaturaPdf = String(
-                                dadosAssinatura.nomeAssinatura ||
-                                dadosAssinatura.nomeUsuario ||
-                                usernameAssinaturaPdf
-                            ).trim();
-                            cargoAssinaturaPdf = String(
-                                dadosAssinatura.cargoAssinatura ||
-                                "Responsável"
-                            ).trim();
+                    const assinaturaPngUrl = String(
+                        assinaturaSecretarioPdf.pngUrl || ""
+                    ).trim();
 
-                        }
-                    }
+                    const nomeAssinaturaPdf = String(
+                        assinaturaSecretarioPdf.nome ||
+                        "Secretário(a) de Unidade"
+                    ).trim();
+
+                    const cargoAssinaturaPdf = String(
+                        assinaturaSecretarioPdf.cargo ||
+                        "Secretário(a) de Unidade"
+                    ).trim();
+
+                    const assinaturaConselheiroPngUrl = String(
+                        assinaturaConselheiroPdf.pngUrl || ""
+                    ).trim();
+
+                    const nomeAssinaturaConselheiroPdf = String(
+                        assinaturaConselheiroPdf.nome ||
+                        "Conselheiro(a) de Unidade"
+                    ).trim();
+
+                    const cargoAssinaturaConselheiroPdf = String(
+                        assinaturaConselheiroPdf.cargo ||
+                        "Conselheiro(a) de Unidade"
+                    ).trim();
 
                     const escaparHtmlPdf = valor => String(
                         valor === null || valor === undefined
@@ -9023,14 +9124,31 @@ async function renderizarPainelSecretarioFrequencia(
                     const logoHtml = logoUrl
                         ? `<img class="logo" src="${escaparHtmlPdf(logoUrl)}" alt="Logo do clube">`
                         : "";
-                    const assinaturaDigitalHtml = assinaturaPngUrl
-                        ? `<div class="assinatura-digital">
-                               <span>Assinatura digital aprovada</span>
-                               <img src="${escaparHtmlPdf(assinaturaPngUrl)}" alt="Assinatura digital">
-                           </div>`
-                        : `<div class="assinatura-digital assinatura-ausente">
-                               Assinatura digital não cadastrada
-                           </div>`;
+                    const criarAssinaturaDigitalHtml = (
+                        pngUrl,
+                        papel
+                    ) => {
+                        return pngUrl
+                            ? `<div class="assinatura-digital">
+                                   <span>Assinatura digital — ${escaparHtmlPdf(papel)}</span>
+                                   <img src="${escaparHtmlPdf(pngUrl)}" alt="Assinatura de ${escaparHtmlPdf(papel)}">
+                               </div>`
+                            : `<div class="assinatura-digital assinatura-ausente">
+                                   Assinatura pendente — ${escaparHtmlPdf(papel)}
+                               </div>`;
+                    };
+
+                    const assinaturaDigitalHtml =
+                        criarAssinaturaDigitalHtml(
+                            assinaturaPngUrl,
+                            "Secretário(a) de Unidade"
+                        );
+
+                    const assinaturaConselheiroDigitalHtml =
+                        criarAssinaturaDigitalHtml(
+                            assinaturaConselheiroPngUrl,
+                            "Conselheiro(a) de Unidade"
+                        );
                     const frequencia = registroAtual || {};
                     const presentes = Array.isArray(frequencia.presentes)
                         ? frequencia.presentes.length
@@ -9120,10 +9238,10 @@ tr:nth-child(even) { background: #f5f8fa; }
         <div class="cargo-assinatura">${escaparHtmlPdf(cargoAssinaturaPdf || "Cargo não informado")}</div>
     </div>
     <div class="bloco-assinatura">
-        <div class="assinatura-digital assinatura-ausente">Assinatura física</div>
+        ${assinaturaConselheiroDigitalHtml}
         <div class="linha-assinatura"></div>
-        <div class="nome-assinatura">Responsável pela Unidade</div>
-        <div class="cargo-assinatura">Assinatura física</div>
+        <div class="nome-assinatura">${escaparHtmlPdf(nomeAssinaturaConselheiroPdf)}</div>
+        <div class="cargo-assinatura">${escaparHtmlPdf(cargoAssinaturaConselheiroPdf)}</div>
     </div>
 </div>
 <div class="rodape">Documento gerado pelo Clube Guardiões · ${escaparHtmlPdf(new Date().toLocaleString("pt-BR"))}</div>
@@ -9222,8 +9340,168 @@ tr:nth-child(even) { background: #f5f8fa; }
                 }
             }
         );
+        const enviarParaAssinatura = document.createElement("button");
+
+        enviarParaAssinatura.type = "button";
+        enviarParaAssinatura.textContent =
+            "Assinar e enviar ao conselheiro(a)";
+        enviarParaAssinatura.style.width = "100%";
+        enviarParaAssinatura.style.padding = "11px";
+        enviarParaAssinatura.style.border = "1px solid #f0ad4e";
+        enviarParaAssinatura.style.borderRadius = "8px";
+        enviarParaAssinatura.style.background = "#302713";
+        enviarParaAssinatura.style.color = "#ffd58a";
+        enviarParaAssinatura.style.fontWeight = "700";
+        enviarParaAssinatura.style.cursor = "pointer";
+
+        enviarParaAssinatura.addEventListener(
+            "click",
+            async () => {
+                const confirmar = window.confirm(
+                    "Ao enviar, a ficha será bloqueada para edição e seguirá para a assinatura do conselheiro(a). Deseja continuar?"
+                );
+
+                if (!confirmar) {
+                    return;
+                }
+
+                enviarParaAssinatura.disabled = true;
+                enviarParaAssinatura.textContent =
+                    "Assinando e enviando...";
+
+                try {
+                    const usuarioSnap = await banco
+                        .collection("usuarios")
+                        .where("username", "==", usernameLogado)
+                        .limit(1)
+                        .get();
+
+                    if (usuarioSnap.empty) {
+                        throw new Error(
+                            "Não foi possível localizar o perfil do secretário(a)."
+                        );
+                    }
+
+                    const dadosUsuario =
+                        usuarioSnap.docs[0].data() || {};
+
+                    const cargoNormalizado = String(
+                        dadosUsuario.cargoFuncao ||
+                        dadosUsuario.funcao ||
+                        dadosUsuario.cargo ||
+                        ""
+                    )
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .toLowerCase();
+
+                    const unidadeDoUsuario =
+                        criarIdUnidadeParaPainel(
+                            dadosUsuario.unidade || ""
+                        );
+
+                    if (
+                        !cargoNormalizado.includes("secretario") ||
+                        !cargoNormalizado.includes("unidade") ||
+                        unidadeDoUsuario !== unidadeId
+                    ) {
+                        throw new Error(
+                            "Somente o secretário(a) vinculado à unidade pode enviar esta ficha."
+                        );
+                    }
+
+                    const assinaturaSnap = await banco
+                        .collection("assinaturas_usuarios")
+                        .doc(usernameLogado)
+                        .get();
+
+                    if (!assinaturaSnap.exists) {
+                        throw new Error(
+                            "Sua assinatura digital ainda não foi cadastrada pelo administrador."
+                        );
+                    }
+
+                    const dadosAssinatura =
+                        assinaturaSnap.data() || {};
+
+                    const pngUrl = String(
+                        dadosAssinatura.pngUrl ||
+                        dadosAssinatura.url ||
+                        ""
+                    ).trim();
+
+                    if (!pngUrl) {
+                        throw new Error(
+                            "Sua assinatura digital não possui uma imagem PNG válida."
+                        );
+                    }
+
+                    const assinaturaDoSecretario = {
+                        username: usernameLogado,
+                        nome: String(
+                            dadosAssinatura.nomeAssinatura ||
+                            dadosAssinatura.nomeUsuario ||
+                            dadosUsuario.nomeReal ||
+                            usernameLogado
+                        ).trim(),
+                        cargo: String(
+                            dadosAssinatura.cargoAssinatura ||
+                            dadosUsuario.cargo ||
+                            "Secretário(a) de Unidade"
+                        ).trim(),
+                        pngUrl,
+                        assinadoEm: new Date().toISOString()
+                    };
+
+                    await fichaRef.set({
+                        ...fichaAtual,
+                        ...montarDadosFicha(),
+                        assinaturas: {
+                            secretario: assinaturaDoSecretario,
+                            conselheiro: null
+                        },
+                        statusAssinaturas:
+                            "aguardando_conselheiro",
+                        enviadoParaConselheiroPor: usernameLogado,
+                        enviadoParaConselheiroEm:
+                            firebase.firestore.FieldValue.serverTimestamp(),
+                        atualizadoPor: usernameLogado,
+                        atualizadoEm:
+                            firebase.firestore.FieldValue.serverTimestamp()
+                    }, {
+                        merge: true
+                    });
+
+                    window.alert(
+                        "Ficha assinada e enviada ao conselheiro(a) da unidade."
+                    );
+
+                    painelFicha.remove();
+                } catch (erro) {
+                    console.error(
+                        "Erro ao enviar ficha para assinatura:",
+                        erro
+                    );
+
+                    window.alert(
+                        erro.message ||
+                        "Não foi possível enviar a ficha para assinatura."
+                    );
+
+                    enviarParaAssinatura.disabled = false;
+                    enviarParaAssinatura.textContent =
+                        "Assinar e enviar ao conselheiro(a)";
+                }
+            }
+        );
+
         painelFicha.appendChild(exportarPdf);
-        painelFicha.appendChild(salvar);
+
+        if (!fichaEmAssinatura) {
+            painelFicha.appendChild(salvar);
+            painelFicha.appendChild(enviarParaAssinatura);
+        }
+
         detalhe.appendChild(painelFicha);
         painelFicha.scrollIntoView({
             behavior: "smooth",
@@ -10314,6 +10592,440 @@ tr:nth-child(even) { background: #f5f8fa; }
 }
 
 
+
+async function renderizarPainelAssinaturasConselheiro(
+    container,
+    banco,
+    unidadeId,
+    nomeUnidade,
+    usernameLogado
+) {
+    const secao = document.createElement("section");
+    const titulo = document.createElement("h2");
+    const descricao = document.createElement("p");
+    const lista = document.createElement("div");
+    const status = document.createElement("p");
+
+    const escaparHtmlFicha = valor => String(
+        valor === null || valor === undefined
+            ? ""
+            : valor
+    )
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    const possuiDuasAssinaturas = ficha => {
+        const assinaturas = ficha.assinaturas || {};
+
+        return Boolean(
+            assinaturas.secretario &&
+            assinaturas.secretario.username &&
+            assinaturas.conselheiro &&
+            assinaturas.conselheiro.username
+        );
+    };
+
+    const abrirPdfAssinado = ficha => {
+        const assinaturas = ficha.assinaturas || {};
+        const secretario = assinaturas.secretario || {};
+        const conselheiro = assinaturas.conselheiro || {};
+        const janela = window.open("", "_blank");
+
+        if (!janela) {
+            window.alert(
+                "O navegador bloqueou a janela do PDF. Permita pop-ups para este site."
+            );
+            return;
+        }
+
+        const avaliacoes = Object.entries(
+            ficha.avaliacoesPorMembro || {}
+        ).map(([username, dados]) => {
+            return `
+                <tr>
+                    <td>${escaparHtmlFicha(username)}</td>
+                    <td>${escaparHtmlFicha(dados.uniforme || "Não avaliado")}</td>
+                    <td>${escaparHtmlFicha(dados.biblia || "Não avaliado")}</td>
+                    <td>${escaparHtmlFicha(dados.licao || "Não avaliado")}</td>
+                    <td>${escaparHtmlFicha(dados.tarefa || "Não avaliado")}</td>
+                    <td>${escaparHtmlFicha(dados.mensalidade || "Não avaliado")}</td>
+                </tr>
+            `;
+        }).join("");
+
+        const assinaturaHtml = assinatura => `
+            <div class="assinatura">
+                <img src="${escaparHtmlFicha(assinatura.pngUrl || "")}" alt="Assinatura">
+                <div class="linha"></div>
+                <strong>${escaparHtmlFicha(assinatura.nome || "")}</strong>
+                <span>${escaparHtmlFicha(assinatura.cargo || "")}</span>
+            </div>
+        `;
+
+        janela.document.open();
+        janela.document.write(`<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Ficha operacional - ${escaparHtmlFicha(nomeUnidade)}</title>
+<style>
+@page { size: A4; margin: 15mm; }
+body { color:#17202a; font:11px Arial,sans-serif; margin:0; }
+h1 { color:#173b57; margin:0; font-size:20px; }
+h2 { color:#52606d; margin:4px 0 18px; font-size:13px; }
+h3 { color:#173b57; border-bottom:1px solid #c5d1da; padding-bottom:5px; margin-top:20px; }
+.meta { display:grid; grid-template-columns:1fr 1fr; gap:8px; background:#eef5f9; padding:10px; }
+.texto { border:1px solid #c5d1da; min-height:42px; padding:9px; white-space:pre-wrap; }
+table { width:100%; border-collapse:collapse; font-size:9px; }
+th { background:#173b57; color:#fff; padding:6px; text-align:left; }
+td { border:1px solid #c5d1da; padding:5px; }
+.assinaturas { display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:38px; }
+.assinatura { min-height:125px; display:flex; flex-direction:column; justify-content:flex-end; text-align:center; }
+.assinatura img { display:block; max-width:100%; height:64px; object-fit:contain; margin:auto; }
+.linha { border-top:1px solid #17202a; margin-top:7px; }
+.assinatura strong { margin-top:7px; }
+.assinatura span { color:#52606d; margin-top:3px; }
+@media print { .nao-imprimir { display:none; } }
+</style>
+</head>
+<body>
+<button class="nao-imprimir" onclick="window.print()" style="margin-bottom:18px;padding:9px 12px;">Imprimir / salvar em PDF</button>
+<h1>Ficha operacional da unidade</h1>
+<h2>${escaparHtmlFicha(nomeUnidade)}</h2>
+<div class="meta">
+    <div><strong>Evento:</strong> ${escaparHtmlFicha(ficha.tituloEvento || "Evento")}</div>
+    <div><strong>Data:</strong> ${escaparHtmlFicha(ficha.data || "")}</div>
+    <div><strong>Presentes:</strong> ${(ficha.presentes || []).length}</div>
+    <div><strong>Ausências:</strong> ${(ficha.faltas || []).length + (ficha.justificados || []).length}</div>
+</div>
+<h3>Avaliação dos participantes</h3>
+<table>
+<thead><tr><th>Usuário</th><th>Uniforme</th><th>Bíblia</th><th>Lição</th><th>Tarefa</th><th>Mensalidade</th></tr></thead>
+<tbody>${avaliacoes || "<tr><td colspan=\"6\">Nenhuma avaliação registrada.</td></tr>"}</tbody>
+</table>
+<h3>Observações da unidade</h3>
+<div class="texto">${escaparHtmlFicha(ficha.observacoes || "Nenhuma observação registrada.")}</div>
+<h3>Ocorrências e justificativas administrativas</h3>
+<div class="texto">${escaparHtmlFicha(ficha.ocorrencias || "Nenhuma ocorrência registrada.")}</div>
+<h3>Patrimônio e materiais</h3>
+<div class="texto">${escaparHtmlFicha(ficha.patrimonio || "Nenhuma informação patrimonial registrada.")}</div>
+<div class="assinaturas">
+    ${assinaturaHtml(secretario)}
+    ${assinaturaHtml(conselheiro)}
+</div>
+</body>
+</html>`);
+        janela.document.close();
+    };
+
+    const carregarFichas = async () => {
+        lista.innerHTML = "";
+        status.textContent = "Carregando fichas...";
+
+        try {
+            const fichasSnap = await banco
+                .collection("fichas_unidades")
+                .doc(unidadeId)
+                .collection("eventos")
+                .get();
+
+            const fichas = fichasSnap.docs
+                .filter(documento => {
+                    const dados = documento.data() || {};
+                    const assinaturas = dados.assinaturas || {};
+
+                    return Boolean(
+                        assinaturas.secretario &&
+                        assinaturas.secretario.username
+                    );
+                })
+                .sort((a, b) => String(
+                    b.data().data || ""
+                ).localeCompare(String(
+                    a.data().data || ""
+                )));
+
+            if (!fichas.length) {
+                status.textContent =
+                    "Nenhuma ficha aguardando sua assinatura.";
+                return;
+            }
+
+            fichas.forEach(documento => {
+                const ficha = documento.data() || {};
+                const assinaturas = ficha.assinaturas || {};
+                const assinada = possuiDuasAssinaturas(ficha);
+                const card = document.createElement("article");
+                const tituloFicha = document.createElement("strong");
+                const detalhes = document.createElement("small");
+                const situacao = document.createElement("small");
+                const assinar = document.createElement("button");
+                const baixar = document.createElement("button");
+
+                card.style.display = "flex";
+                card.style.flexDirection = "column";
+                card.style.gap = "8px";
+                card.style.padding = "12px";
+                card.style.border = assinada
+                    ? "1px solid #20c997"
+                    : "1px solid #f0ad4e";
+                card.style.borderRadius = "10px";
+                card.style.background = "#101820";
+
+                tituloFicha.textContent =
+                    ficha.tituloEvento || "Ficha operacional";
+
+                detalhes.textContent =
+                    `${ficha.data || ""} · ${ficha.tipoEvento || "Atividade"}`;
+                detalhes.style.color = "#9fb0bd";
+
+                situacao.textContent = assinada
+                    ? "✓ Assinada pelo secretário(a) e por você."
+                    : `⌛ Assinada pelo secretário(a) ${assinaturas.secretario.nome || ""}. Aguardando sua assinatura.`;
+                situacao.style.color = assinada
+                    ? "#8ff0ce"
+                    : "#ffd58a";
+
+                assinar.type = "button";
+                assinar.textContent = "Assinar ficha";
+                assinar.style.padding = "9px";
+                assinar.style.border = "1px solid #f0ad4e";
+                assinar.style.borderRadius = "7px";
+                assinar.style.background = "#302713";
+                assinar.style.color = "#ffd58a";
+                assinar.style.fontWeight = "700";
+                assinar.style.cursor = "pointer";
+                assinar.style.display = assinada ? "none" : "block";
+
+                baixar.type = "button";
+                baixar.textContent = "Baixar ficha assinada em PDF";
+                baixar.style.padding = "9px";
+                baixar.style.border = "1px solid #58b7ff";
+                baixar.style.borderRadius = "7px";
+                baixar.style.background = "#10283a";
+                baixar.style.color = "#b9e5ff";
+                baixar.style.fontWeight = "700";
+                baixar.style.cursor = "pointer";
+                baixar.style.display = assinada ? "block" : "none";
+
+                assinar.addEventListener(
+                    "click",
+                    async () => {
+                        assinar.disabled = true;
+                        assinar.textContent = "Assinando...";
+
+                        try {
+                            const usuarioSnap = await banco
+                                .collection("usuarios")
+                                .where(
+                                    "username",
+                                    "==",
+                                    usernameLogado
+                                )
+                                .limit(1)
+                                .get();
+
+                            if (usuarioSnap.empty) {
+                                throw new Error(
+                                    "Não foi possível localizar seu perfil."
+                                );
+                            }
+
+                            const usuario =
+                                usuarioSnap.docs[0].data() || {};
+
+                            const cargoNormalizado = String(
+                                usuario.cargoFuncao ||
+                                usuario.funcao ||
+                                usuario.cargo ||
+                                ""
+                            )
+                                .normalize("NFD")
+                                .replace(/[\u0300-\u036f]/g, "")
+                                .toLowerCase();
+
+                            if (
+                                !cargoNormalizado.includes("conselheiro") ||
+                                !cargoNormalizado.includes("unidade") ||
+                                criarIdUnidadeParaPainel(
+                                    usuario.unidade || ""
+                                ) !== unidadeId
+                            ) {
+                                throw new Error(
+                                    "Somente o conselheiro(a) vinculado à unidade pode assinar esta ficha."
+                                );
+                            }
+
+                            const assinaturaSnap = await banco
+                                .collection("assinaturas_usuarios")
+                                .doc(usernameLogado)
+                                .get();
+
+                            const dadosAssinatura =
+                                assinaturaSnap.exists
+                                    ? assinaturaSnap.data() || {}
+                                    : {};
+
+                            const pngUrl = String(
+                                dadosAssinatura.pngUrl ||
+                                dadosAssinatura.url ||
+                                ""
+                            ).trim();
+
+                            if (!pngUrl) {
+                                throw new Error(
+                                    "Sua assinatura digital ainda não foi cadastrada pelo administrador."
+                                );
+                            }
+
+                            await banco.runTransaction(
+                                async transacao => {
+                                    const fichaSnap =
+                                        await transacao.get(
+                                            documento.ref
+                                        );
+
+                                    if (!fichaSnap.exists) {
+                                        throw new Error(
+                                            "Esta ficha não existe mais."
+                                        );
+                                    }
+
+                                    const fichaAtualizada =
+                                        fichaSnap.data() || {};
+
+                                    const assinaturasAtuais =
+                                        fichaAtualizada.assinaturas || {};
+
+                                    if (
+                                        !assinaturasAtuais.secretario ||
+                                        !assinaturasAtuais.secretario.username
+                                    ) {
+                                        throw new Error(
+                                            "A ficha ainda não foi assinada pelo secretário(a)."
+                                        );
+                                    }
+
+                                    transacao.set(
+                                        documento.ref,
+                                        {
+                                            assinaturas: {
+                                                ...assinaturasAtuais,
+                                                conselheiro: {
+                                                    username: usernameLogado,
+                                                    nome: String(
+                                                        dadosAssinatura.nomeAssinatura ||
+                                                        dadosAssinatura.nomeUsuario ||
+                                                        usuario.nomeReal ||
+                                                        usernameLogado
+                                                    ).trim(),
+                                                    cargo: String(
+                                                        dadosAssinatura.cargoAssinatura ||
+                                                        usuario.cargo ||
+                                                        "Conselheiro(a) de Unidade"
+                                                    ).trim(),
+                                                    pngUrl,
+                                                    assinadoEm:
+                                                        new Date().toISOString()
+                                                }
+                                            },
+                                            statusAssinaturas:
+                                                "concluida",
+                                            assinadoPeloConselheiroEm:
+                                                firebase.firestore.FieldValue.serverTimestamp(),
+                                            atualizadoPor: usernameLogado,
+                                            atualizadoEm:
+                                                firebase.firestore.FieldValue.serverTimestamp()
+                                        },
+                                        {
+                                            merge: true
+                                        }
+                                    );
+                                }
+                            );
+
+                            window.alert(
+                                "Ficha assinada. O PDF com as duas assinaturas já está disponível."
+                            );
+
+                            await carregarFichas();
+                        } catch (erro) {
+                            console.error(
+                                "Erro ao assinar ficha:",
+                                erro
+                            );
+
+                            window.alert(
+                                erro.message ||
+                                "Não foi possível assinar a ficha."
+                            );
+
+                            assinar.disabled = false;
+                            assinar.textContent = "Assinar ficha";
+                        }
+                    }
+                );
+
+                baixar.addEventListener(
+                    "click",
+                    () => abrirPdfAssinado(ficha)
+                );
+
+                card.appendChild(tituloFicha);
+                card.appendChild(detalhes);
+                card.appendChild(situacao);
+                card.appendChild(assinar);
+                card.appendChild(baixar);
+                lista.appendChild(card);
+            });
+
+            status.textContent = "";
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar fichas para assinatura:",
+                erro
+            );
+
+            status.textContent =
+                "Não foi possível carregar as fichas da unidade.";
+        }
+    };
+
+    secao.style.display = "flex";
+    secao.style.flexDirection = "column";
+    secao.style.gap = "10px";
+    secao.style.marginTop = "18px";
+    secao.style.padding = "14px";
+    secao.style.border = "1px solid #334351";
+    secao.style.borderRadius = "12px";
+    secao.style.background = "#0d1115";
+
+    titulo.textContent = "Fichas para assinatura";
+    titulo.style.margin = "0";
+    titulo.style.fontSize = "16px";
+
+    descricao.textContent =
+        "Fichas enviadas pelo secretário(a) da sua unidade. Ao assinar, o mesmo documento será atualizado automaticamente para ambos.";
+    descricao.style.margin = "0";
+    descricao.style.color = "#a8a8a8";
+    descricao.style.fontSize = "11px";
+    descricao.style.lineHeight = "1.5";
+
+    status.style.margin = "0";
+    status.style.color = "#9fb0bd";
+    status.style.fontSize = "11px";
+
+    secao.appendChild(titulo);
+    secao.appendChild(descricao);
+    secao.appendChild(lista);
+    secao.appendChild(status);
+    container.appendChild(secao);
+
+    await carregarFichas();
+}
 
 async function renderizarPainelConselheiroEventosUnidade(
     container,
@@ -11551,6 +12263,14 @@ async function abrirPainelUnidade() {
             conteudo.appendChild(tituloFuncoes);
             conteudo.appendChild(aviso);
             await renderizarPainelConselheiroEventosUnidade(
+                conteudo,
+                banco,
+                unidadeId,
+                nomeExibicao,
+                username
+            );
+
+            await renderizarPainelAssinaturasConselheiro(
                 conteudo,
                 banco,
                 unidadeId,
