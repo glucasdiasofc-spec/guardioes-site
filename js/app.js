@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.411.0 - versão alpha";
+const VERSAO_ATUAL = "v0.412.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -15273,7 +15273,8 @@ async function renderizarPainelSecretarioClubeEventos(
             }
         });
 
-        const frequenciasPorData = new Map();
+const frequenciasPorData = new Map();
+        const eventosDasUnidades = [];
 
         await Promise.all(
             unidadesSnapshot.docs.map(async unidadeDocumento => {
@@ -15285,11 +15286,41 @@ async function renderizarPainelSecretarioClubeEventos(
                     unidadeDados.nomeUnidade ||
                     unidadeId
                 ).trim();
-                const registrosSnapshot = await banco
-                    .collection("frequencias_unidades")
-                    .doc(unidadeId)
-                    .collection("registros")
-                    .get();
+
+                const [registrosSnapshot, eventosUnidadeSnapshot] = await Promise.all([
+                    banco
+                        .collection("frequencias_unidades")
+                        .doc(unidadeId)
+                        .collection("registros")
+                        .get(),
+                    banco
+                        .collection("eventos_unidades")
+                        .doc(unidadeId)
+                        .collection("itens")
+                        .get()
+                ]);
+
+                eventosUnidadeSnapshot.forEach(itemDoc => {
+                    const dadosItem = itemDoc.data() || {};
+                    const dataItem = String(dadosItem.data || "").trim();
+                    if (!dataItem) return;
+
+                    eventosDasUnidades.push({
+                        id: itemDoc.id,
+                        ...dadosItem,
+                        data: dataItem,
+                        unidadeId,
+                        unidade: String(dadosItem.unidade || nomeUnidade).trim(),
+                        origemEvento: "unidade",
+                        somenteLeitura: true,
+                        frequencias: [],
+                        totalFrequencias: 0,
+                        totalPresentes: 0,
+                        totalFaltas: 0,
+                        totalJustificados: 0,
+                        usuariosPorUsername
+                    });
+                });
 
                 registrosSnapshot.forEach(registroDocumento => {
                     const dados = registroDocumento.data() || {};
@@ -15350,7 +15381,7 @@ async function renderizarPainelSecretarioClubeEventos(
             })
         );
 
-        eventos = eventosSnapshot.docs.map(documento => {
+        const eventosCentrais = eventosSnapshot.docs.map(documento => {
             const dados = documento.data() || {};
             const data = String(
                 dados.data || ""
@@ -15361,6 +15392,8 @@ async function renderizarPainelSecretarioClubeEventos(
                 id: documento.id,
                 ...dados,
                 data,
+                origemEvento: "central",
+                somenteLeitura: false,
                 frequencias,
                 totalFrequencias: frequencias.length,
                 totalPresentes: frequencias.reduce(
@@ -15386,6 +15419,12 @@ async function renderizarPainelSecretarioClubeEventos(
                 ),
                 usuariosPorUsername
             };
+        });
+
+        eventos = [...eventosCentrais, ...eventosDasUnidades].sort((a, b) => {
+            return String(a.data || "").localeCompare(
+                String(b.data || "")
+            );
         });
     };
 
@@ -15503,8 +15542,11 @@ async function renderizarPainelSecretarioClubeEventos(
             eventosDoDia.slice(0, 2).forEach(evento => {
                 const item = document.createElement("span");
                 const tipo = localizarTipo(evento);
-                item.textContent = tipo.nome;
-                item.title = evento.titulo || tipo.nome;
+                const prefixo = evento.origemEvento === "unidade"
+                    ? `[${evento.unidade || "Unidade"}] `
+                    : "";
+                item.textContent = `${prefixo}${tipo.nome}`;
+                item.title = `${prefixo}${evento.titulo || tipo.nome}`;
                 aplicarEstilo(item, {
                     display: "block",
                     width: "100%",
@@ -16514,26 +16556,36 @@ async function renderizarPainelSecretarioClubeEventos(
                 evento.totalJustificados || 0
             );
 
+const ehEventoUnidade = evento.origemEvento === "unidade" || evento.somenteLeitura;
+
             aplicarEstilo(card, {
                 display: "block",
                 padding: "12px",
                 border: `1px solid ${tipo.cor}`,
                 borderRadius: "10px",
-                background: "#121212"
+                background: ehEventoUnidade
+                    ? "#12231f"
+                    : "#121212"
             }, ["display", "background"]);
             aplicarEstilo(cabecalho, {
                 display: "flex",
                 alignItems: "center",
                 gap: "8px"
             }, ["display"]);
-            nome.textContent = evento.titulo || tipo.nome;
+            nome.textContent = ehEventoUnidade
+                ? `[${evento.unidade || "Unidade"}] ${evento.titulo || tipo.nome}`
+                : evento.titulo || tipo.nome;
             nome.style.flex = "1";
             etiqueta.textContent = evento.status === "cancelado"
                 ? "CANCELADO"
-                : tipo.nome;
+                : ehEventoUnidade
+                    ? `${tipo.nome} · Unidade`
+                    : tipo.nome;
             etiqueta.style.color = evento.status === "cancelado"
                 ? "#ff7b7b"
-                : tipo.cor;
+                : ehEventoUnidade
+                    ? "#20c997"
+                    : tipo.cor;
             etiqueta.style.fontSize = "9px";
             etiqueta.style.fontWeight = "700";
             texto.textContent = evento.descricao ||
@@ -16567,25 +16619,110 @@ async function renderizarPainelSecretarioClubeEventos(
                 boxSizing: "border-box"
             }, ["display", "width"]);
 
-            prepararBotao(editar);
-            editar.textContent = "Editar";
-            prepararBotao(alternar);
-            alternar.textContent = evento.status === "cancelado"
-                ? "Reativar"
-                : "Cancelar evento";
-            alternar.style.color = evento.status === "cancelado"
-                ? "#65e6bf"
-                : "#f0ad4e";
-            prepararBotao(apagar, false, true);
-            apagar.textContent = "Apagar";
-            prepararBotao(relatorio, true);
-            relatorio.textContent = "Criar relatório oficial";
-            relatorio.style.color = "#65e6bf";
-            prepararBotao(verChamada, true);
-            verChamada.textContent = frequencias.length
-                ? `Ver chamada · P ${totalPresentes} · A ${totalAusentes} · J ${totalJustificados}`
-                : "Ver chamada · Nenhuma lançada";
-            verChamada.style.width = "100%";
+            if (ehEventoUnidade) {
+                const avisoLeitura = document.createElement("small");
+                avisoLeitura.textContent = "🔒 Evento gerenciado pelo Conselheiro da Unidade (somente leitura)";
+                avisoLeitura.style.color = "#8e9aa5";
+                avisoLeitura.style.fontSize = "11px";
+                acoes.appendChild(avisoLeitura);
+            } else {
+                prepararBotao(editar);
+                editar.textContent = "Editar";
+                prepararBotao(alternar);
+                alternar.textContent = evento.status === "cancelado"
+                    ? "Reativar"
+                    : "Cancelar evento";
+                alternar.style.color = evento.status === "cancelado"
+                    ? "#65e6bf"
+                    : "#f0ad4e";
+                prepararBotao(apagar, false, true);
+                apagar.textContent = "Apagar";
+                prepararBotao(relatorio, true);
+                relatorio.textContent = "Criar relatório oficial";
+                relatorio.style.color = "#65e6bf";
+                prepararBotao(verChamada, true);
+                verChamada.textContent = frequencias.length
+                    ? `Ver chamada · P ${totalPresentes} · A ${totalAusentes} · J ${totalJustificados}`
+                    : "Ver chamada · Nenhuma lançada";
+                verChamada.style.width = "100%";
+
+                editar.addEventListener(
+                    "click",
+                    () => abrirFormularioEvento(evento)
+                );
+                alternar.addEventListener(
+                    "click",
+                    async () => {
+                        const novoStatus = evento.status === "cancelado"
+                            ? "ativo"
+                            : "cancelado";
+                        const confirmar = window.confirm(
+                            novoStatus === "cancelado"
+                                ? "Marcar este evento como cancelado?"
+                                : "Reativar este evento?"
+                        );
+                        if (!confirmar) {
+                            return;
+                        }
+                        try {
+                            await banco
+                                .collection("eventos_clube")
+                                .doc(evento.id)
+                                .set({
+                                    status: novoStatus,
+                                    atualizadoPor: usernameLogado,
+                                    atualizadoEm:
+                                        firebase.firestore.FieldValue.serverTimestamp()
+                                }, {
+                                    merge: true
+                                });
+                            await carregarEventos();
+                            renderizarCalendario();
+                            renderizarDetalhe();
+                        } catch (erro) {
+                            mostrarErro(
+                                "Não foi possível alterar o evento.",
+                                erro
+                            );
+                        }
+                    }
+                );
+                apagar.addEventListener(
+                    "click",
+                    async () => {
+                        if (!window.confirm(
+                            "Apagar definitivamente este evento?"
+                        )) {
+                            return;
+                        }
+                        try {
+                            await banco
+                                .collection("eventos_clube")
+                                .doc(evento.id)
+                                .delete();
+                            await carregarEventos();
+                            renderizarCalendario();
+                            renderizarDetalhe();
+                        } catch (erro) {
+                            mostrarErro(
+                                "Não foi possível apagar o evento.",
+                                erro
+                            );
+                        }
+                    }
+                );
+                relatorio.addEventListener(
+                    "click",
+                    () => abrirRelatorioOficial(evento)
+                );
+
+                acoes.appendChild(editar);
+                acoes.appendChild(alternar);
+                acoes.appendChild(apagar);
+                acoes.appendChild(relatorio);
+                acoesChamada.appendChild(verChamada);
+                acoesChamada.appendChild(resumoFrequencia);
+            }
 
             const criarGrupoResumo = (
                 tituloGrupo,
