@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.540.0 - versão alpha";
+const VERSAO_ATUAL = "v0.541.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8616,7 +8616,51 @@ tr:nth-child(even) { background: #f5f8fa; }
             fichaInterna.atualizadoEm =
                 firebase.firestore.FieldValue.serverTimestamp();
 
-            await fichaRef.set(fichaInterna, { merge: true });
+            if (tipo === "conselheiro") {
+                await banco.runTransaction(async transacao => {
+                    const fichaSnap = await transacao.get(fichaRef);
+
+                    if (!fichaSnap.exists) {
+                        throw new Error("A ficha não foi encontrada.");
+                    }
+
+                    const fichaAtual = fichaSnap.data() || {};
+                    const assinaturasDaFicha = fichaAtual.assinaturas || {};
+
+                    if (
+                        !assinaturasDaFicha.secretario ||
+                        !assinaturasDaFicha.secretario.username
+                    ) {
+                        throw new Error(
+                            "Esta ficha ainda não foi assinada pelo secretário(a)."
+                        );
+                    }
+
+                    transacao.update(fichaRef, {
+                        assinaturas: {
+                            ...assinaturasDaFicha,
+                            conselheiro: novaAssinatura
+                        },
+                        statusAssinaturas: "concluida",
+                        assinadoPeloConselheiroEm:
+                            firebase.firestore.FieldValue.serverTimestamp(),
+                        atualizadoPor: usuarioLogadoNome,
+                        atualizadoEm:
+                            firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                });
+            } else {
+                await fichaRef.update({
+                    assinaturas: assinaturasAtuais,
+                    statusAssinaturas: "aguardando_conselheiro",
+                    enviadoParaConselheiroPor: usuarioLogadoNome,
+                    enviadoParaConselheiroEm:
+                        firebase.firestore.FieldValue.serverTimestamp(),
+                    atualizadoPor: usuarioLogadoNome,
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
 
             window.alert("Documento assinado digitalmente com sucesso!");
 
