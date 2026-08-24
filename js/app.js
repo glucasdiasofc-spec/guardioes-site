@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.539.0 - versão alpha";
+const VERSAO_ATUAL = "v0.540.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -11917,9 +11917,29 @@ async function renderizarPainelAssinaturasConselheiro(
                         btnAssinar.textContent = "Assinando...";
 
                         try {
+                            const usuarioFirebase = firebase.auth().currentUser;
+                            const perfilSnap = usuarioFirebase && usuarioFirebase.uid
+                                ? await banco
+                                    .collection("usuarios")
+                                    .doc(usuarioFirebase.uid)
+                                    .get()
+                                : null;
+                            const perfil = perfilSnap && perfilSnap.exists
+                                ? perfilSnap.data() || {}
+                                : {};
+                            const usernameAssinatura = String(
+                                perfil.username || usernameLogado || ""
+                            ).trim().toLowerCase();
+
+                            if (!usernameAssinatura) {
+                                throw new Error(
+                                    "Não foi possível identificar o usuário autenticado."
+                                );
+                            }
+
                             const assinaturaSnap = await banco
                                 .collection("assinaturas_usuarios")
-                                .doc(usernameLogado)
+                                .doc(usernameAssinatura)
                                 .get();
 
                             if (!assinaturaSnap.exists) {
@@ -11954,7 +11974,7 @@ async function renderizarPainelAssinaturasConselheiro(
                             ).trim();
 
                             const novaAssinatura = {
-                                username: usernameLogado,
+                                username: usernameAssinatura,
                                 nome: nomeAssinante,
                                 cargo: cargoAssinante,
                                 pngUrl,
@@ -11974,18 +11994,17 @@ async function renderizarPainelAssinaturasConselheiro(
                                 .doc(unidadeId)
                                 .collection("eventos")
                                 .doc(eventoDocId)
-                                .set({
-                                    ...ficha,
+                                .update({
                                     assinaturas:
                                         assinaturasAtualizadas,
                                     statusAssinaturas:
                                         "concluida",
                                     assinadoPeloConselheiroEm:
                                         firebase.firestore.FieldValue.serverTimestamp(),
-                                    atualizadoPor: usernameLogado,
+                                    atualizadoPor: usernameAssinatura,
                                     atualizadoEm:
                                         firebase.firestore.FieldValue.serverTimestamp()
-                                }, { merge: true });
+                                });
 
                             window.alert(
                                 "Ficha assinada digitalmente com sucesso!"
