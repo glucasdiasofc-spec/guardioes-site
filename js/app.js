@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.544.0 - versão alpha";
+const VERSAO_ATUAL = "v0.545.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -11707,6 +11707,21 @@ async function renderizarPainelAssinaturasConselheiro(
     const tituloConcluidas = document.createElement("strong");
     let mostrandoTodas = false;
     let renderizarCartoes = () => {};
+
+    const possuiDuasAssinaturas = ficha => {
+        const assinaturas =
+            ficha && ficha.assinaturas
+                ? ficha.assinaturas
+                : {};
+
+        return Boolean(
+            assinaturas.secretario &&
+            assinaturas.secretario.username &&
+            assinaturas.conselheiro &&
+            assinaturas.conselheiro.username
+        );
+    };
+
 
     secao.id = "secao-assinaturas-conselheiro";
     secao.style.display = "flex";
