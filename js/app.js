@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.542.0 - versão alpha";
+const VERSAO_ATUAL = "v0.543.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -11699,6 +11699,7 @@ async function renderizarPainelAssinaturasConselheiro(
     const descricao = document.createElement("p");
     const lista = document.createElement("div");
     const status = document.createElement("p");
+    const contadorFichas = document.createElement("div");
     const botaoVerTodas = document.createElement("button");
     const listaRecentes = document.createElement("div");
     const listaConcluidas = document.createElement("div");
@@ -11728,6 +11729,12 @@ async function renderizarPainelAssinaturasConselheiro(
     descricao.style.color = "#a8a8a8";
     descricao.style.fontSize = "13px";
     descricao.style.lineHeight = "1.5";
+
+    contadorFichas.textContent = "Pendentes: 0 · Concluídas: 0";
+    contadorFichas.style.margin = "0";
+    contadorFichas.style.color = "#ffd58a";
+    contadorFichas.style.fontSize = "12px";
+    contadorFichas.style.fontWeight = "700";
 
     status.style.margin = "0";
     status.style.color = "#8e8e8e";
@@ -11769,6 +11776,7 @@ async function renderizarPainelAssinaturasConselheiro(
 
     secao.appendChild(titulo);
     secao.appendChild(descricao);
+    secao.appendChild(contadorFichas);
     secao.appendChild(status);
     secao.appendChild(lista);
     secao.appendChild(botaoVerTodas);
@@ -11859,6 +11867,17 @@ async function renderizarPainelAssinaturasConselheiro(
                     String(a.data || "")
                 );
             });
+
+            const quantidadeConcluidas = documentos.filter(
+                documento => possuiDuasAssinaturas(documento)
+            ).length;
+            const quantidadePendentes = documentos.length -
+                quantidadeConcluidas;
+            contadorFichas.textContent =
+                `Pendentes: ${quantidadePendentes} · Concluídas: ${quantidadeConcluidas}`;
+            contadorFichas.style.color = quantidadePendentes
+                ? "#ffd58a"
+                : "#8ff0ce";
 
             const cartoes = [];
 
