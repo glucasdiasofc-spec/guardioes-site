@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.543.0 - versão alpha";
+const VERSAO_ATUAL = "v0.544.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -12149,9 +12149,10 @@ async function renderizarPainelAssinaturasConselheiro(
                 card.appendChild(resumoAssinatura);
                 card.appendChild(acoes);
                 cartoes.push({
-                    card,
-                    concluida: assinada
-                });
+                card,
+                concluida: consAssinou
+            });
+
             });
 
             renderizarCartoes = () => {
@@ -12196,10 +12197,34 @@ async function renderizarPainelAssinaturasConselheiro(
         } catch (erro) {
             console.error(
                 "Erro ao carregar fichas para conselheiro:",
-                erro
+                {
+                    code: erro && erro.code ? erro.code : "sem-codigo",
+                    message: erro && erro.message
+                        ? erro.message
+                        : String(erro),
+                    unidadeId,
+                    nomeUnidade,
+                    usernameLogado,
+                    firebaseUid:
+                        firebase.auth().currentUser &&
+                        firebase.auth().currentUser.uid
+                        ? firebase.auth().currentUser.uid
+                        : null
+                }
             );
-            status.textContent =
-                "Não foi possível carregar as fichas para assinatura.";
+
+            const codigo = erro && erro.code ? erro.code : "";
+
+            if (codigo === "permission-denied") {
+                status.textContent =
+                    "Acesso negado pelo Firebase. Verifique se o login Firebase está ativo e se as Rules foram publicadas no projeto correto.";
+            } else if (codigo === "failed-precondition") {
+                status.textContent =
+                    "O Firebase informou que falta um índice ou que a consulta não atende à configuração atual.";
+            } else {
+                status.textContent =
+                    "Não foi possível carregar as fichas para assinatura. Veja o erro detalhado no Console do navegador.";
+            }
         }
     };
 
