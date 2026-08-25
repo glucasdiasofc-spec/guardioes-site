@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.541.0 - versão alpha";
+const VERSAO_ATUAL = "v0.542.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -11699,6 +11699,13 @@ async function renderizarPainelAssinaturasConselheiro(
     const descricao = document.createElement("p");
     const lista = document.createElement("div");
     const status = document.createElement("p");
+    const botaoVerTodas = document.createElement("button");
+    const listaRecentes = document.createElement("div");
+    const listaConcluidas = document.createElement("div");
+    const tituloRecentes = document.createElement("strong");
+    const tituloConcluidas = document.createElement("strong");
+    let mostrandoTodas = false;
+    let renderizarCartoes = () => {};
 
     secao.id = "secao-assinaturas-conselheiro";
     secao.style.display = "flex";
@@ -11730,11 +11737,47 @@ async function renderizarPainelAssinaturasConselheiro(
     lista.style.flexDirection = "column";
     lista.style.gap = "10px";
 
+    botaoVerTodas.type = "button";
+    botaoVerTodas.textContent = "Ver todas as fichas";
+    botaoVerTodas.style.display = "none";
+    botaoVerTodas.style.padding = "8px 10px";
+    botaoVerTodas.style.border = "1px solid #52606d";
+    botaoVerTodas.style.borderRadius = "7px";
+    botaoVerTodas.style.background = "#1b232b";
+    botaoVerTodas.style.color = "#d7d9db";
+    botaoVerTodas.style.fontSize = "11px";
+    botaoVerTodas.style.cursor = "pointer";
+
+    listaRecentes.style.display = "flex";
+    listaRecentes.style.flexDirection = "column";
+    listaRecentes.style.gap = "10px";
+
+    listaConcluidas.style.display = "flex";
+    listaConcluidas.style.flexDirection = "column";
+    listaConcluidas.style.gap = "10px";
+
+    tituloConcluidas.textContent = "Fichas concluídas";
+    tituloConcluidas.style.display = "none";
+    tituloConcluidas.style.marginTop = "8px";
+    tituloConcluidas.style.color = "#8ff0ce";
+    tituloConcluidas.style.fontSize = "12px";
+
+    tituloRecentes.textContent = "Fichas pendentes";
+    tituloRecentes.style.display = "none";
+    tituloRecentes.style.color = "#ffd58a";
+    tituloRecentes.style.fontSize = "12px";
+
     secao.appendChild(titulo);
     secao.appendChild(descricao);
     secao.appendChild(status);
     secao.appendChild(lista);
+    secao.appendChild(botaoVerTodas);
     container.appendChild(secao);
+
+    botaoVerTodas.addEventListener("click", () => {
+        mostrandoTodas = !mostrandoTodas;
+        renderizarCartoes();
+    });
 
     const formatarDataFicha = dId => {
         const partes = String(dId || "").split("-");
@@ -11804,9 +11847,20 @@ async function renderizarPainelAssinaturasConselheiro(
             status.textContent = "";
             const membrosUnidade = await carregarMembrosUnidade();
 
-            documentos.sort((a, b) =>
-                String(b.data || "").localeCompare(String(a.data || ""))
-            );
+            documentos.sort((a, b) => {
+                const concluidaA = possuiDuasAssinaturas(a) ? 1 : 0;
+                const concluidaB = possuiDuasAssinaturas(b) ? 1 : 0;
+
+                if (concluidaA !== concluidaB) {
+                    return concluidaA - concluidaB;
+                }
+
+                return String(b.data || "").localeCompare(
+                    String(a.data || "")
+                );
+            });
+
+            const cartoes = [];
 
             documentos.forEach(ficha => {
                 const card = document.createElement("div");
@@ -12075,8 +12129,51 @@ async function renderizarPainelAssinaturasConselheiro(
                 card.appendChild(infoCard);
                 card.appendChild(resumoAssinatura);
                 card.appendChild(acoes);
-                lista.appendChild(card);
+                cartoes.push({
+                    card,
+                    concluida: assinada
+                });
             });
+
+            renderizarCartoes = () => {
+                listaRecentes.innerHTML = "";
+                listaConcluidas.innerHTML = "";
+
+                cartoes.forEach((item, indice) => {
+                    item.card.style.display = mostrandoTodas || indice === 0
+                        ? "flex"
+                        : "none";
+
+                    if (item.concluida) {
+                        listaConcluidas.appendChild(item.card);
+                    } else {
+                        listaRecentes.appendChild(item.card);
+                    }
+                });
+
+                tituloConcluidas.style.display = cartoes.some(
+                    item => item.concluida
+                )
+                    ? "block"
+                    : "none";
+                tituloRecentes.style.display = cartoes.some(
+                    item => !item.concluida
+                )
+                    ? "block"
+                    : "none";
+                botaoVerTodas.style.display = cartoes.length > 1
+                    ? "block"
+                    : "none";
+                botaoVerTodas.textContent = mostrandoTodas
+                    ? "Mostrar somente a mais recente"
+                    : "Ver todas as fichas";
+            };
+
+            lista.appendChild(tituloRecentes);
+            lista.appendChild(listaRecentes);
+            lista.appendChild(tituloConcluidas);
+            lista.appendChild(listaConcluidas);
+            renderizarCartoes();
         } catch (erro) {
             console.error(
                 "Erro ao carregar fichas para conselheiro:",
@@ -12479,6 +12576,13 @@ async function renderizarPainelConselheiroEventosUnidade(
                         }
 
                         try {
+                            await banco
+                                .collection("fichas_unidades")
+                                .doc(unidadeId)
+                                .collection("eventos")
+                                .doc(evento.id)
+                                .delete();
+
                             await banco
                                 .collection("eventos_unidades")
                                 .doc(unidadeId)
@@ -13333,14 +13437,6 @@ async function abrirPainelUnidade() {
                 username
             );
             await renderizarPainelConselheiroEventosUnidade(
-                conteudo,
-                banco,
-                unidadeId,
-                nomeExibicao,
-                username
-            );
-
-            await renderizarPainelAssinaturasConselheiro(
                 conteudo,
                 banco,
                 unidadeId,
