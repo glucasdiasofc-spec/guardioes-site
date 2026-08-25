@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.546.0 - versão alpha";
+const VERSAO_ATUAL = "v0.547.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -11754,8 +11754,17 @@ async function renderizarPainelAssinaturasConselheiro(
     const listaConcluidas = document.createElement("div");
     const tituloRecentes = document.createElement("strong");
     const tituloConcluidas = document.createElement("strong");
-    let mostrandoTodas = false;
+    const painelTodasFichas = document.createElement("div");
+    const cabecalhoTodasFichas = document.createElement("div");
+    const tituloTodasFichas = document.createElement("strong");
+    const fecharTodasFichas = document.createElement("button");
+    const buscaTodasFichas = document.createElement("input");
+    const filtroDiaTodasFichas = document.createElement("input");
+    const limparFiltrosTodasFichas = document.createElement("button");
+    const resumoTodasFichas = document.createElement("p");
+    const listaTodasFichas = document.createElement("div");
     let renderizarCartoes = () => {};
+
 
     const possuiDuasAssinaturas = ficha => {
         const assinaturas =
@@ -11819,6 +11828,84 @@ async function renderizarPainelAssinaturasConselheiro(
     botaoVerTodas.style.fontSize = "11px";
     botaoVerTodas.style.cursor = "pointer";
 
+    painelTodasFichas.style.display = "none";
+    painelTodasFichas.style.flexDirection = "column";
+    painelTodasFichas.style.gap = "10px";
+    painelTodasFichas.style.marginTop = "10px";
+    painelTodasFichas.style.padding = "12px";
+    painelTodasFichas.style.border = "1px solid #334351";
+    painelTodasFichas.style.borderRadius = "10px";
+    painelTodasFichas.style.background = "#101820";
+
+    cabecalhoTodasFichas.style.display = "flex";
+    cabecalhoTodasFichas.style.alignItems = "center";
+    cabecalhoTodasFichas.style.justifyContent = "space-between";
+    cabecalhoTodasFichas.style.gap = "8px";
+
+    tituloTodasFichas.textContent = "Todas as fichas da unidade";
+    tituloTodasFichas.style.color = "#fff";
+    tituloTodasFichas.style.fontSize = "14px";
+
+    fecharTodasFichas.type = "button";
+    fecharTodasFichas.textContent = "Fechar";
+    fecharTodasFichas.style.padding = "7px 10px";
+    fecharTodasFichas.style.border = "1px solid #52606d";
+    fecharTodasFichas.style.borderRadius = "7px";
+    fecharTodasFichas.style.background = "#1b232b";
+    fecharTodasFichas.style.color = "#fff";
+    fecharTodasFichas.style.cursor = "pointer";
+
+    buscaTodasFichas.type = "search";
+    buscaTodasFichas.placeholder =
+        "Pesquisar por título, tipo ou data...";
+    buscaTodasFichas.style.width = "100%";
+    buscaTodasFichas.style.padding = "9px";
+    buscaTodasFichas.style.border = "1px solid #334351";
+    buscaTodasFichas.style.borderRadius = "7px";
+    buscaTodasFichas.style.background = "#0d1115";
+    buscaTodasFichas.style.color = "#fff";
+    buscaTodasFichas.style.boxSizing = "border-box";
+
+    filtroDiaTodasFichas.type = "date";
+    filtroDiaTodasFichas.title = "Filtrar por dia exato";
+    filtroDiaTodasFichas.setAttribute(
+        "aria-label",
+        "Filtrar por dia exato"
+    );
+    filtroDiaTodasFichas.style.width = "100%";
+    filtroDiaTodasFichas.style.padding = "9px";
+    filtroDiaTodasFichas.style.border = "1px solid #334351";
+    filtroDiaTodasFichas.style.borderRadius = "7px";
+    filtroDiaTodasFichas.style.background = "#0d1115";
+    filtroDiaTodasFichas.style.color = "#fff";
+    filtroDiaTodasFichas.style.boxSizing = "border-box";
+
+    limparFiltrosTodasFichas.type = "button";
+    limparFiltrosTodasFichas.textContent = "Limpar filtros";
+    limparFiltrosTodasFichas.style.padding = "8px 10px";
+    limparFiltrosTodasFichas.style.border = "1px solid #52606d";
+    limparFiltrosTodasFichas.style.borderRadius = "7px";
+    limparFiltrosTodasFichas.style.background = "#1b232b";
+    limparFiltrosTodasFichas.style.color = "#d7d9db";
+    limparFiltrosTodasFichas.style.cursor = "pointer";
+
+    resumoTodasFichas.style.margin = "0";
+    resumoTodasFichas.style.color = "#9fb0bd";
+    resumoTodasFichas.style.fontSize = "11px";
+
+    listaTodasFichas.style.display = "flex";
+    listaTodasFichas.style.flexDirection = "column";
+    listaTodasFichas.style.gap = "10px";
+
+    cabecalhoTodasFichas.appendChild(tituloTodasFichas);
+    cabecalhoTodasFichas.appendChild(fecharTodasFichas);
+    painelTodasFichas.appendChild(cabecalhoTodasFichas);
+    painelTodasFichas.appendChild(buscaTodasFichas);
+    painelTodasFichas.appendChild(filtroDiaTodasFichas);
+    painelTodasFichas.appendChild(limparFiltrosTodasFichas);
+    painelTodasFichas.appendChild(resumoTodasFichas);
+    painelTodasFichas.appendChild(listaTodasFichas);
+
     listaRecentes.style.display = "flex";
     listaRecentes.style.flexDirection = "column";
     listaRecentes.style.gap = "10px";
@@ -11844,12 +11931,12 @@ async function renderizarPainelAssinaturasConselheiro(
     secao.appendChild(status);
     secao.appendChild(lista);
     secao.appendChild(botaoVerTodas);
+    secao.appendChild(painelTodasFichas);
     container.appendChild(secao);
 
-    botaoVerTodas.addEventListener("click", () => {
-        mostrandoTodas = !mostrandoTodas;
-        renderizarCartoes();
-    });
+
+    // O botão será ativado depois que os cartões forem carregados.
+
 
     const formatarDataFicha = dId => {
         const partes = String(dId || "").split("-");
@@ -12029,7 +12116,7 @@ async function renderizarPainelAssinaturasConselheiro(
                     resumoAssinatura.textContent = `Assinado por ${assSec.nome || "Secretário(a)"} e por ${assCons.nome || "Conselheiro(a)"}.`;
                 } else if (secAssinou) {
                     resumoAssinatura.style.color = "#ffd58a";
-                    resumoAssinatura.textContent = `Assinado pelo secretário(a) ${assSec.nome || ""}. Você pode pré-visualizar ou assinar diretamente abaixo.`;
+                    resumoAssinatura.textContent = `Assinado pelo secretário(a) ${assSec.nome || ""}. Abra a pré-visualização para revisar e assinar.`;
                 } else {
                     resumoAssinatura.style.color = "#8e8e8e";
                     resumoAssinatura.textContent =
@@ -12205,7 +12292,7 @@ async function renderizarPainelAssinaturasConselheiro(
                         }
                     });
 
-                    acoes.appendChild(btnAssinar);
+                    // A assinatura do Conselheiro ocorre somente na pré-visualização.
                 }
 
                 card.appendChild(cabecalhoCard);
@@ -12213,9 +12300,10 @@ async function renderizarPainelAssinaturasConselheiro(
                 card.appendChild(resumoAssinatura);
                 card.appendChild(acoes);
                 cartoes.push({
-                card,
-                concluida: consAssinou
-            });
+                    card,
+                    ficha,
+                    concluida: consAssinou
+                });
 
             });
 
@@ -12224,7 +12312,7 @@ async function renderizarPainelAssinaturasConselheiro(
                 listaConcluidas.innerHTML = "";
 
                 cartoes.forEach((item, indice) => {
-                    item.card.style.display = mostrandoTodas || indice === 0
+                    item.card.style.display = indice === 0
                         ? "flex"
                         : "none";
 
@@ -12248,10 +12336,86 @@ async function renderizarPainelAssinaturasConselheiro(
                 botaoVerTodas.style.display = cartoes.length > 1
                     ? "block"
                     : "none";
-                botaoVerTodas.textContent = mostrandoTodas
-                    ? "Mostrar somente a mais recente"
-                    : "Ver todas as fichas";
+                botaoVerTodas.textContent = "Ver todas as fichas";
             };
+
+            const renderizarTodasFichas = () => {
+                const termo = String(
+                    buscaTodasFichas.value || ""
+                ).trim().toLowerCase();
+                const diaSelecionado = String(
+                    filtroDiaTodasFichas.value || ""
+                ).trim();
+
+                const filtradas = cartoes.filter(item => {
+                    const fichaBusca = item.ficha || {};
+                    const tituloBusca = String(
+                        fichaBusca.tituloEvento || "Ficha Operacional"
+                    );
+                    const tipoBusca = String(
+                        fichaBusca.tipoEvento ||
+                        fichaBusca.tipo ||
+                        "Atividade"
+                    );
+                    const dataBusca = String(
+                        fichaBusca.data || fichaBusca.dataId || ""
+                    ).trim();
+                    const textoBusca =
+                        `${tituloBusca} ${tipoBusca} ${dataBusca}`
+                            .toLowerCase();
+
+                    return (
+                        (!termo || textoBusca.includes(termo)) &&
+                        (!diaSelecionado || dataBusca === diaSelecionado)
+                    );
+                });
+
+                listaTodasFichas.innerHTML = "";
+                resumoTodasFichas.textContent =
+                    `${filtradas.length} ficha(s) encontrada(s).`;
+
+                if (!filtradas.length) {
+                    listaTodasFichas.innerHTML =
+                        "<p style='color:#8e8e8e;margin:0;'>Nenhuma ficha corresponde aos filtros informados.</p>";
+                    return;
+                }
+
+                filtradas.forEach(item => {
+                    item.card.style.display = "flex";
+                    listaTodasFichas.appendChild(item.card);
+                });
+            };
+
+            botaoVerTodas.addEventListener("click", () => {
+                lista.style.display = "none";
+                botaoVerTodas.style.display = "none";
+                painelTodasFichas.style.display = "flex";
+                renderizarTodasFichas();
+                buscaTodasFichas.focus();
+            });
+
+            fecharTodasFichas.addEventListener("click", () => {
+                painelTodasFichas.style.display = "none";
+                buscaTodasFichas.value = "";
+                filtroDiaTodasFichas.value = "";
+                lista.style.display = "flex";
+                renderizarCartoes();
+            });
+
+            buscaTodasFichas.addEventListener(
+                "input",
+                renderizarTodasFichas
+            );
+            filtroDiaTodasFichas.addEventListener(
+                "change",
+                renderizarTodasFichas
+            );
+            limparFiltrosTodasFichas.addEventListener("click", () => {
+                buscaTodasFichas.value = "";
+                filtroDiaTodasFichas.value = "";
+                renderizarTodasFichas();
+            });
+
 
             lista.appendChild(tituloRecentes);
             lista.appendChild(listaRecentes);
