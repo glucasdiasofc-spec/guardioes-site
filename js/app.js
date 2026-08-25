@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.545.0 - versão alpha";
+const VERSAO_ATUAL = "v0.546.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -8060,8 +8060,10 @@ async function abrirPreviaFichaModal({
     unidadeId,
     banco,
     usernameLogado,
-    aoAtualizar
+    aoAtualizar,
+    carregarDadosDoBanco = true
 }) {
+
     const modalPdf = document.createElement("div");
     const cabecalhoPdf = document.createElement("div");
     const tituloPdf = document.createElement("strong");
@@ -8650,7 +8652,8 @@ tr:nth-child(even) { background: #f5f8fa; }
                     });
                 });
             } else {
-                await fichaRef.update({
+                await fichaRef.set({
+                    ...fichaInterna,
                     assinaturas: assinaturasAtuais,
                     statusAssinaturas: "aguardando_conselheiro",
                     enviadoParaConselheiroPor: usuarioLogadoNome,
@@ -8659,8 +8662,11 @@ tr:nth-child(even) { background: #f5f8fa; }
                     atualizadoPor: usuarioLogadoNome,
                     atualizadoEm:
                         firebase.firestore.FieldValue.serverTimestamp()
+                }, {
+                    merge: true
                 });
             }
+
 
             window.alert("Documento assinado digitalmente com sucesso!");
 
@@ -8698,14 +8704,17 @@ tr:nth-child(even) { background: #f5f8fa; }
     `);
     janelaPdf.document.close();
 
-    try {
-        const snap = await fichaRef.get();
-        if (snap.exists) {
-            fichaInterna = { ...fichaInterna, ...(snap.data() || {}) };
+    if (carregarDadosDoBanco) {
+        try {
+            const snap = await fichaRef.get();
+            if (snap.exists) {
+                fichaInterna = { ...fichaInterna, ...(snap.data() || {}) };
+            }
+        } catch (e) {
+            console.warn("Aviso ao buscar dados da ficha:", e);
         }
-    } catch (e) {
-        console.warn("Aviso ao buscar dados da ficha:", e);
     }
+
 
     await renderizarConteudoIframe();
 }
@@ -9927,6 +9936,44 @@ tr:nth-child(even) { background: #f5f8fa; }
             }
         );
 
+        const previsualizarFicha = document.createElement("button");
+        previsualizarFicha.type = "button";
+        previsualizarFicha.textContent =
+            "👁️ Pré-visualizar e assinar ficha";
+        previsualizarFicha.style.width = "100%";
+        previsualizarFicha.style.padding = "11px";
+        previsualizarFicha.style.border = "1px solid #58b7ff";
+        previsualizarFicha.style.borderRadius = "8px";
+        previsualizarFicha.style.background = "#10283a";
+        previsualizarFicha.style.color = "#b9e5ff";
+        previsualizarFicha.style.fontWeight = "700";
+        previsualizarFicha.style.cursor = "pointer";
+        previsualizarFicha.addEventListener("click", () => {
+            const fichaParaPrevia = {
+                ...fichaAtual,
+                ...montarDadosFicha(),
+                assinaturas: {
+                    ...assinaturasFicha
+                }
+            };
+
+            abrirPreviaFichaModal({
+                ficha: fichaParaPrevia,
+                evento: {
+                    ...(eventoAtual || {}),
+                    id: eventoId
+                },
+                dataId,
+                registro: fichaParaPrevia,
+                membros,
+                nomeUnidade,
+                unidadeId,
+                banco,
+                usernameLogado,
+                carregarDadosDoBanco: false
+            });
+        });
+
         salvar.type = "button";
         salvar.textContent = "Salvar ficha da unidade";
         salvar.style.width = "100%";
@@ -10157,10 +10204,12 @@ tr:nth-child(even) { background: #f5f8fa; }
 
         painelFicha.appendChild(exportarPdf);
 
+        painelFicha.appendChild(previsualizarFicha);
+
         if (!fichaEmAssinatura) {
             painelFicha.appendChild(salvar);
-            painelFicha.appendChild(enviarParaAssinatura);
         }
+
 
         detalhe.appendChild(painelFicha);
         painelFicha.scrollIntoView({
