@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.553.0 - versão alpha";
+const VERSAO_ATUAL = "v0.554.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13994,6 +13994,781 @@ async function renderizarPainelPontuacaoConselheiro(
     }
 }
 
+async function renderizarPainelTesoureiroUnidade(
+    container,
+    banco,
+    unidadeId,
+    nomeUnidade,
+    usernameLogado
+) {
+    const colecaoFinanceiro = "financeiro_unidades";
+    const unidadeRef = banco
+        .collection(colecaoFinanceiro)
+        .doc(unidadeId);
+    const lancamentosRef = unidadeRef.collection("lancamentos");
+    const hoje = new Date();
+    const doisDigitos = valor => String(valor).padStart(2, "0");
+    const dataHoje = `${hoje.getFullYear()}-${doisDigitos(hoje.getMonth() + 1)}-${doisDigitos(hoje.getDate())}`;
+    let resumoFinanceiro = {
+        saldoCentavos: 0,
+        totalEntradasCentavos: 0,
+        totalSaidasCentavos: 0
+    };
+    let lancamentos = [];
+
+    const secao = document.createElement("section");
+    const titulo = document.createElement("h2");
+    const descricao = document.createElement("p");
+    const status = document.createElement("p");
+    const resumo = document.createElement("div");
+    const formulario = document.createElement("form");
+    const tabelaContainer = document.createElement("div");
+    const tabela = document.createElement("table");
+    const cabecalhoTabela = document.createElement("thead");
+    const corpoTabela = document.createElement("tbody");
+    const filtros = document.createElement("div");
+    const busca = document.createElement("input");
+    const dataInicio = document.createElement("input");
+    const dataFim = document.createElement("input");
+    const filtroTipo = document.createElement("select");
+    const botaoLimparFiltros = document.createElement("button");
+    const botaoExportar = document.createElement("button");
+    const resumoFiltro = document.createElement("p");
+
+    const aplicarEstilo = (elemento, estilos) => {
+        Object.entries(estilos).forEach(
+            ([propriedade, valor]) => {
+                elemento.style[propriedade] = valor;
+            }
+        );
+    };
+
+    const campoComRotulo = (texto, campo) => {
+        const grupo = document.createElement("label");
+        const rotulo = document.createElement("span");
+        rotulo.textContent = texto;
+        aplicarEstilo(grupo, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "5px",
+            color: "#d7d9db",
+            fontSize: "11px"
+        });
+        rotulo.style.fontWeight = "700";
+        grupo.appendChild(rotulo);
+        grupo.appendChild(campo);
+        return grupo;
+    };
+
+    const prepararCampo = campo => {
+        aplicarEstilo(campo, {
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "9px 10px",
+            border: "1px solid #3a3a3a",
+            borderRadius: "8px",
+            background: "#1c1c1c",
+            color: "#fff",
+            fontSize: "12px"
+        });
+    };
+
+    const prepararBotao = (botao, cor, fundo) => {
+        botao.type = "button";
+        aplicarEstilo(botao, {
+            padding: "9px 12px",
+            border: `1px solid ${cor}`,
+            borderRadius: "8px",
+            background: fundo,
+            color: "#fff",
+            fontSize: "12px",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+    };
+
+    const inteiro = valor => {
+        const numero = Number(valor);
+        return Number.isFinite(numero) ? Math.trunc(numero) : 0;
+    };
+
+    const moedaParaCentavos = valor => {
+        const texto = String(valor || "")
+            .trim()
+            .replace(/\s/g, "")
+            .replace(/\./g, "")
+            .replace(",", ".");
+        const numero = Number(texto);
+        return Number.isFinite(numero)
+            ? Math.round(numero * 100)
+            : 0;
+    };
+
+    const centavosDoLancamento = lancamento => {
+        if (Number.isFinite(Number(lancamento.valorCentavos))) {
+            return Math.abs(inteiro(lancamento.valorCentavos));
+        }
+        return Math.abs(moedaParaCentavos(lancamento.valor));
+    };
+
+    const formatarMoeda = centavos => {
+        return (Number(centavos || 0) / 100).toLocaleString(
+            "pt-BR",
+            {
+                style: "currency",
+                currency: "BRL"
+            }
+        );
+    };
+
+    const formatarData = valor => {
+        const texto = String(valor || "");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+            return texto || "—";
+        }
+        const [ano, mes, dia] = texto.split("-");
+        return `${dia}/${mes}/${ano}`;
+    };
+
+    const escaparCSV = valor => {
+        return `"${String(valor ?? "").replace(/"/g, '""')}"`;
+    };
+
+    const criarOpcao = (valor, texto) => {
+        const opcao = document.createElement("option");
+        opcao.value = valor;
+        opcao.textContent = texto;
+        return opcao;
+    };
+
+    const montarCartaoResumo = (rotulo, valor, cor) => {
+        const cartao = document.createElement("div");
+        const nome = document.createElement("span");
+        const valorEl = document.createElement("strong");
+        nome.textContent = rotulo;
+        valorEl.textContent = valor;
+        aplicarEstilo(cartao, {
+            flex: "1 1 180px",
+            minWidth: "0",
+            padding: "12px",
+            border: "1px solid #3a3a3a",
+            borderRadius: "10px",
+            background: "#101010"
+        });
+        nome.style.display = "block";
+        nome.style.color = "#9eaab4";
+        nome.style.fontSize = "11px";
+        valorEl.style.display = "block";
+        valorEl.style.marginTop = "5px";
+        valorEl.style.color = cor;
+        valorEl.style.fontSize = "18px";
+        cartao.appendChild(nome);
+        cartao.appendChild(valorEl);
+        return cartao;
+    };
+
+    const atualizarResumo = () => {
+        resumo.innerHTML = "";
+        aplicarEstilo(resumo, {
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+            margin: "12px 0"
+        });
+        resumo.appendChild(
+            montarCartaoResumo(
+                "Saldo atual",
+                formatarMoeda(resumoFinanceiro.saldoCentavos),
+                resumoFinanceiro.saldoCentavos >= 0
+                    ? "#8ff0ce"
+                    : "#ff9d9d"
+            )
+        );
+        resumo.appendChild(
+            montarCartaoResumo(
+                "Total de entradas",
+                formatarMoeda(
+                    resumoFinanceiro.totalEntradasCentavos
+                ),
+                "#8ff0ce"
+            )
+        );
+        resumo.appendChild(
+            montarCartaoResumo(
+                "Total de saídas",
+                formatarMoeda(
+                    resumoFinanceiro.totalSaidasCentavos
+                ),
+                "#ffcf8a"
+            )
+        );
+    };
+
+    const obterLancamentosFiltrados = () => {
+        const termo = String(busca.value || "")
+            .trim()
+            .toLowerCase();
+        const inicio = String(dataInicio.value || "");
+        const fim = String(dataFim.value || "");
+        const tipo = String(filtroTipo.value || "");
+
+        return lancamentos.filter(lancamento => {
+            const texto = [
+                lancamento.categoria,
+                lancamento.descricao,
+                lancamento.justificativa,
+                lancamento.formaPagamento,
+                lancamento.lancadoPor
+            ]
+                .map(valor => String(valor || ""))
+                .join(" ")
+                .toLowerCase();
+            const data = String(
+                lancamento.dataMovimento || ""
+            );
+            return (
+                (!termo || texto.includes(termo)) &&
+                (!inicio || data >= inicio) &&
+                (!fim || data <= fim) &&
+                (!tipo || lancamento.tipo === tipo)
+            );
+        });
+    };
+
+    const renderizarTabela = () => {
+        corpoTabela.innerHTML = "";
+        const filtrados = obterLancamentosFiltrados();
+        resumoFiltro.textContent =
+            `${filtrados.length} lançamento(s) exibido(s) de ${lancamentos.length}.`;
+
+        if (!filtrados.length) {
+            const linha = document.createElement("tr");
+            const celula = document.createElement("td");
+            celula.colSpan = 8;
+            celula.textContent =
+                "Nenhum lançamento corresponde aos filtros.";
+            celula.style.padding = "18px 10px";
+            celula.style.textAlign = "center";
+            celula.style.color = "#8e8e8e";
+            linha.appendChild(celula);
+            corpoTabela.appendChild(linha);
+            return;
+        }
+
+        filtrados.forEach(lancamento => {
+            const linha = document.createElement("tr");
+            const valorCentavos = centavosDoLancamento(
+                lancamento
+            );
+            const valores = [
+                formatarData(lancamento.dataMovimento),
+                lancamento.tipo === "entrada"
+                    ? "Entrada"
+                    : "Saída",
+                lancamento.categoria || "Outros",
+                lancamento.descricao || "—",
+                lancamento.formaPagamento || "—",
+                lancamento.lancadoPor || "—",
+                lancamento.tipo === "entrada"
+                    ? `+${formatarMoeda(valorCentavos)}`
+                    : `-${formatarMoeda(valorCentavos)}`
+            ];
+            valores.forEach((texto, indice) => {
+                const celula = document.createElement("td");
+                celula.textContent = texto;
+                celula.style.padding = "9px 8px";
+                celula.style.borderTop = "1px solid #292929";
+                celula.style.color = indice === 6
+                    ? lancamento.tipo === "entrada"
+                        ? "#8ff0ce"
+                        : "#ff9d9d"
+                    : "#d7d9db";
+                celula.style.fontSize = "11px";
+                celula.style.verticalAlign = "top";
+                linha.appendChild(celula);
+            });
+            const comprovante = document.createElement("td");
+            comprovante.style.padding = "9px 8px";
+            comprovante.style.borderTop = "1px solid #292929";
+            comprovante.style.fontSize = "11px";
+            if (lancamento.comprovanteUrl) {
+                const link = document.createElement("a");
+                link.href = lancamento.comprovanteUrl;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = "Abrir";
+                link.style.color = "#74c7ff";
+                comprovante.appendChild(link);
+            } else {
+                comprovante.textContent = "—";
+                comprovante.style.color = "#8e8e8e";
+            }
+            linha.appendChild(comprovante);
+            corpoTabela.appendChild(linha);
+        });
+    };
+
+    const carregarDados = async () => {
+        status.textContent = "Carregando livro-caixa...";
+        try {
+            const resumoSnap = await unidadeRef.get();
+            const dadosResumo = resumoSnap.exists
+                ? resumoSnap.data() || {}
+                : {};
+            resumoFinanceiro = {
+                saldoCentavos: inteiro(dadosResumo.saldoCentavos),
+                totalEntradasCentavos: inteiro(
+                    dadosResumo.totalEntradasCentavos
+                ),
+                totalSaidasCentavos: inteiro(
+                    dadosResumo.totalSaidasCentavos
+                )
+            };
+            lancamentos = [];
+
+            const lancamentosSnap = await lancamentosRef
+                .orderBy("dataMovimento", "desc")
+                .limit(500)
+                .get();
+            lancamentosSnap.forEach(documento => {
+                lancamentos.push({
+                    id: documento.id,
+                    ...documento.data()
+                });
+            });
+            atualizarResumo();
+            renderizarTabela();
+            status.textContent =
+                `${lancamentos.length} lançamento(s) carregado(s).`;
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar o livro-caixa da unidade:",
+                erro
+            );
+            status.textContent =
+                "Não foi possível carregar o livro-caixa. Verifique as Rules do Firestore.";
+        }
+    };
+
+    const nomeCategoria = document.createElement("select");
+    [
+        ["", "Selecionar categoria..."],
+        ["mensalidade", "Mensalidade"],
+        ["inscricao", "Inscrição"],
+        ["doacao", "Doação"],
+        ["oferta", "Oferta"],
+        ["arrecadacao", "Arrecadação"],
+        ["evento", "Evento"],
+        ["material", "Material"],
+        ["transporte", "Transporte"],
+        ["alimentacao", "Alimentação"],
+        ["uniforme", "Uniforme"],
+        ["acampamento", "Acampamento"],
+        ["taxas", "Taxas"],
+        ["servicos", "Serviços"],
+        ["outros", "Outros"]
+    ].forEach(([valor, texto]) => {
+        nomeCategoria.appendChild(criarOpcao(valor, texto));
+    });
+
+    const campoTipo = document.createElement("select");
+    campoTipo.appendChild(criarOpcao("entrada", "Entrada / Receita"));
+    campoTipo.appendChild(criarOpcao("saida", "Saída / Despesa"));
+
+    const campoValor = document.createElement("input");
+    campoValor.type = "number";
+    campoValor.min = "0.01";
+    campoValor.step = "0.01";
+    campoValor.inputMode = "decimal";
+    campoValor.placeholder = "Ex.: 150.00";
+    prepararCampo(campoValor);
+
+    const campoData = document.createElement("input");
+    campoData.type = "date";
+    campoData.value = dataHoje;
+    prepararCampo(campoData);
+
+    const campoDescricao = document.createElement("input");
+    campoDescricao.type = "text";
+    campoDescricao.maxLength = 120;
+    campoDescricao.required = true;
+    campoDescricao.placeholder =
+        "Ex.: Compra de materiais para a reunião";
+    prepararCampo(campoDescricao);
+
+    const campoFormaPagamento = document.createElement("select");
+    [
+        ["dinheiro", "Dinheiro"],
+        ["pix", "Pix"],
+        ["transferencia", "Transferência"],
+        ["cartao", "Cartão"],
+        ["outro", "Outro"]
+    ].forEach(([valor, texto]) => {
+        campoFormaPagamento.appendChild(criarOpcao(valor, texto));
+    });
+
+    const campoComprovante = document.createElement("input");
+    campoComprovante.type = "url";
+    campoComprovante.maxLength = 500;
+    campoComprovante.placeholder =
+        "Link opcional do comprovante";
+    prepararCampo(campoComprovante);
+
+    const campoJustificativa = document.createElement("textarea");
+    campoJustificativa.rows = 3;
+    campoJustificativa.required = true;
+    campoJustificativa.maxLength = 500;
+    campoJustificativa.placeholder =
+        "Justifique o lançamento para manter a prestação de contas.";
+    campoJustificativa.style.resize = "vertical";
+    prepararCampo(campoJustificativa);
+
+    const botaoRegistrar = document.createElement("button");
+    botaoRegistrar.type = "submit";
+    botaoRegistrar.textContent = "Registrar lançamento";
+    aplicarEstilo(botaoRegistrar, {
+        padding: "10px 14px",
+        border: "1px solid #d7a928",
+        borderRadius: "8px",
+        background: "#3a2d0d",
+        color: "#ffe39a",
+        fontWeight: "700",
+        cursor: "pointer"
+    });
+    [nomeCategoria, campoTipo, campoFormaPagamento].forEach(
+        prepararCampo
+    );
+
+    aplicarEstilo(secao, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        marginTop: "16px",
+        padding: "14px",
+        border: "1px solid #9b7b22",
+        borderRadius: "14px",
+        background: "#15120a"
+    });
+    titulo.textContent = "Tesouraria da Unidade";
+    aplicarEstilo(titulo, {
+        margin: "0",
+        color: "#fff",
+        fontSize: "16px"
+    });
+    descricao.textContent =
+        "Registre receitas e despesas da unidade com categoria, forma de pagamento, comprovante e justificativa. O livro-caixa mantém o saldo e a prestação de contas organizados.";
+    aplicarEstilo(descricao, {
+        margin: "0",
+        color: "#c8b98e",
+        fontSize: "11px",
+        lineHeight: "1.5"
+    });
+    aplicarEstilo(status, {
+        margin: "0",
+        color: "#a8a8a8",
+        fontSize: "11px"
+    });
+
+    const tituloLancamento = document.createElement("h3");
+    tituloLancamento.textContent = "Novo lançamento";
+    tituloLancamento.style.margin = "4px 0 0";
+    tituloLancamento.style.color = "#fff";
+    tituloLancamento.style.fontSize = "14px";
+    aplicarEstilo(formulario, {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: "9px",
+        padding: "12px",
+        border: "1px solid #4b3b16",
+        borderRadius: "10px",
+        background: "#201a0c"
+    });
+    formulario.appendChild(campoComRotulo("Tipo", campoTipo));
+    formulario.appendChild(campoComRotulo("Data do movimento", campoData));
+    formulario.appendChild(campoComRotulo("Categoria", nomeCategoria));
+    formulario.appendChild(campoComRotulo("Valor (R$)", campoValor));
+    formulario.appendChild(campoComRotulo("Descrição", campoDescricao));
+    formulario.appendChild(campoComRotulo("Forma de pagamento", campoFormaPagamento));
+    formulario.appendChild(campoComRotulo("Link do comprovante (opcional)", campoComprovante));
+    const grupoJustificativa = campoComRotulo(
+        "Justificativa obrigatória",
+        campoJustificativa
+    );
+    grupoJustificativa.style.gridColumn = "1 / -1";
+    formulario.appendChild(grupoJustificativa);
+    botaoRegistrar.style.gridColumn = "1 / -1";
+    formulario.appendChild(botaoRegistrar);
+
+    const tituloLivro = document.createElement("h3");
+    tituloLivro.textContent = "Livro-caixa";
+    tituloLivro.style.margin = "12px 0 0";
+    tituloLivro.style.color = "#fff";
+    tituloLivro.style.fontSize = "14px";
+
+    aplicarEstilo(filtros, {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+        gap: "8px",
+        padding: "10px",
+        border: "1px solid #3a3a3a",
+        borderRadius: "10px",
+        background: "#101010"
+    });
+    busca.type = "search";
+    busca.placeholder = "Pesquisar descrição, categoria ou usuário";
+    prepararCampo(busca);
+    dataInicio.type = "date";
+    prepararCampo(dataInicio);
+    dataFim.type = "date";
+    prepararCampo(dataFim);
+    filtroTipo.appendChild(criarOpcao("", "Todos os tipos"));
+    filtroTipo.appendChild(criarOpcao("entrada", "Somente entradas"));
+    filtroTipo.appendChild(criarOpcao("saida", "Somente saídas"));
+    prepararCampo(filtroTipo);
+    prepararBotao(botaoLimparFiltros, "#52606d", "#1b232b");
+    botaoLimparFiltros.textContent = "Limpar filtros";
+    prepararBotao(botaoExportar, "#58b7ff", "#10283a");
+    botaoExportar.textContent = "Exportar CSV";
+    filtros.appendChild(campoComRotulo("Pesquisar", busca));
+    filtros.appendChild(campoComRotulo("A partir de", dataInicio));
+    filtros.appendChild(campoComRotulo("Até", dataFim));
+    filtros.appendChild(campoComRotulo("Tipo", filtroTipo));
+    filtros.appendChild(botaoLimparFiltros);
+    filtros.appendChild(botaoExportar);
+    resumoFiltro.style.margin = "8px 0";
+    resumoFiltro.style.color = "#9eaab4";
+    resumoFiltro.style.fontSize = "11px";
+
+    aplicarEstilo(tabelaContainer, {
+        width: "100%",
+        overflowX: "auto",
+        border: "1px solid #3a3a3a",
+        borderRadius: "10px",
+        background: "#101010"
+    });
+    tabela.style.width = "100%";
+    tabela.style.minWidth = "720px";
+    tabela.style.borderCollapse = "collapse";
+    tabela.style.textAlign = "left";
+    const linhaCabecalho = document.createElement("tr");
+    [
+        "Data",
+        "Tipo",
+        "Categoria",
+        "Descrição",
+        "Pagamento",
+        "Lançado por",
+        "Valor",
+        "Comprovante"
+    ].forEach(texto => {
+        const celula = document.createElement("th");
+        celula.textContent = texto;
+        celula.style.padding = "9px 8px";
+        celula.style.color = "#ffe39a";
+        celula.style.fontSize = "10px";
+        celula.style.textTransform = "uppercase";
+        celula.style.borderBottom = "1px solid #4b3b16";
+        linhaCabecalho.appendChild(celula);
+    });
+    cabecalhoTabela.appendChild(linhaCabecalho);
+    tabela.appendChild(cabecalhoTabela);
+    tabela.appendChild(corpoTabela);
+    tabelaContainer.appendChild(tabela);
+    secao.appendChild(titulo);
+    secao.appendChild(descricao);
+    secao.appendChild(status);
+    secao.appendChild(resumo);
+    secao.appendChild(tituloLancamento);
+    secao.appendChild(formulario);
+    secao.appendChild(tituloLivro);
+    secao.appendChild(filtros);
+    secao.appendChild(resumoFiltro);
+    secao.appendChild(tabelaContainer);
+    container.appendChild(secao);
+
+    [busca, dataInicio, dataFim].forEach(campo => {
+        campo.addEventListener("input", renderizarTabela);
+    });
+    filtroTipo.addEventListener("change", renderizarTabela);
+    botaoLimparFiltros.addEventListener("click", () => {
+        busca.value = "";
+        dataInicio.value = "";
+        dataFim.value = "";
+        filtroTipo.value = "";
+        renderizarTabela();
+    });
+    botaoExportar.addEventListener("click", () => {
+        const linhas = [
+            [
+                "Data",
+                "Tipo",
+                "Categoria",
+                "Descrição",
+                "Forma de pagamento",
+                "Lançado por",
+                "Valor",
+                "Justificativa",
+                "Comprovante"
+            ],
+            ...obterLancamentosFiltrados().map(lancamento => [
+                lancamento.dataMovimento || "",
+                lancamento.tipo === "entrada"
+                    ? "Entrada"
+                    : "Saída",
+                lancamento.categoria || "",
+                lancamento.descricao || "",
+                lancamento.formaPagamento || "",
+                lancamento.lancadoPor || "",
+                lancamento.tipo === "entrada"
+                    ? formatarMoeda(centavosDoLancamento(lancamento))
+                    : `-${formatarMoeda(centavosDoLancamento(lancamento))}`,
+                lancamento.justificativa || "",
+                lancamento.comprovanteUrl || ""
+            ])
+        ];
+        const csv = linhas
+            .map(linha => linha.map(escaparCSV).join(";"))
+            .join("\n");
+        const blob = new Blob(["\ufeff" + csv], {
+            type: "text/csv;charset=utf-8;"
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `livro-caixa-${unidadeId}-${dataHoje}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    });
+
+    formulario.addEventListener("submit", async evento => {
+        evento.preventDefault();
+        const tipo = String(campoTipo.value || "");
+        const valorTexto = String(campoValor.value || "").trim();
+        const valorCentavos = Math.round(Number(valorTexto) * 100);
+        const categoria = String(nomeCategoria.value || "").trim();
+        const dataMovimento = String(campoData.value || "").trim();
+        const descricaoLancamento = String(campoDescricao.value || "").trim();
+        const formaPagamento = String(campoFormaPagamento.value || "").trim();
+        const justificativa = String(campoJustificativa.value || "").trim();
+        const comprovanteUrl = String(campoComprovante.value || "").trim();
+
+        if (!tipo || !dataMovimento || !categoria) {
+            window.alert("Preencha tipo, data e categoria do lançamento.");
+            return;
+        }
+        if (!Number.isInteger(valorCentavos) || valorCentavos <= 0) {
+            window.alert("Informe um valor maior que zero.");
+            campoValor.focus();
+            return;
+        }
+        if (descricaoLancamento.length < 3) {
+            window.alert("Informe uma descrição para o lançamento.");
+            campoDescricao.focus();
+            return;
+        }
+        if (justificativa.length < 5) {
+            window.alert("A justificativa deve ter pelo menos 5 caracteres.");
+            campoJustificativa.focus();
+            return;
+        }
+        if (comprovanteUrl && !/^https?:\/\//i.test(comprovanteUrl )) {
+            window.alert("O comprovante deve começar com http:// ou https://." );
+            campoComprovante.focus();
+            return;
+        }
+        if (!window.confirm(
+            `Confirmar ${tipo === "entrada" ? "entrada" : "saída"} de ${tipo === "entrada" ? "+" : "-"}${formatarMoeda(valorCentavos)}?`
+        )) {
+            return;
+        }
+
+        botaoRegistrar.disabled = true;
+        botaoRegistrar.textContent = "Registrando...";
+        try {
+            const lancamentoRef = lancamentosRef.doc();
+            await banco.runTransaction(async transacao => {
+                const resumoSnap = await transacao.get(unidadeRef);
+                const dadosResumo = resumoSnap.exists
+                    ? resumoSnap.data() || {}
+                    : {};
+                const saldoAnterior = inteiro(dadosResumo.saldoCentavos);
+                const entradasAnteriores = inteiro(
+                    dadosResumo.totalEntradasCentavos
+                );
+                const saidasAnteriores = inteiro(
+                    dadosResumo.totalSaidasCentavos
+                );
+                const saldoPosterior = tipo === "entrada"
+                    ? saldoAnterior + valorCentavos
+                    : saldoAnterior - valorCentavos;
+                if (saldoPosterior < 0) {
+                    throw new Error(
+                        "A saída não pode deixar o saldo abaixo de zero."
+                    );
+                }
+                transacao.set(lancamentoRef, {
+                    unidadeId,
+                    unidade: nomeUnidade,
+                    tipo,
+                    valorCentavos,
+                    valor: valorCentavos / 100,
+                    categoria,
+                    descricao: descricaoLancamento,
+                    formaPagamento,
+                    comprovanteUrl,
+                    justificativa,
+                    saldoAnteriorCentavos: saldoAnterior,
+                    saldoPosteriorCentavos: saldoPosterior,
+                    lancadoPor: usernameLogado,
+                    dataMovimento,
+                    criadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                });
+                transacao.set(unidadeRef, {
+                    unidadeId,
+                    unidade: nomeUnidade,
+                    saldoCentavos: saldoPosterior,
+                    saldo: saldoPosterior / 100,
+                    totalEntradasCentavos: tipo === "entrada"
+                        ? entradasAnteriores + valorCentavos
+                        : entradasAnteriores,
+                    totalSaidasCentavos: tipo === "saida"
+                        ? saidasAnteriores + valorCentavos
+                        : saidasAnteriores,
+                    ultimoLancamentoId: lancamentoRef.id,
+                    atualizadoPor: usernameLogado,
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                }, {
+                    merge: true
+                });
+            });
+            formulario.reset();
+            campoTipo.value = "entrada";
+            campoData.value = dataHoje;
+            campoFormaPagamento.value = "dinheiro";
+            await carregarDados();
+            window.alert("Lançamento registrado com sucesso.");
+        } catch (erro) {
+            console.error(
+                "Erro ao registrar lançamento financeiro:",
+                erro
+            );
+            window.alert(
+                erro.message ||
+                "Não foi possível registrar o lançamento."
+            );
+        } finally {
+            botaoRegistrar.disabled = false;
+            botaoRegistrar.textContent = "Registrar lançamento";
+        }
+    });
+
+    await carregarDados();
+}
+
 async function abrirPainelUnidade() {
     const username = String(
         localStorage.getItem("usernameLogado") || ""
@@ -14063,11 +14838,22 @@ async function abrirPainelUnidade() {
                 cargoNome.includes("conselheiro") &&
                 cargoNome.includes("unidade")
             );
+        const ehTesoureiroUnidade =
+            cargoFuncao === "tesoureiro_unidade" ||
+            cargoFuncao === "tesoureiro de unidade" ||
+            cargoNome === "tesoureiro de unidade" ||
+            (
+                cargoNome.includes("tesoureiro") &&
+                cargoNome.includes("unidade")
+            );
+
         const nomeUnidade = String(
             dadosUsuario.unidade || ""
         ).trim();
         if (
-            (ehSecretarioUnidade || ehConselheiroUnidade) &&
+            (ehSecretarioUnidade ||
+                ehConselheiroUnidade ||
+                ehTesoureiroUnidade) &&
             !nomeUnidade
         ) {
             window.alert(
@@ -14218,7 +15004,10 @@ async function abrirPainelUnidade() {
                 ? "Secretário(a) de Unidade"
                 : ehConselheiroUnidade
                     ? "Conselheiro(a) de Unidade"
-                    : "Painel da unidade";
+                    : ehTesoureiroUnidade
+                        ? "Tesoureiro(a) de Unidade"
+                        : "Painel da unidade";
+
         subtitulo.style.color = "#8e8e8e";
         subtitulo.style.fontSize = "12px";
 
@@ -14308,7 +15097,9 @@ async function abrirPainelUnidade() {
             ? "Eventos compartilhados com as unidades"
             : ehSecretarioUnidade
                 ? "Frequência e relatórios da unidade"
-                : "Área da unidade";
+                : ehTesoureiroUnidade
+                    ? "Gestão financeira da unidade"
+                    : "Área da unidade";
         identificacao.style.color = "#8e8e8e";
         identificacao.style.fontSize = "11px";
 
@@ -14348,6 +15139,27 @@ async function abrirPainelUnidade() {
                 unidadeId,
                 nomeExibicao,
                 banco,
+                username
+            );
+        } else if (ehTesoureiroUnidade) {
+            const tituloFuncoes = document.createElement("h2");
+            tituloFuncoes.textContent =
+                "Responsabilidades do Tesoureiro(a)";
+            tituloFuncoes.style.margin = "18px 0 10px";
+            tituloFuncoes.style.fontSize = "16px";
+            const aviso = document.createElement("p");
+            aviso.textContent =
+                "Este painel pertence exclusivamente à sua unidade. Registre receitas e despesas com clareza, justificativa e comprovantes para manter a prestação de contas organizada.";
+            aviso.style.color = "#a8a8a8";
+            aviso.style.fontSize = "13px";
+            aviso.style.lineHeight = "1.5";
+            conteudo.appendChild(tituloFuncoes);
+            conteudo.appendChild(aviso);
+            await renderizarPainelTesoureiroUnidade(
+                conteudo,
+                banco,
+                unidadeId,
+                nomeExibicao,
                 username
             );
         } else if (ehConselheiroUnidade) {
@@ -17670,6 +18482,9 @@ function controlarExibicaoSelecaoUnidade() {
     const ehConselheiroUnidade =
         funcaoCargo === "conselheiro_unidade" ||
         funcaoCargo === "conselheiro de unidade";
+    const ehTesoureiroUnidade =
+        funcaoCargo === "tesoureiro_unidade" ||
+        funcaoCargo === "tesoureiro de unidade";
 
     if (!campoUnidade) {
         return;
@@ -17677,7 +18492,8 @@ function controlarExibicaoSelecaoUnidade() {
 
     const deveMostrarUnidade =
         tipoSelecionado !== "Liderança" ||
-        ehConselheiroUnidade;
+        ehConselheiroUnidade ||
+        ehTesoureiroUnidade;
 
     campoUnidade.style.display = deveMostrarUnidade
         ? "block"
@@ -18029,7 +18845,8 @@ function nomeFuncaoCargo(funcao) {
         nenhuma: "Nenhuma função adicional",
         secretario_unidade: "Secretário(a) de Unidade",
         secretario_clube: "Secretário(a) do Clube",
-        conselheiro_unidade: "Conselheiro(a) de Unidade"
+        conselheiro_unidade: "Conselheiro(a) de Unidade",
+        tesoureiro_unidade: "Tesoureiro(a) de Unidade"
     };
     return nomes[funcao] || "Função personalizada";
 }
@@ -20691,6 +21508,9 @@ async function salvarNovoMembroAdmin() {
         nomeReal,
         tipo,
         unidade,
+        unidadeId: unidade
+            ? criarIdUnidadeParaPainel(unidade)
+            : "",
         cargoId,
         cargo: cargoSelecionado ? cargoSelecionado.nome : "",
         cargoFuncao: cargoSelecionado ? cargoSelecionado.funcao : "nenhuma",
@@ -21347,6 +22167,9 @@ function controlarExibicaoSelecaoUnidadeEdicao() {
     const ehConselheiroUnidade =
         funcaoCargo === "conselheiro_unidade" ||
         funcaoCargo === "conselheiro de unidade";
+    const ehTesoureiroUnidade =
+        funcaoCargo === "tesoureiro_unidade" ||
+        funcaoCargo === "tesoureiro de unidade";
 
     if (!campo) {
         return;
@@ -21354,7 +22177,8 @@ function controlarExibicaoSelecaoUnidadeEdicao() {
 
     const deveMostrarUnidade =
         tipo !== "Liderança" ||
-        ehConselheiroUnidade;
+        ehConselheiroUnidade ||
+        ehTesoureiroUnidade;
 
     campo.style.display = deveMostrarUnidade
         ? "block"
@@ -21412,6 +22236,11 @@ async function salvarEdicaoMembroAdmin() {
         ).trim().toLowerCase(),
         tipo: document.getElementById("edit-membro-tipo").value,
         unidade: document.getElementById("edit-membro-unidade-vinculo").value,
+        unidadeId: document.getElementById("edit-membro-unidade-vinculo").value
+            ? criarIdUnidadeParaPainel(
+                document.getElementById("edit-membro-unidade-vinculo").value
+            )
+            : "",
         cargoId,
         cargo: cargoSelecionado ? cargoSelecionado.nome : "",
         cargoFuncao: cargoSelecionado ? cargoSelecionado.funcao : "nenhuma",

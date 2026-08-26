@@ -168,6 +168,14 @@ async function cadastrarMembro(dadosMembro, arquivoImagem) {
             unidade: String(
                 dadosMembro.unidade || ""
             ).trim() || null,
+            unidadeId: dadosMembro.unidade
+                ? String(dadosMembro.unidade)
+                    .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "")
+                : "",
             fotoUrl: dadosFoto.url,
             fotoIdPublico: dadosFoto.idPublico,
             dataNascimento: dadosMembro.dataNascimento,
