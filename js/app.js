@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.552.0 - versão alpha";
+const VERSAO_ATUAL = "v0.553.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13545,25 +13545,80 @@ async function renderizarPainelPontuacaoConselheiro(
         }
     };
 
-    const abrirFormularioLancamento = (membro, tipo, card, saldoEl) => {
+        const abrirFormularioLancamento = (membro, tipo, card, saldoEl) => {
+        const PONTOS_POR_ACAO = 5;
         const formularioAnterior = card.querySelector(
             "[data-formulario-pontuacao]"
         );
+
+        const atualizarIndicadores = formulario => {
+            const quantidadeAcoes = Math.max(
+                1,
+                inteiro(formulario.dataset.quantidadeAcoes || "1")
+            );
+            const totalPontos = quantidadeAcoes * PONTOS_POR_ACAO;
+            const cabecalho = formulario.querySelector(
+                "[data-cabecalho-pontuacao]"
+            );
+            const resumo = formulario.querySelector(
+                "[data-resumo-pontuacao]"
+            );
+            const botaoConfirmar = formulario.querySelector(
+                "[data-confirmar-pontuacao]"
+            );
+
+            if (cabecalho) {
+                cabecalho.textContent = tipo === "adicionar"
+                    ? `Adicionar ${totalPontos} pontos para ${membro.nome}`
+                    : `Retirar ${totalPontos} pontos de ${membro.nome}`;
+            }
+            if (resumo) {
+                resumo.textContent = tipo === "adicionar"
+                    ? `Total deste lançamento: +${totalPontos} pontos`
+                    : `Total deste lançamento: -${totalPontos} pontos`;
+            }
+            if (botaoConfirmar) {
+                botaoConfirmar.textContent = tipo === "adicionar"
+                    ? `Confirmar +${totalPontos} pontos`
+                    : `Confirmar -${totalPontos} pontos`;
+            }
+        };
+
         if (formularioAnterior) {
+            const tipoAnterior = formularioAnterior.dataset.tipoPontuacao;
+            if (tipoAnterior === tipo) {
+                const quantidadeAtual = Math.max(
+                    1,
+                    inteiro(
+                        formularioAnterior.dataset.quantidadeAcoes || "1"
+                    )
+                );
+                formularioAnterior.dataset.quantidadeAcoes = String(
+                    quantidadeAtual + 1
+                );
+                atualizarIndicadores(formularioAnterior);
+                return;
+            }
             formularioAnterior.remove();
         }
 
         const formulario = document.createElement("form");
         const cabecalho = document.createElement("strong");
+        const resumo = document.createElement("div");
         const justificativa = document.createElement("textarea");
         const cancelar = document.createElement("button");
         const salvar = document.createElement("button");
         const acoes = document.createElement("div");
+        const variacao = tipo === "retirar"
+            ? -PONTOS_POR_ACAO
+            : PONTOS_POR_ACAO;
 
         formulario.setAttribute(
             "data-formulario-pontuacao",
             "true"
         );
+        formulario.dataset.tipoPontuacao = tipo;
+        formulario.dataset.quantidadeAcoes = "1";
         aplicarEstilo(formulario, {
             display: "flex",
             flexDirection: "column",
@@ -13574,21 +13629,28 @@ async function renderizarPainelPontuacaoConselheiro(
             borderRadius: "8px",
             background: "#201a0c"
         });
-        cabecalho.textContent = tipo === "adicionar"
-            ? `Adicionar 5 pontos para ${membro.nome}`
-            : `Retirar 5 pontos de ${membro.nome}`;
+        cabecalho.setAttribute(
+            "data-cabecalho-pontuacao",
+            "true"
+        );
         cabecalho.style.color = tipo === "adicionar"
             ? "#8ff0ce"
             : "#ff9d9d";
         cabecalho.style.fontSize = "12px";
 
-        // A quantidade é fixa: cada ação vale exatamente 5 pontos.
+        resumo.setAttribute(
+            "data-resumo-pontuacao",
+            "true"
+        );
+        resumo.style.color = "#ffe39a";
+        resumo.style.fontSize = "12px";
+        resumo.style.fontWeight = "700";
 
         justificativa.rows = 3;
         justificativa.required = true;
         justificativa.maxLength = 500;
         justificativa.placeholder =
-            "Justificativa obrigatória...";
+            "Justificativa obrigatória para este lançamento...";
         justificativa.style.resize = "vertical";
         prepararCampo(justificativa);
 
@@ -13600,11 +13662,10 @@ async function renderizarPainelPontuacaoConselheiro(
             tipo === "adicionar" ? "#123a31" : "#3a171b",
             "submit"
         );
-        salvar.textContent = tipo === "adicionar"
-            ? "Confirmar +5 pontos"
-            : "Confirmar -5 pontos";
-
-
+        salvar.setAttribute(
+            "data-confirmar-pontuacao",
+            "true"
+        );
         aplicarEstilo(acoes, {
             display: "flex",
             justifyContent: "flex-end",
@@ -13614,9 +13675,11 @@ async function renderizarPainelPontuacaoConselheiro(
         acoes.appendChild(cancelar);
         acoes.appendChild(salvar);
         formulario.appendChild(cabecalho);
+        formulario.appendChild(resumo);
         formulario.appendChild(justificativa);
         formulario.appendChild(acoes);
         card.appendChild(formulario);
+        atualizarIndicadores(formulario);
         justificativa.focus();
 
         cancelar.addEventListener(
@@ -13626,20 +13689,18 @@ async function renderizarPainelPontuacaoConselheiro(
 
         formulario.addEventListener("submit", async evento => {
             evento.preventDefault();
-            const quantidade = PONTOS_POR_ACAO;
+            const quantidadeAcoes = Math.max(
+                1,
+                inteiro(formulario.dataset.quantidadeAcoes || "1")
+            );
+            const quantidade = quantidadeAcoes * PONTOS_POR_ACAO;
             const textoJustificativa = String(
                 justificativa.value || ""
             ).trim();
             const variacao = tipo === "retirar"
-                ? -PONTOS_POR_ACAO
-                : PONTOS_POR_ACAO;
+                ? -quantidade
+                : quantidade;
 
-            if (quantidade <= 0) {
-                window.alert(
-                    "Informe uma quantidade maior que zero."
-                );
-                return;
-            }
             if (textoJustificativa.length < 3) {
                 window.alert(
                     "Informe uma justificativa válida."
@@ -13701,6 +13762,8 @@ async function renderizarPainelPontuacaoConselheiro(
                         unidade: nomeUnidade,
                         tipo,
                         pontos: quantidade,
+                        quantidadeAcoes,
+                        pontosPorAcao: PONTOS_POR_ACAO,
                         variacao,
                         saldoAnterior,
                         saldoPosterior,
@@ -13714,7 +13777,7 @@ async function renderizarPainelPontuacaoConselheiro(
                 saldoEl.textContent = `${saldoPosterior} ponto(s)`;
                 formulario.remove();
                 window.alert(
-                    `Lançamento registrado. Novo saldo: ${saldoPosterior} ponto(s).`
+                    `Lançamento de ${variacao > 0 ? "+" : ""}${variacao} pontos registrado.`
                 );
             } catch (erro) {
                 console.error(
@@ -13727,12 +13790,11 @@ async function renderizarPainelPontuacaoConselheiro(
                 );
                 salvar.disabled = false;
                 cancelar.disabled = false;
-                salvar.textContent = tipo === "adicionar"
-                    ? "Confirmar +5 pontos"
-                    : "Confirmar -5 pontos";
+                atualizarIndicadores(formulario);
             }
         });
     };
+
 
     const criarCardMembro = async membro => {
         const card = document.createElement("article");
