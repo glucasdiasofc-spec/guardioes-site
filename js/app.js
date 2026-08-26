@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.549.0 - versão alpha";
+const VERSAO_ATUAL = "v0.550.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13554,7 +13554,7 @@ async function renderizarPainelPontuacaoConselheiro(
 
         const formulario = document.createElement("form");
         const cabecalho = document.createElement("strong");
-        const pontos = document.createElement("input");
+        const PONTOS_POR_ACAO = 5;
         const justificativa = document.createElement("textarea");
         const cancelar = document.createElement("button");
         const salvar = document.createElement("button");
@@ -13575,19 +13575,14 @@ async function renderizarPainelPontuacaoConselheiro(
             background: "#201a0c"
         });
         cabecalho.textContent = tipo === "adicionar"
-            ? `Adicionar pontos para ${membro.nome}`
-            : `Retirar pontos de ${membro.nome}`;
+            ? `Adicionar 5 pontos para ${membro.nome}`
+            : `Retirar 5 pontos de ${membro.nome}`;
         cabecalho.style.color = tipo === "adicionar"
             ? "#8ff0ce"
             : "#ff9d9d";
         cabecalho.style.fontSize = "12px";
 
-        pontos.type = "number";
-        pontos.min = "1";
-        pontos.step = "1";
-        pontos.required = true;
-        pontos.placeholder = "Quantidade de pontos";
-        prepararCampo(pontos);
+        // A quantidade é fixa: cada ação vale exatamente 5 pontos.
 
         justificativa.rows = 3;
         justificativa.required = true;
@@ -13604,7 +13599,10 @@ async function renderizarPainelPontuacaoConselheiro(
             tipo === "adicionar" ? "#20c997" : "#e06c75",
             tipo === "adicionar" ? "#123a31" : "#3a171b"
         );
-        salvar.textContent = "Confirmar lançamento";
+        salvar.textContent = tipo === "adicionar"
+            ? "Confirmar +5 pontos"
+            : "Confirmar -5 pontos";
+
         aplicarEstilo(acoes, {
             display: "flex",
             justifyContent: "flex-end",
@@ -13614,11 +13612,10 @@ async function renderizarPainelPontuacaoConselheiro(
         acoes.appendChild(cancelar);
         acoes.appendChild(salvar);
         formulario.appendChild(cabecalho);
-        formulario.appendChild(pontos);
         formulario.appendChild(justificativa);
         formulario.appendChild(acoes);
         card.appendChild(formulario);
-        pontos.focus();
+        justificativa.focus();
 
         cancelar.addEventListener(
             "click",
@@ -13627,13 +13624,13 @@ async function renderizarPainelPontuacaoConselheiro(
 
         formulario.addEventListener("submit", async evento => {
             evento.preventDefault();
-            const quantidade = inteiro(pontos.value);
+            const quantidade = PONTOS_POR_ACAO;
             const textoJustificativa = String(
                 justificativa.value || ""
             ).trim();
             const variacao = tipo === "retirar"
-                ? -quantidade
-                : quantidade;
+                ? -PONTOS_POR_ACAO
+                : PONTOS_POR_ACAO;
 
             if (quantidade <= 0) {
                 window.alert(
@@ -14301,6 +14298,13 @@ async function abrirPainelUnidade() {
             aviso.style.lineHeight = "1.5";
             conteudo.appendChild(tituloFuncoes);
             conteudo.appendChild(aviso);
+            await renderizarPainelPontuacaoConselheiro(
+                conteudo,
+                banco,
+                unidadeId,
+                nomeExibicao,
+                username
+            );
             await renderizarPainelAssinaturasConselheiro(
                 conteudo,
                 banco,
@@ -14308,14 +14312,7 @@ async function abrirPainelUnidade() {
                 nomeExibicao,
                 username
             );
-await renderizarPainelConselheiroEventosUnidade(
-                conteudo,
-                banco,
-                unidadeId,
-                nomeExibicao,
-                username
-            );
-            await renderizarPainelPontuacaoConselheiro(
+            await renderizarPainelConselheiroEventosUnidade(
                 conteudo,
                 banco,
                 unidadeId,
@@ -14323,13 +14320,6 @@ await renderizarPainelConselheiroEventosUnidade(
                 username
             );
 
-            await renderizarPainelPontuacaoConselheiro(
-                conteudo,
-                banco,
-                unidadeId,
-                nomeExibicao,
-                username
-            );
         } else {
 
 
