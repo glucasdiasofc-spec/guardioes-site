@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.550.0 - versão alpha";
+const VERSAO_ATUAL = "v0.551.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13375,8 +13375,8 @@ async function renderizarPainelPontuacaoConselheiro(
         return Number.isFinite(tempo) ? tempo : 0;
     };
 
-    const prepararBotao = (botao, cor, fundo) => {
-        botao.type = "button";
+    const prepararBotao = (botao, cor, fundo, tipo = "button") => {
+        botao.type = tipo;
         aplicarEstilo(botao, {
             minHeight: "34px",
             padding: "7px 11px",
@@ -13554,7 +13554,6 @@ async function renderizarPainelPontuacaoConselheiro(
 
         const formulario = document.createElement("form");
         const cabecalho = document.createElement("strong");
-        const PONTOS_POR_ACAO = 5;
         const justificativa = document.createElement("textarea");
         const cancelar = document.createElement("button");
         const salvar = document.createElement("button");
@@ -13597,11 +13596,13 @@ async function renderizarPainelPontuacaoConselheiro(
         prepararBotao(
             salvar,
             tipo === "adicionar" ? "#20c997" : "#e06c75",
-            tipo === "adicionar" ? "#123a31" : "#3a171b"
+            tipo === "adicionar" ? "#123a31" : "#3a171b",
+            "submit"
         );
         salvar.textContent = tipo === "adicionar"
             ? "Confirmar +5 pontos"
             : "Confirmar -5 pontos";
+
 
         aplicarEstilo(acoes, {
             display: "flex",
