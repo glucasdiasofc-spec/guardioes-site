@@ -1659,7 +1659,7 @@
                             </div>
                             <div style="flex: 1; min-width: 0;">
                                 <div id="perfil-usuario-conquistas-status" style="font-weight: bold; font-size: 15px; color: #fff;">0</div>
-                                <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Conquistas</div>
+                                <div style="font-size: 12px; color: #a8a8a8; margin-top: 4px;">Pontos</div>
                             </div>
                             <div style="flex: 1; min-width: 0;">
                                 <div style="font-weight: bold; font-size: 15px; color: #fff;">100%</div>
@@ -1694,6 +1694,9 @@
                         <span id="tab-perfil-conquistas" onclick="mudarSubTabPerfil('conquistas')" style="color: #8e8e8e; border-top: 1.5px solid transparent; padding-top: 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; cursor: pointer;">
                             🏅 Conquistas
                         </span>
+                        <span id="tab-perfil-pontos" onclick="mudarSubTabPerfil('pontos')" style="color: #8e8e8e; border-top: 1.5px solid transparent; padding-top: 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; cursor: pointer;">
+                            ⭐ Pontos
+                        </span>
                     </div>
 
                     <!-- Seção 1: Grid de Publicações -->
@@ -1711,7 +1714,19 @@
                         </div>
                     </div>
 
-                    <!-- Seção 2: Conquistas (Classes, Especialidades, Mestrados) -->
+                    <!-- Seção 2: Pontos e histórico -->
+                    <div id="perfil-secao-pontos" style="display: none; padding: 10px 0;">
+                        <div style="background: #121212; border: 1px solid #9b7b22; padding: 14px; border-radius: 8px; text-align: left; margin-bottom: 15px;">
+                            <div style="font-size: 12px; color: #c8b98e;">Saldo atual</div>
+                            <strong id="perfil-pontos-saldo" style="display: block; margin-top: 5px; color: #ffe39a; font-size: 24px;">0 ponto(s)</strong>
+                        </div>
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #fff;">Histórico de pontuações</h4>
+                        <div id="perfil-pontos-historico" style="display: flex; flex-direction: column; gap: 8px;">
+                            Nenhuma pontuação registrada ainda.
+                        </div>
+                    </div>
+
+                    <!-- Seção 3: Conquistas (Classes, Especialidades, Mestrados) -->
                     <div id="perfil-secao-conquistas" style="display: none; padding: 10px 0;">
                         <div style="display: flex; flex-direction: column; gap: 15px;">
                             <!-- Classes Regulares -->

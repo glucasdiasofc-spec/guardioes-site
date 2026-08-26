@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.547.0 - versão alpha";
+const VERSAO_ATUAL = "v0.548.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13331,6 +13331,493 @@ async function renderizarPainelConselheiroEventosUnidade(
     }
 }
 
+async function renderizarPainelPontuacaoConselheiro(
+    container,
+    banco,
+    unidadeId,
+    nomeUnidade,
+    usernameLogado
+) {
+    const secao = document.createElement("section");
+    const titulo = document.createElement("h2");
+    const descricao = document.createElement("p");
+    const formulario = document.createElement("form");
+    const seletorMembro = document.createElement("select");
+    const tipoLancamento = document.createElement("select");
+    const quantidadePontos = document.createElement("input");
+    const justificativa = document.createElement("textarea");
+    const botao = document.createElement("button");
+    const status = document.createElement("p");
+    const saldo = document.createElement("strong");
+    const historico = document.createElement("div");
+    const membros = [];
+    let membroSelecionado = null;
+
+    const estilo = (elemento, propriedades) => {
+        Object.entries(propriedades).forEach(
+            ([propriedade, valor]) => {
+                elemento.style[propriedade] = valor;
+            }
+        );
+    };
+
+    const campoComRotulo = (texto, campo) => {
+        const grupo = document.createElement("label");
+        const rotulo = document.createElement("span");
+        rotulo.textContent = texto;
+        estilo(grupo, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px"
+        });
+        estilo(rotulo, {
+            color: "#d7d9db",
+            fontSize: "11px"
+        });
+        grupo.appendChild(rotulo);
+        grupo.appendChild(campo);
+        return grupo;
+    };
+
+    const prepararCampo = campo => {
+        estilo(campo, {
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "9px 10px",
+            border: "1px solid #3a3a3a",
+            borderRadius: "8px",
+            background: "#1c1c1c",
+            color: "#fff",
+            fontSize: "12px"
+        });
+    };
+
+    const inteiro = valor => {
+        const numero = Number(valor);
+        return Number.isFinite(numero) ? Math.trunc(numero) : 0;
+    };
+
+    const timestampEmMillis = valor => {
+        if (!valor) return 0;
+        if (typeof valor.toMillis === "function") {
+            return valor.toMillis();
+        }
+        if (typeof valor.toDate === "function") {
+            return valor.toDate().getTime();
+        }
+        if (valor.seconds) {
+            return Number(valor.seconds) * 1000;
+        }
+        const tempo = new Date(valor).getTime();
+        return Number.isFinite(tempo) ? tempo : 0;
+    };
+
+    const renderizarHistorico = lancamentos => {
+        historico.innerHTML = "";
+
+        if (!lancamentos.length) {
+            historico.textContent =
+                "Nenhum lançamento de pontos registrado.";
+            historico.style.color = "#8e8e8e";
+            historico.style.fontSize = "11px";
+            return;
+        }
+
+        lancamentos
+            .sort((a, b) => timestampEmMillis(b.criadoEm) - timestampEmMillis(a.criadoEm))
+            .forEach(lancamento => {
+                const item = document.createElement("article");
+                const cabecalho = document.createElement("div");
+                const texto = document.createElement("div");
+                const variacao = inteiro(
+                    lancamento.variacao ||
+                    (lancamento.tipo === "retirar"
+                        ? -inteiro(lancamento.pontos)
+                        : inteiro(lancamento.pontos))
+                );
+                const tempo = timestampEmMillis(lancamento.criadoEm);
+
+                estilo(item, {
+                    padding: "9px",
+                    border: "1px solid #3a3a3a",
+                    borderRadius: "8px",
+                    background: "#101010"
+                });
+                estilo(cabecalho, {
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "8px",
+                    color: variacao >= 0 ? "#8ff0ce" : "#ff9d9d",
+                    fontSize: "12px",
+                    fontWeight: "700"
+                });
+                cabecalho.textContent =
+                    `${variacao >= 0 ? "+" : ""}${variacao} ponto(s) · ` +
+                    `${tempo ? new Date(tempo).toLocaleString("pt-BR") : "Data pendente"}`;
+                texto.textContent = String(
+                    lancamento.justificativa ||
+                    "Sem justificativa informada."
+                );
+                estilo(texto, {
+                    marginTop: "5px",
+                    color: "#c7c7c7",
+                    fontSize: "11px",
+                    whiteSpace: "pre-wrap"
+                });
+                item.appendChild(cabecalho);
+                item.appendChild(texto);
+                historico.appendChild(item);
+            });
+    };
+
+    const carregarDadosSelecionados = async () => {
+        membroSelecionado = membros.find(
+            membro => membro.uid === seletorMembro.value
+        ) || null;
+
+        if (!membroSelecionado) {
+            saldo.textContent = "0 ponto(s)";
+            historico.textContent =
+                "Selecione um Desbravador para consultar o histórico.";
+            status.textContent =
+                "Selecione um Desbravador para consultar o saldo.";
+            return;
+        }
+
+        status.textContent = "Carregando saldo e histórico...";
+
+        try {
+            const pontosRef = banco
+                .collection("pontuacoes_desbravadores")
+                .doc(membroSelecionado.uid);
+            const pontosSnap = await pontosRef.get();
+            const dadosPontos = pontosSnap.exists
+                ? pontosSnap.data() || {}
+                : {};
+            const saldoAtual = Math.max(
+                0,
+                inteiro(dadosPontos.saldo)
+            );
+            saldo.textContent = `${saldoAtual} ponto(s)`;
+
+            const historicoSnap = await pontosRef
+                .collection("historico")
+                .orderBy("criadoEm", "desc")
+                .limit(100)
+                .get();
+            const lancamentos = [];
+            historicoSnap.forEach(documento => {
+                lancamentos.push({
+                    id: documento.id,
+                    ...documento.data()
+                });
+            });
+            renderizarHistorico(lancamentos);
+            status.textContent =
+                `Perfil de ${membroSelecionado.nome} carregado.`;
+        } catch (erro) {
+            console.error(
+                "Erro ao carregar pontuação do Desbravador:",
+                erro
+            );
+            saldo.textContent = "0 ponto(s)";
+            historico.textContent =
+                "Não foi possível carregar o histórico.";
+            status.textContent =
+                "Não foi possível carregar a pontuação. Verifique as Rules.";
+        }
+    };
+
+    estilo(secao, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        marginTop: "16px",
+        padding: "14px",
+        border: "1px solid #9b7b22",
+        borderRadius: "14px",
+        background: "#15120a"
+    });
+    titulo.textContent = "Pontuação dos Desbravadores";
+    estilo(titulo, {
+        margin: "0",
+        color: "#fff",
+        fontSize: "16px"
+    });
+    descricao.textContent =
+        "Adicione ou retire pontos da sua unidade sempre com uma justificativa.";
+    estilo(descricao, {
+        margin: "0",
+        color: "#c8b98e",
+        fontSize: "11px",
+        lineHeight: "1.5"
+    });
+    estilo(formulario, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "9px"
+    });
+
+    const opcaoInicial = document.createElement("option");
+    opcaoInicial.value = "";
+    opcaoInicial.textContent = "Selecione um Desbravador";
+    seletorMembro.appendChild(opcaoInicial);
+    seletorMembro.required = true;
+    prepararCampo(seletorMembro);
+
+    const opcaoAdicionar = document.createElement("option");
+    opcaoAdicionar.value = "adicionar";
+    opcaoAdicionar.textContent = "Adicionar pontos";
+    const opcaoRetirar = document.createElement("option");
+    opcaoRetirar.value = "retirar";
+    opcaoRetirar.textContent = "Retirar pontos";
+    tipoLancamento.appendChild(opcaoAdicionar);
+    tipoLancamento.appendChild(opcaoRetirar);
+    prepararCampo(tipoLancamento);
+
+    quantidadePontos.type = "number";
+    quantidadePontos.min = "1";
+    quantidadePontos.step = "1";
+    quantidadePontos.required = true;
+    quantidadePontos.placeholder = "Quantidade de pontos";
+    prepararCampo(quantidadePontos);
+
+    justificativa.rows = 3;
+    justificativa.required = true;
+    justificativa.maxLength = 500;
+    justificativa.placeholder =
+        "Justifique obrigatoriamente este lançamento...";
+    justificativa.style.resize = "vertical";
+    prepararCampo(justificativa);
+
+    botao.type = "submit";
+    botao.textContent = "Registrar pontuação";
+    estilo(botao, {
+        padding: "10px",
+        border: "1px solid #d7a928",
+        borderRadius: "8px",
+        background: "#3a2d0d",
+        color: "#ffe39a",
+        fontWeight: "700",
+        cursor: "pointer"
+    });
+
+    status.textContent =
+        "Selecione um Desbravador para consultar o saldo.";
+    status.style.margin = "0";
+    status.style.color = "#a8a8a8";
+    status.style.fontSize = "11px";
+
+    const painelSaldo = document.createElement("div");
+    const textoSaldo = document.createElement("span");
+    textoSaldo.textContent = "Saldo atual";
+    saldo.textContent = "0 ponto(s)";
+    painelSaldo.appendChild(textoSaldo);
+    painelSaldo.appendChild(saldo);
+    estilo(painelSaldo, {
+        display: "flex",
+        justifyContent: "space-between",
+        gap: "8px",
+        padding: "10px",
+        border: "1px solid #4b3b16",
+        borderRadius: "8px",
+        background: "#201a0c",
+        color: "#ffe39a",
+        fontSize: "12px"
+    });
+    saldo.style.fontSize = "16px";
+
+    historico.style.display = "flex";
+    historico.style.flexDirection = "column";
+    historico.style.gap = "7px";
+    const tituloHistorico = document.createElement("strong");
+    tituloHistorico.textContent = "Histórico de pontuações";
+    tituloHistorico.style.color = "#fff";
+    tituloHistorico.style.fontSize = "12px";
+
+    formulario.appendChild(campoComRotulo("Desbravador", seletorMembro));
+    formulario.appendChild(campoComRotulo("Ação", tipoLancamento));
+    formulario.appendChild(campoComRotulo("Pontos", quantidadePontos));
+    formulario.appendChild(campoComRotulo("Justificativa obrigatória", justificativa));
+    formulario.appendChild(botao);
+    secao.appendChild(titulo);
+    secao.appendChild(descricao);
+    secao.appendChild(formulario);
+    secao.appendChild(status);
+    secao.appendChild(painelSaldo);
+    secao.appendChild(tituloHistorico);
+    secao.appendChild(historico);
+    container.appendChild(secao);
+
+    seletorMembro.addEventListener(
+        "change",
+        carregarDadosSelecionados
+    );
+
+    formulario.addEventListener("submit", async evento => {
+        evento.preventDefault();
+
+        if (!membroSelecionado) {
+            window.alert("Selecione um Desbravador.");
+            return;
+        }
+
+        const pontos = inteiro(quantidadePontos.value);
+        const textoJustificativa = String(
+            justificativa.value || ""
+        ).trim();
+        const variacao = tipoLancamento.value === "retirar"
+            ? -pontos
+            : pontos;
+
+        if (pontos <= 0) {
+            window.alert("Informe uma quantidade maior que zero.");
+            return;
+        }
+        if (textoJustificativa.length < 3) {
+            window.alert("Informe uma justificativa válida.");
+            justificativa.focus();
+            return;
+        }
+
+        botao.disabled = true;
+        botao.textContent = "Registrando...";
+
+        try {
+            const pontosRef = banco
+                .collection("pontuacoes_desbravadores")
+                .doc(membroSelecionado.uid);
+            const historicoRef = pontosRef
+                .collection("historico")
+                .doc();
+            let saldoPosterior = 0;
+
+            await banco.runTransaction(async transacao => {
+                const pontosSnap = await transacao.get(pontosRef);
+                const dadosPontos = pontosSnap.exists
+                    ? pontosSnap.data() || {}
+                    : {};
+                const saldoAnterior = Math.max(
+                    0,
+                    inteiro(dadosPontos.saldo)
+                );
+                saldoPosterior = saldoAnterior + variacao;
+
+                if (saldoPosterior < 0) {
+                    throw new Error(
+                        "A retirada não pode deixar o saldo abaixo de zero."
+                    );
+                }
+
+                transacao.set(pontosRef, {
+                    desbravadorUid: membroSelecionado.uid,
+                    desbravadorUsername: membroSelecionado.username,
+                    desbravadorNome: membroSelecionado.nome,
+                    unidadeId,
+                    unidade: nomeUnidade,
+                    saldo: saldoPosterior,
+                    ultimoLancamentoId: historicoRef.id,
+                    atualizadoPor: usernameLogado,
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                }, {
+                    merge: true
+                });
+
+                transacao.set(historicoRef, {
+                    desbravadorUid: membroSelecionado.uid,
+                    desbravadorUsername: membroSelecionado.username,
+                    desbravadorNome: membroSelecionado.nome,
+                    unidadeId,
+                    unidade: nomeUnidade,
+                    tipo: tipoLancamento.value,
+                    pontos,
+                    variacao,
+                    saldoAnterior,
+                    saldoPosterior,
+                    justificativa: textoJustificativa,
+                    lancadoPor: usernameLogado,
+                    criadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+
+            window.alert(
+                `Pontuação registrada. Novo saldo: ${saldoPosterior} ponto(s).`
+            );
+            quantidadePontos.value = "";
+            justificativa.value = "";
+            await carregarDadosSelecionados();
+        } catch (erro) {
+            console.error("Erro ao registrar pontuação:", erro);
+            window.alert(
+                erro.message ||
+                "Não foi possível registrar a pontuação."
+            );
+        } finally {
+            botao.disabled = false;
+            botao.textContent = "Registrar pontuação";
+        }
+    });
+
+    try {
+        const membrosSnap = await banco
+            .collection("usuarios")
+            .where("unidade", "==", nomeUnidade)
+            .get();
+
+        membrosSnap.forEach(documento => {
+            const dados = documento.data() || {};
+            const tipo = String(
+                dados.tipo || ""
+            ).trim().toLowerCase();
+            const username = String(
+                dados.username || ""
+            ).trim().toLowerCase();
+
+            if (tipo !== "desbravador" || !username) {
+                return;
+            }
+
+            membros.push({
+                uid: documento.id,
+                username,
+                nome: String(
+                    dados.nomeReal || username
+                ).trim()
+            });
+        });
+
+        membros.sort((a, b) => a.nome.localeCompare(
+            b.nome,
+            "pt-BR"
+        ));
+        membros.forEach(membro => {
+            const opcao = document.createElement("option");
+            opcao.value = membro.uid;
+            opcao.textContent =
+                `${membro.nome} (@${membro.username})`;
+            seletorMembro.appendChild(opcao);
+        });
+
+        if (!membros.length) {
+            status.textContent =
+                "Nenhum Desbravador encontrado nesta unidade.";
+            seletorMembro.disabled = true;
+            botao.disabled = true;
+        }
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar Desbravadores para pontuação:",
+            erro
+        );
+        status.textContent =
+            "Não foi possível carregar os Desbravadores desta unidade.";
+        seletorMembro.disabled = true;
+        botao.disabled = true;
+    }
+}
+
 async function abrirPainelUnidade() {
     const username = String(
         localStorage.getItem("usernameLogado") || ""
@@ -13715,6 +14202,13 @@ async function abrirPainelUnidade() {
                 nomeExibicao,
                 username
             );
+            await renderizarPainelPontuacaoConselheiro(
+                conteudo,
+                banco,
+                unidadeId,
+                nomeExibicao,
+                username
+            );
         } else {
 
 
@@ -13748,6 +14242,138 @@ async function abrirPainelUnidade() {
     }
 }
 
+
+async function carregarPontosNoPerfil(banco, uidPerfil) {
+    const contador = document.getElementById(
+        "perfil-usuario-conquistas-status"
+    );
+    const saldoEl = document.getElementById(
+        "perfil-pontos-saldo"
+    );
+    const historicoEl = document.getElementById(
+        "perfil-pontos-historico"
+    );
+
+    if (!banco || !uidPerfil) {
+        return;
+    }
+
+    try {
+        const pontosRef = banco
+            .collection("pontuacoes_desbravadores")
+            .doc(uidPerfil);
+        const pontosSnap = await pontosRef.get();
+        const dadosPontos = pontosSnap.exists
+            ? pontosSnap.data() || {}
+            : {};
+        const saldo = Math.max(
+            0,
+            Math.trunc(Number(dadosPontos.saldo) || 0)
+        );
+
+        if (contador) {
+            contador.textContent = String(saldo);
+        }
+        if (saldoEl) {
+            saldoEl.textContent = `${saldo} ponto(s)`;
+        }
+        if (!historicoEl) {
+            return;
+        }
+
+        const historicoSnap = await pontosRef
+            .collection("historico")
+            .orderBy("criadoEm", "desc")
+            .limit(100)
+            .get();
+        const lancamentos = [];
+        historicoSnap.forEach(documento => {
+            lancamentos.push({
+                id: documento.id,
+                ...documento.data()
+            });
+        });
+
+        historicoEl.innerHTML = "";
+        if (!lancamentos.length) {
+            historicoEl.textContent =
+                "Nenhuma pontuação registrada ainda.";
+            historicoEl.style.color = "#8e8e8e";
+            historicoEl.style.fontSize = "13px";
+            return;
+        }
+
+        const converterTimestamp = valor => {
+            if (!valor) return 0;
+            if (typeof valor.toMillis === "function") {
+                return valor.toMillis();
+            }
+            if (typeof valor.toDate === "function") {
+                return valor.toDate().getTime();
+            }
+            if (valor.seconds) {
+                return Number(valor.seconds) * 1000;
+            }
+            const tempo = new Date(valor).getTime();
+            return Number.isFinite(tempo) ? tempo : 0;
+        };
+
+        lancamentos
+            .sort((a, b) => converterTimestamp(b.criadoEm) - converterTimestamp(a.criadoEm))
+            .forEach(lancamento => {
+                const item = document.createElement("article");
+                const cabecalho = document.createElement("div");
+                const justificativa = document.createElement("div");
+                const variacao = Math.trunc(
+                    Number(lancamento.variacao) ||
+                    (lancamento.tipo === "retirar"
+                        ? -(Number(lancamento.pontos) || 0)
+                        : Number(lancamento.pontos) || 0)
+                );
+                const tempo = converterTimestamp(
+                    lancamento.criadoEm
+                );
+
+                item.style.padding = "10px";
+                item.style.border = "1px solid #262626";
+                item.style.borderRadius = "8px";
+                item.style.background = "#121212";
+
+                cabecalho.textContent =
+                    `${variacao >= 0 ? "+" : ""}${variacao} ponto(s) · ` +
+                    `${tempo ? new Date(tempo).toLocaleString("pt-BR") : "Data pendente"}`;
+                cabecalho.style.color = variacao >= 0
+                    ? "#8ff0ce"
+                    : "#ff9d9d";
+                cabecalho.style.fontSize = "12px";
+                cabecalho.style.fontWeight = "700";
+
+                justificativa.textContent = String(
+                    lancamento.justificativa ||
+                    "Sem justificativa informada."
+                );
+                justificativa.style.marginTop = "5px";
+                justificativa.style.color = "#c7c7c7";
+                justificativa.style.fontSize = "12px";
+                justificativa.style.whiteSpace = "pre-wrap";
+
+                item.appendChild(cabecalho);
+                item.appendChild(justificativa);
+                historicoEl.appendChild(item);
+            });
+    } catch (erro) {
+        console.warn(
+            "Não foi possível carregar os pontos do perfil:",
+            erro
+        );
+        if (contador) contador.textContent = "0";
+        if (saldoEl) saldoEl.textContent = "0 ponto(s)";
+        if (historicoEl) {
+            historicoEl.textContent =
+                "Não foi possível carregar o histórico de pontos.";
+        }
+    }
+}
 
 async function carregarPerfilDoUsuario() {
     const username = localStorage.getItem("usernameLogado");
@@ -14037,10 +14663,9 @@ async function carregarPerfilDoUsuario() {
         const mestrados = Array.isArray(dados.mestrados) ? dados.mestrados : [];
 
         if (contadorEl) {
-            contadorEl.textContent = String(
-                classes.length + especialidades.length + mestrados.length
-            );
+            contadorEl.textContent = "0";
         }
+
 
         if (tClasses) tClasses.textContent = "🎒 Classes Regulares (" + classes.length + ")";
         if (classesEl) {
@@ -14085,6 +14710,11 @@ async function carregarPerfilDoUsuario() {
                 mestradosEl.textContent = "Nenhum mestrado concluído ainda.";
             }
         }
+
+        await carregarPontosNoPerfil(
+            banco,
+            snapshotUsuario.docs[0].id
+        );
 
         let snapshotPublicacoes = { empty: true, docs: [] };
 
@@ -14230,37 +14860,43 @@ async function carregarPerfilDoUsuario() {
 function mudarSubTabPerfil(subAba) {
     const abaPubs = document.getElementById("perfil-secao-publicacoes");
     const abaConq = document.getElementById("perfil-secao-conquistas");
+    const abaPontos = document.getElementById("perfil-secao-pontos");
     const tabPubsBtn = document.getElementById("tab-perfil-publicacoes");
     const tabConqBtn = document.getElementById("tab-perfil-conquistas");
+    const tabPontosBtn = document.getElementById("tab-perfil-pontos");
 
-    if (subAba === "publicacoes") {
-        if (abaPubs) abaPubs.style.display = "block";
-        if (abaConq) abaConq.style.display = "none";
-
-        if (tabPubsBtn) {
-            tabPubsBtn.style.color = "#fff";
-            tabPubsBtn.style.borderTop = "1.5px solid #fff";
-        }
-
-        if (tabConqBtn) {
-            tabConqBtn.style.color = "#8e8e8e";
-            tabConqBtn.style.borderTop = "1.5px solid transparent";
-        }
-    } else if (subAba === "conquistas") {
-        if (abaPubs) abaPubs.style.display = "none";
-        if (abaConq) abaConq.style.display = "block";
-
-        if (tabPubsBtn) {
-            tabPubsBtn.style.color = "#8e8e8e";
-            tabPubsBtn.style.borderTop = "1.5px solid transparent";
-        }
-
-        if (tabConqBtn) {
-            tabConqBtn.style.color = "#fff";
-            tabConqBtn.style.borderTop = "1.5px solid #fff";
-        }
+    if (abaPubs) {
+        abaPubs.style.display = subAba === "publicacoes"
+            ? "block"
+            : "none";
     }
+    if (abaConq) {
+        abaConq.style.display = subAba === "conquistas"
+            ? "block"
+            : "none";
+    }
+    if (abaPontos) {
+        abaPontos.style.display = subAba === "pontos"
+            ? "block"
+            : "none";
+    }
+
+    [
+        [tabPubsBtn, "publicacoes"],
+        [tabConqBtn, "conquistas"],
+        [tabPontosBtn, "pontos"]
+    ].forEach(([botao, aba]) => {
+        if (!botao) return;
+        const ativa = subAba === aba;
+        botao.style.color = ativa
+            ? "#fff"
+            : "#8e8e8e";
+        botao.style.borderTop = ativa
+            ? "1.5px solid #fff"
+            : "1.5px solid transparent";
+    });
 }
+
 
 async function abrirPublicacaoDoPerfil(idPublicacao) {
     if (!idPublicacao || !window.ClubeDB || !window.ClubeDB.textoDB) {
