@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.556.0 - versão alpha";
+const VERSAO_ATUAL = "v0.557.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -14565,393 +14565,1019 @@ async function renderizarControleMensalidades({
 }
 
 
+async function renderizarControleMensalidades({
+    container,
+    banco,
+    unidadeId,
+    nomeUnidade,
+    usernameLogado,
+    dataInicial,
+    aoAtualizar
+}) {
+    const unidadeRef = banco.collection("financeiro_unidades").doc(unidadeId);
+    const lancamentosRef = unidadeRef.collection("lancamentos");
+    const membros = [];
+    let dataSelecionada = dataInicial || "";
+    let pagamentosDoDia = [];
+
+    const moeda = valor => (Number(valor || 0) / 100).toLocaleString(
+        "pt-BR",
+        { style: "currency", currency: "BRL" }
+    );
+    const converterCentavos = valor => {
+        const numero = Number(String(valor || "").replace(",", "."));
+        return Number.isFinite(numero) ? Math.round(numero * 100) : 0;
+    };
+    const aplicarEstilo = (elemento, estilos) => {
+        Object.assign(elemento.style, estilos);
+    };
+    const criarCampo = (tipo, placeholder) => {
+        const campo = document.createElement("input");
+        campo.type = tipo;
+        campo.placeholder = placeholder || "";
+        aplicarEstilo(campo, {
+            width: "100%",
+            minHeight: "38px",
+            boxSizing: "border-box",
+            padding: "9px 10px",
+            border: "1px solid #3a3a3a",
+            borderRadius: "8px",
+            background: "#1c1c1c",
+            color: "#fff",
+            fontSize: "12px"
+        });
+        return campo;
+    };
+    const criarRotulo = (texto, campo) => {
+        const grupo = document.createElement("label");
+        const legenda = document.createElement("span");
+        legenda.textContent = texto;
+        aplicarEstilo(grupo, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+            color: "#d7d9db",
+            fontSize: "11px"
+        });
+        grupo.append(legenda, campo);
+        return grupo;
+    };
+
+    if (!document.getElementById("estilo-mensalidades-unidade")) {
+        const estilo = document.createElement("style");
+        estilo.id = "estilo-mensalidades-unidade";
+        estilo.textContent = `
+            [data-controle-mensalidades="true"] {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            [data-lista-mensalidades="true"] {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            [data-cartao-mensalidade="true"] {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding: 10px;
+                border: 1px solid #3a3a3a;
+                border-radius: 9px;
+                background: #17191c;
+            }
+            [data-topo-mensalidade="true"] {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 0;
+            }
+            [data-identificacao-mensalidade="true"] {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                min-width: 0;
+                flex: 1;
+            }
+            [data-linha-mensalidade="true"] {
+                display: grid;
+                grid-template-columns: minmax(110px, 1fr) minmax(150px, 1fr);
+                gap: 7px;
+            }
+            @media (max-width: 480px) {
+                [data-linha-mensalidade="true"] {
+                    grid-template-columns: 1fr;
+                }
+            }
+        `;
+        document.head.appendChild(estilo);
+    }
+
+    const secao = document.createElement("section");
+    const titulo = document.createElement("h3");
+    const descricao = document.createElement("p");
+    const controles = document.createElement("div");
+    const dataInput = document.createElement("input");
+    const valorPadraoInput = document.createElement("input");
+    const justificativaInput = document.createElement("textarea");
+    const atualizar = document.createElement("button");
+    const resumo = document.createElement("p");
+    const lista = document.createElement("div");
+    const status = document.createElement("p");
+
+    secao.dataset.controleMensalidades = "true";
+    aplicarEstilo(secao, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "9px",
+        margin: "10px 0",
+        padding: "12px",
+        border: "1px solid #3f6380",
+        borderRadius: "10px",
+        background: "#101820",
+        boxSizing: "border-box"
+    });
+    titulo.textContent = "Mensalidades da unidade";
+    aplicarEstilo(titulo, {
+        margin: "0",
+        color: "#fff",
+        fontSize: "14px"
+    });
+    descricao.textContent =
+        "A lista mostra os Desbravadores da unidade para o dia selecionado. O valor padrão pode ser alterado individualmente antes de registrar um pagamento maior.";
+    aplicarEstilo(descricao, {
+        margin: "0",
+        color: "#a9c4d8",
+        fontSize: "11px",
+        lineHeight: "1.45"
+    });
+    dataInput.type = "date";
+    dataInput.value = dataSelecionada;
+    dataInput.required = true;
+    valorPadraoInput.type = "number";
+    valorPadraoInput.min = "0.01";
+    valorPadraoInput.step = "0.01";
+    valorPadraoInput.inputMode = "decimal";
+    valorPadraoInput.placeholder = "Ex.: 30.00";
+    [dataInput, valorPadraoInput].forEach(campo => aplicarEstilo(campo, {
+        width: "100%",
+        minHeight: "38px",
+        boxSizing: "border-box",
+        padding: "9px 10px",
+        border: "1px solid #3a3a3a",
+        borderRadius: "8px",
+        background: "#1c1c1c",
+        color: "#fff",
+        fontSize: "12px"
+    }));
+    justificativaInput.rows = 2;
+    justificativaInput.required = true;
+    justificativaInput.maxLength = 500;
+    justificativaInput.placeholder = "Justificativa obrigatória do recebimento...";
+    aplicarEstilo(justificativaInput, {
+        width: "100%",
+        boxSizing: "border-box",
+        padding: "9px 10px",
+        border: "1px solid #3a3a3a",
+        borderRadius: "8px",
+        background: "#1c1c1c",
+        color: "#fff",
+        fontSize: "12px",
+        resize: "vertical"
+    });
+    aplicarEstilo(controles, {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+        gap: "8px"
+    });
+    const grupoJustificativa = criarRotulo(
+        "Justificativa obrigatória",
+        justificativaInput
+    );
+    grupoJustificativa.style.gridColumn = "1 / -1";
+    atualizar.type = "button";
+    atualizar.textContent = "Atualizar lista do dia";
+    aplicarEstilo(atualizar, {
+        alignSelf: "end",
+        minHeight: "36px",
+        padding: "8px 12px",
+        border: "1px solid #58b7ff",
+        borderRadius: "8px",
+        background: "#10283a",
+        color: "#b9e5ff",
+        fontSize: "11px",
+        fontWeight: "700",
+        cursor: "pointer"
+    });
+    controles.append(
+        criarRotulo("Dia da mensalidade", dataInput),
+        criarRotulo("Valor padrão (R$)", valorPadraoInput),
+        grupoJustificativa,
+        atualizar
+    );
+    resumo.style.margin = "0";
+    resumo.style.color = "#d7d9db";
+    resumo.style.fontSize = "11px";
+    status.style.margin = "0";
+    status.style.color = "#9eaab4";
+    status.style.fontSize = "11px";
+    lista.dataset.listaMensalidades = "true";
+    secao.append(titulo, descricao, controles, resumo, lista, status);
+    container.appendChild(secao);
+
+    const carregarPagamentos = async () => {
+        const snapshot = await lancamentosRef
+            .where("categoria", "==", "mensalidade")
+            .get();
+        pagamentosDoDia = [];
+        snapshot.forEach(documento => {
+            const dados = documento.data() || {};
+            if (
+                dados.tipo === "entrada" &&
+                String(dados.dataMovimento || "") ===
+                    String(dataSelecionada || "")
+            ) {
+                pagamentosDoDia.push({
+                    id: documento.id,
+                    ...dados
+                });
+            }
+        });
+    };
+
+    const registrarPagamento = async (
+        membro,
+        valorInput,
+        botao
+    ) => {
+        const valorCentavos = converterCentavos(valorInput.value);
+        const justificativa = String(
+            justificativaInput.value || ""
+        ).trim();
+        if (!dataSelecionada) {
+            window.alert("Selecione o dia da mensalidade.");
+            return;
+        }
+        if (valorCentavos <= 0) {
+            window.alert("Informe o valor pago por este Desbravador.");
+            valorInput.focus();
+            return;
+        }
+        if (justificativa.length < 5) {
+            window.alert(
+                "Informe uma justificativa com pelo menos 5 caracteres."
+            );
+            justificativaInput.focus();
+            return;
+        }
+        if (pagamentosDoDia.some(item => String(
+            item.desbravadorUid || item.membroUid || ""
+        ) === membro.uid)) {
+            window.alert("Este pagamento já foi registrado neste dia.");
+            return;
+        }
+        botao.disabled = true;
+        botao.textContent = "Registrando...";
+        try {
+            const novoLancamentoRef = lancamentosRef.doc();
+            await banco.runTransaction(async transacao => {
+                const resumoSnap = await transacao.get(unidadeRef);
+                const dadosResumo = resumoSnap.exists
+                    ? resumoSnap.data() || {}
+                    : {};
+                const saldoAnterior = Number(
+                    dadosResumo.saldoCentavos || 0
+                );
+                const entradasAnteriores = Number(
+                    dadosResumo.totalEntradasCentavos || 0
+                );
+                const saidasAnteriores = Number(
+                    dadosResumo.totalSaidasCentavos || 0
+                );
+                const saldoPosterior =
+                    saldoAnterior + valorCentavos;
+                transacao.set(novoLancamentoRef, {
+                    unidadeId,
+                    unidade: nomeUnidade,
+                    tipo: "entrada",
+                    categoria: "mensalidade",
+                    descricao: `Mensalidade · ${membro.nome}`,
+                    formaPagamento: "a_definir",
+                    comprovanteUrl: "",
+                    justificativa,
+                    desbravadorUid: membro.uid,
+                    membroUid: membro.uid,
+                    desbravadorNome: membro.nome,
+                    desbravadorUsername: membro.username,
+                    valorCentavos,
+                    valor: valorCentavos / 100,
+                    saldoAnteriorCentavos: saldoAnterior,
+                    saldoPosteriorCentavos: saldoPosterior,
+                    lancadoPor: usernameLogado,
+                    dataMovimento: dataSelecionada,
+                    criadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                });
+                transacao.set(unidadeRef, {
+                    unidadeId,
+                    unidade: nomeUnidade,
+                    saldoCentavos: saldoPosterior,
+                    saldo: saldoPosterior / 100,
+                    totalEntradasCentavos:
+                        entradasAnteriores + valorCentavos,
+                    totalSaidasCentavos: saidasAnteriores,
+                    ultimoLancamentoId: novoLancamentoRef.id,
+                    atualizadoPor: usernameLogado,
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                }, {
+                    merge: true
+                });
+            });
+            await renderizarLista();
+            if (typeof aoAtualizar === "function") {
+                try {
+                    await aoAtualizar();
+                } catch (erroAtualizacao) {
+                    console.warn(
+                        "Pagamento salvo, mas o painel não foi atualizado:",
+                        erroAtualizacao
+                    );
+                }
+            }
+        } catch (erro) {
+            console.error(
+                "Erro ao registrar mensalidade:",
+                erro
+            );
+            window.alert(
+                erro.message ||
+                "Não foi possível registrar a mensalidade."
+            );
+            botao.disabled = false;
+            botao.textContent = "Tentar novamente";
+        }
+    };
+
+    const renderizarLista = async () => {
+        lista.innerHTML = "";
+        status.textContent = "Carregando situação dos pagamentos...";
+        await carregarPagamentos();
+        const valorPadrao = converterCentavos(
+            valorPadraoInput.value
+        );
+        let pagos = 0;
+
+        membros.forEach(membro => {
+            const pagamento = pagamentosDoDia.find(item => String(
+                item.desbravadorUid || item.membroUid || ""
+            ) === membro.uid);
+            const cartao = document.createElement("article");
+            const topo = document.createElement("div");
+            const foto = document.createElement("img");
+            const identificacao = document.createElement("div");
+            const nome = document.createElement("strong");
+            const usuario = document.createElement("span");
+            const situacao = document.createElement("span");
+            const linha = document.createElement("div");
+            const valorInput = criarCampo("number", "Valor pago");
+            const botao = document.createElement("button");
+
+            cartao.dataset.cartaoMensalidade = "true";
+            topo.dataset.topoMensalidade = "true";
+            identificacao.dataset.identificacaoMensalidade = "true";
+            linha.dataset.linhaMensalidade = "true";
+            foto.src = membro.fotoUrl ||
+                window.AVATAR_USUARIO_PADRAO || "";
+            foto.alt = `Foto de ${membro.nome}`;
+            aplicarEstilo(foto, {
+                width: "42px",
+                height: "42px",
+                flex: "0 0 42px",
+                objectFit: "cover",
+                borderRadius: "50%",
+                background: "#202020"
+            });
+            foto.onerror = () => {
+                foto.onerror = null;
+                foto.src = window.AVATAR_USUARIO_PADRAO || "";
+            };
+            nome.textContent = membro.nome;
+            nome.style.color = "#fff";
+            nome.style.fontSize = "12px";
+            usuario.textContent = `@${membro.username}`;
+            usuario.style.color = "#8e9aa5";
+            usuario.style.fontSize = "10px";
+            situacao.textContent = pagamento
+                ? `Pago · ${moeda(pagamento.valorCentavos)}`
+                : "Não pago";
+            situacao.style.color = pagamento
+                ? "#8ff0ce"
+                : "#ffb0b0";
+            situacao.style.fontSize = "10px";
+            situacao.style.fontWeight = "700";
+            valorInput.min = "0.01";
+            valorInput.step = "0.01";
+            valorInput.inputMode = "decimal";
+            valorInput.value = pagamento
+                ? (pagamento.valorCentavos / 100).toFixed(2)
+                : valorPadrao
+                    ? (valorPadrao / 100).toFixed(2)
+                    : "";
+            valorInput.setAttribute(
+                "aria-label",
+                `Valor da mensalidade de ${membro.nome}`
+            );
+            botao.type = "button";
+            botao.textContent = pagamento
+                ? `Pago · ${moeda(pagamento.valorCentavos)}`
+                : valorPadrao
+                    ? `Registrar ${moeda(valorPadrao)}`
+                    : "Informar valor";
+            aplicarEstilo(botao, {
+                width: "100%",
+                minHeight: "38px",
+                padding: "7px 11px",
+                border: "1px solid #20c997",
+                borderRadius: "8px",
+                background: "#123a31",
+                color: "#fff",
+                fontSize: "11px",
+                fontWeight: "700",
+                cursor: "pointer"
+            });
+            identificacao.append(nome, usuario, situacao);
+            topo.append(foto, identificacao);
+            linha.append(valorInput, botao);
+            cartao.append(topo, linha);
+            lista.appendChild(cartao);
+
+            botao.addEventListener("click", () => {
+                registrarPagamento(membro, valorInput, botao);
+            });
+            valorInput.addEventListener("input", () => {
+                if (!pagamento) {
+                    const valorAtual = converterCentavos(
+                        valorInput.value
+                    );
+                    botao.textContent = valorAtual
+                        ? `Registrar ${moeda(valorAtual)}`
+                        : "Informar valor";
+                }
+            });
+            if (pagamento) {
+                pagos += 1;
+                botao.disabled = true;
+                valorInput.disabled = true;
+            }
+        });
+
+        const dataTexto = dataSelecionada
+            ? dataSelecionada.split("-").reverse().join("/")
+            : "não selecionado";
+        resumo.textContent =
+            `${pagos} de ${membros.length} mensalidade(s) registrada(s) em ${dataTexto}.`;
+        status.textContent = membros.length
+            ? "Vermelho = não pago. Edite o valor antes de registrar se a contribuição for maior."
+            : "Nenhum Desbravador encontrado nesta unidade.";
+    };
+
+    const carregarMembros = async () => {
+        const snapshot = await banco
+            .collection("usuarios")
+            .where("unidade", "==", nomeUnidade)
+            .get();
+        snapshot.forEach(documento => {
+            const dados = documento.data() || {};
+            if (
+                String(dados.tipo || "")
+                    .trim()
+                    .toLowerCase() !== "desbravador"
+            ) {
+                return;
+            }
+            const username = String(
+                dados.username || ""
+            ).trim().toLowerCase();
+            if (!username) return;
+            membros.push({
+                uid: documento.id,
+                nome: String(
+                    dados.nomeReal || username
+                ).trim(),
+                username,
+                fotoUrl: String(dados.fotoUrl || "").trim()
+            });
+        });
+        membros.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    };
+
+    const selecionarData = async dataId => {
+        dataSelecionada = dataId;
+        dataInput.value = dataId;
+        await renderizarLista();
+        secao.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest"
+        });
+    };
+    dataInput.addEventListener("change", async () => {
+        dataSelecionada = dataInput.value;
+        await renderizarLista();
+    });
+    valorPadraoInput.addEventListener("input", () => {
+        lista.querySelectorAll("input[aria-label]").forEach(input => {
+            if (!input.disabled && !input.value) {
+                input.value = valorPadraoInput.value;
+                input.dispatchEvent(new Event("input"));
+            }
+        });
+    });
+    atualizar.addEventListener("click", renderizarLista);
+
+    try {
+        await carregarMembros();
+        await renderizarLista();
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar mensalidades da unidade:",
+            erro
+        );
+        status.textContent =
+            "Não foi possível carregar os Desbravadores desta unidade.";
+    }
+    return {
+        selecionarData,
+        elemento: secao
+    };
+}
+
+
 async function renderizarCalendarioFinanceiroTesoureiro({
     container,
     banco,
     unidadeId,
     nomeUnidade,
     onNovoLancamento,
-    onDiaSelecionado
+    onDiaSelecionado,
+    onAbrirMensalidades
 }) {
 
-    const financeiroRef = banco
-        .collection("financeiro_unidades")
-        .doc(unidadeId);
+    const financeiroRef = banco.collection("financeiro_unidades").doc(unidadeId);
     const lancamentosRef = financeiroRef.collection("lancamentos");
-    let mesAtual = new Date(
-        new Date().getFullYear(),
-        new Date().getMonth(),
-        1
-    );
+    let mesAtual = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let dataSelecionada = "";
     let lancamentos = [];
     let eventos = [];
 
-    const doisDigitos = valor => String(valor).padStart(2, "0");
-    const criarDataId = data => [
-        data.getFullYear(),
-        doisDigitos(data.getMonth() + 1),
-        doisDigitos(data.getDate())
-    ].join("-");
-    const inteiro = valor => {
-        const numero = Number(valor);
-        return Number.isFinite(numero) ? Math.trunc(numero) : 0;
-    };
-    const valorLancamento = lancamento => {
+    const dois = valor => String(valor).padStart(2, "0");
+    const dataId = data => `${data.getFullYear()}-${dois(data.getMonth() + 1)}-${dois(data.getDate())}`;
+    const centavos = lancamento => {
         if (Number.isFinite(Number(lancamento.valorCentavos))) {
-            return Math.abs(inteiro(lancamento.valorCentavos));
+            return Math.abs(Math.trunc(Number(lancamento.valorCentavos)));
         }
-        const texto = String(lancamento.valor || "")
-            .replace(/\s/g, "")
-            .replace(/\./g, "")
-            .replace(",", ".");
-        const numero = Number(texto);
+        const numero = Number(
+            String(lancamento.valor || "")
+                .replace(/\s/g, "")
+                .replace(/\./g, "")
+                .replace(",", ".")
+        );
         return Number.isFinite(numero)
             ? Math.round(Math.abs(numero) * 100)
             : 0;
     };
-    const formatarMoeda = centavos => {
-        return (Number(centavos || 0) / 100).toLocaleString(
-            "pt-BR",
-            {
-                style: "currency",
-                currency: "BRL"
-            }
-        );
-    };
-    const formatarSaldo = centavos => {
-        const valor = Number(centavos || 0);
-        return `${valor < 0 ? "-" : ""}${formatarMoeda(Math.abs(valor))}`;
-    };
-    const nomeMes = data => data.toLocaleDateString(
+    const moeda = valor => (Number(valor || 0) / 100).toLocaleString(
         "pt-BR",
-        { month: "long", year: "numeric" }
-    ).replace(/^./, letra => letra.toUpperCase());
-    const aplicarEstilo = (elemento, estilos) => {
-        Object.entries(estilos).forEach(
-            ([propriedade, valor]) => {
-                elemento.style[propriedade] = valor;
+        { style: "currency", currency: "BRL" }
+    );
+    const estilo = (elemento, propriedades) => {
+        Object.assign(elemento.style, propriedades);
+    };
+    const criarBotao = (texto, acao) => {
+        const elemento = document.createElement("button");
+        elemento.type = "button";
+        elemento.textContent = texto;
+        elemento.addEventListener("click", acao);
+        return elemento;
+    };
+
+    if (!document.getElementById("estilo-calendario-financeiro-v2")) {
+        const style = document.createElement("style");
+        style.id = "estilo-calendario-financeiro-v2";
+        style.textContent = `
+            [data-calendario-financeiro="true"] {
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                max-width: 760px;
+                margin: 12px auto 18px;
+                padding: 10px 0 0;
+                box-sizing: border-box;
+                border: 1px solid #35383d;
+                border-radius: 12px;
+                background: #1d1f23;
+                overflow: hidden;
             }
-        );
-    };
-    const prepararBotao = (botao, cor, fundo) => {
-        botao.type = "button";
-        aplicarEstilo(botao, {
-            padding: "8px 11px",
-            border: `1px solid ${cor}`,
-            borderRadius: "8px",
-            background: fundo,
-            color: "#fff",
-            fontSize: "11px",
-            fontWeight: "700",
-            cursor: "pointer"
-        });
-    };
-    const criarCartaoResumo = (rotulo, valor, cor) => {
-        const cartao = document.createElement("div");
-        const legenda = document.createElement("span");
-        const valorEl = document.createElement("strong");
-        legenda.textContent = rotulo;
-        valorEl.textContent = valor;
-        aplicarEstilo(cartao, {
-            flex: "1 1 140px",
-            minWidth: "0",
-            padding: "10px 12px",
-            border: "1px solid #34383d",
-            borderRadius: "8px",
-            background: "#26282d",
-            textAlign: "center"
-        });
-        legenda.style.display = "block";
-        legenda.style.color = "#d7d9db";
-        legenda.style.fontSize = "11px";
-        valorEl.style.display = "block";
-        valorEl.style.marginTop = "3px";
-        valorEl.style.color = cor;
-        valorEl.style.fontSize = "17px";
-        cartao.appendChild(legenda);
-        cartao.appendChild(valorEl);
-        return cartao;
-    };
+            [data-calendario-financeiro="true"] [data-faixa-calendario="true"] {
+                padding: 0 10px;
+                box-sizing: border-box;
+            }
+            [data-calendario-financeiro="true"] [data-grade-financeira="true"],
+            [data-calendario-financeiro="true"] [data-dias-financeira="true"] {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            [data-calendario-financeiro="true"] [data-grade-financeira="true"] {
+                grid-auto-rows: minmax(74px, 1fr);
+                min-height: 444px;
+            }
+            [data-calendario-financeiro="true"] [data-plus-financeiro="true"] {
+                position: absolute;
+                right: 14px;
+                bottom: 14px;
+                z-index: 4;
+                width: 54px;
+                height: 54px;
+                padding: 0;
+                border: 0;
+                border-radius: 50%;
+                background: #ff655f;
+                color: #fff;
+                font-size: 32px;
+                font-weight: 300;
+                line-height: 54px;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, .4);
+            }
+            [data-calendario-financeiro="true"] [data-detalhe-dia="true"] {
+                display: none;
+                flex-direction: column;
+                min-height: 444px;
+                padding: 10px 12px 78px;
+                box-sizing: border-box;
+                background: #202227;
+            }
+            [data-calendario-financeiro="true"] [data-linha-dia="true"] {
+                display: grid;
+                grid-template-columns: 26px minmax(0, 1fr) auto;
+                gap: 8px;
+                align-items: center;
+                padding: 10px 0;
+                border-bottom: 1px solid #30333a;
+            }
+            @media (max-width: 600px) {
+                [data-calendario-financeiro="true"] {
+                    width: 100vw !important;
+                    max-width: 100vw !important;
+                    margin-left: calc((100% - 100vw) / 2) !important;
+                    margin-right: calc((100% - 100vw) / 2) !important;
+                    border-left: 0 !important;
+                    border-right: 0 !important;
+                    border-radius: 0 !important;
+                }
+                [data-calendario-financeiro="true"] [data-grade-financeira="true"],
+                [data-calendario-financeiro="true"] [data-dias-financeira="true"] {
+                    width: 100vw !important;
+                    max-width: 100vw !important;
+                }
+                [data-calendario-financeiro="true"] [data-grade-financeira="true"] {
+                    min-height: calc(100svh - 285px);
+                    grid-auto-rows: minmax(66px, 1fr);
+                }
+                [data-calendario-financeiro="true"] [data-detalhe-dia="true"] {
+                    min-height: calc(100svh - 285px);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 
     const secao = document.createElement("section");
     const topo = document.createElement("div");
     const titulo = document.createElement("h3");
     const resumo = document.createElement("div");
     const navegacao = document.createElement("div");
-    const voltar = document.createElement("button");
-    const mes = document.createElement("strong");
-    const avancar = document.createElement("button");
     const diasSemana = document.createElement("div");
     const grade = document.createElement("div");
     const detalhe = document.createElement("div");
-    const botaoNovo = document.createElement("button");
     const nomesDias = ["Dom.", "Seg.", "Ter.", "Qua.", "Qui.", "Sex.", "Sáb."];
+    const mes = document.createElement("strong");
+    const voltar = criarBotao("‹", () => mudarMes(-1));
+    const avancar = criarBotao("›", () => mudarMes(1));
+    const plus = criarBotao("+", () => {
+        if (typeof onNovoLancamento === "function") {
+            onNovoLancamento(dataSelecionada);
+        }
+    });
+
     secao.dataset.calendarioFinanceiro = "true";
+    topo.dataset.faixaCalendario = "true";
+    resumo.dataset.faixaCalendario = "true";
+    navegacao.dataset.faixaCalendario = "true";
+    diasSemana.dataset.diasFinanceira = "true";
+    grade.dataset.gradeFinanceira = "true";
+    detalhe.dataset.detalheDia = "true";
+    plus.dataset.plusFinanceiro = "true";
 
-    if (!document.getElementById("estilo-calendario-financeiro")) {
-        const estiloCalendario = document.createElement("style");
-        estiloCalendario.id = "estilo-calendario-financeiro";
-        estiloCalendario.textContent = `
-            [data-calendario-financeiro="true"] {
-                width: 100%;
-                max-width: 760px;
-                box-sizing: border-box;
-                align-self: center;
-            }
-            [data-calendario-financeiro="true"] [data-grade-financeira="true"],
-            [data-calendario-financeiro="true"] [data-cabecalho-financeiro="true"] {
-                width: 100%;
-                box-sizing: border-box;
-            }
-            @media (max-width: 600px) {
-                [data-calendario-financeiro="true"] {
-                    width: calc(100% + 28px) !important;
-                    max-width: none !important;
-                    margin-left: -14px !important;
-                    margin-right: -14px !important;
-                    border-left: 0 !important;
-                    border-right: 0 !important;
-                    border-radius: 0 !important;
-                    padding-left: 8px !important;
-                    padding-right: 8px !important;
-                }
-                [data-calendario-financeiro="true"] [data-celula-financeira="true"] {
-                    min-height: 82px !important;
-                    padding: 5px 4px !important;
-                }
-                [data-calendario-financeiro="true"] [data-resumo-financeiro="true"] {
-                    gap: 4px !important;
-                }
-                [data-calendario-financeiro="true"] [data-cartao-resumo="true"] {
-                    padding: 8px 5px !important;
-                }
-            }
-        `;
-        document.head.appendChild(estiloCalendario);
-    }
-
-    aplicarEstilo(secao, {
-        display: "flex",
-        flexDirection: "column",
-        gap: "8px",
-        margin: "12px 0 18px",
-        padding: "10px",
-        border: "1px solid #35383d",
-        borderRadius: "12px",
-        background: "#1d1f23",
-        overflow: "hidden"
-    });
-    titulo.textContent = "Calendário financeiro e de eventos";
-    aplicarEstilo(titulo, {
-        margin: "0",
-        color: "#fff",
-        fontSize: "14px"
-    });
-    topo.style.display = "flex";
-    topo.style.alignItems = "center";
-    topo.style.justifyContent = "space-between";
-    topo.style.gap = "8px";
-    topo.style.flexWrap = "wrap";
-    topo.appendChild(titulo);
-    topo.appendChild(botaoNovo);
-
-    aplicarEstilo(resumo, {
-        display: "flex",
-        gap: "6px",
-        flexWrap: "wrap"
-    });
-    aplicarEstilo(navegacao, {
+    estilo(topo, {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: "8px",
-        padding: "4px 0"
+        gap: "8px"
     });
-    prepararBotao(voltar, "#52606d", "#272b30");
-    prepararBotao(avancar, "#52606d", "#272b30");
-    voltar.textContent = "‹";
-    avancar.textContent = "›";
-    voltar.setAttribute("aria-label", "Mês anterior");
-    avancar.setAttribute("aria-label", "Próximo mês");
+    titulo.textContent = "Contas";
+    estilo(titulo, {
+        margin: "0",
+        color: "#fff",
+        fontSize: "15px"
+    });
+    topo.appendChild(titulo);
+
+    estilo(navegacao, {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "8px"
+    });
+    [voltar, avancar].forEach(elemento => {
+        estilo(elemento, {
+            border: "0",
+            background: "transparent",
+            color: "#fff",
+            fontSize: "25px",
+            cursor: "pointer",
+            padding: "2px 8px"
+        });
+    });
     mes.style.color = "#fff";
-    mes.style.fontSize = "14px";
-    mes.style.textTransform = "uppercase";
-    navegacao.appendChild(voltar);
-    navegacao.appendChild(mes);
-    navegacao.appendChild(avancar);
+    mes.style.fontSize = "13px";
+    navegacao.append(voltar, mes, avancar);
 
-    diasSemana.dataset.cabecalhoFinanceiro = "true";
-    aplicarEstilo(diasSemana, {
-        display: "grid",
-        gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+    estilo(resumo, {
+        display: "flex",
         gap: "2px",
-        padding: "0 2px",
-        width: "100%",
-        boxSizing: "border-box"
+        width: "100%"
     });
-
     nomesDias.forEach((nome, indice) => {
         const dia = document.createElement("div");
         dia.textContent = nome;
-        dia.style.padding = "5px 2px";
-        dia.style.textAlign = "center";
-        dia.style.color = indice === 0
-            ? "#ff8c8c"
-            : indice === 6
-                ? "#74c7ff"
-                : "#aeb5bc";
-        dia.style.fontSize = "10px";
-        dia.style.fontWeight = "700";
-        dia.style.borderBottom = "1px solid #393c42";
+        estilo(dia, {
+            padding: "5px 2px",
+            textAlign: "center",
+            color: indice === 0
+                ? "#ff8c8c"
+                : indice === 6
+                    ? "#74c7ff"
+                    : "#aeb5bc",
+            fontSize: "10px",
+            fontWeight: "700"
+        });
         diasSemana.appendChild(dia);
     });
-
-    aplicarEstilo(grade, {
+    estilo(diasSemana, {
         display: "grid",
         gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-        gap: "2px",
-        background: "#3a3d42",
-        border: "1px solid #3a3d42"
+        gap: "1px",
+        padding: "0"
     });
-    aplicarEstilo(detalhe, {
+    estilo(grade, {
+        display: "grid",
+        gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+        gap: "1px",
+        padding: "1px",
+        background: "#34373d"
+    });
+    estilo(detalhe, {
         display: "none",
         flexDirection: "column",
-        gap: "7px",
-        marginTop: "4px",
-        padding: "10px",
-        border: "1px solid #3a3d42",
-        borderRadius: "8px",
-        background: "#26282d"
+        gap: "8px"
     });
-    prepararBotao(botaoNovo, "#ff706b", "#ef625e");
-    botaoNovo.textContent = "+ Novo lançamento";
+    plus.setAttribute("aria-label", "Novo lançamento");
 
-    secao.appendChild(topo);
-    secao.appendChild(resumo);
-    secao.appendChild(navegacao);
-    secao.appendChild(diasSemana);
-    secao.appendChild(grade);
-    secao.appendChild(detalhe);
+    secao.append(
+        topo,
+        resumo,
+        navegacao,
+        diasSemana,
+        grade,
+        detalhe,
+        plus
+    );
     container.appendChild(secao);
 
     const renderizarResumo = () => {
-        const prefixo = `${mesAtual.getFullYear()}-${doisDigitos(mesAtual.getMonth() + 1)}`;
+        const prefixo = `${mesAtual.getFullYear()}-${dois(mesAtual.getMonth() + 1)}`;
         const doMes = lancamentos.filter(item => String(
             item.dataMovimento || ""
         ).startsWith(prefixo));
-        const receita = doMes
+        const entrada = doMes
             .filter(item => item.tipo === "entrada")
-            .reduce((total, item) => total + valorLancamento(item), 0);
-        const despesa = doMes
+            .reduce((total, item) => total + centavos(item), 0);
+        const saida = doMes
             .filter(item => item.tipo === "saida")
-            .reduce((total, item) => total + valorLancamento(item), 0);
+            .reduce((total, item) => total + centavos(item), 0);
+
         resumo.innerHTML = "";
-        resumo.appendChild(
-            criarCartaoResumo("Receita", formatarMoeda(receita), "#74c7ff")
-        );
-        resumo.appendChild(
-            criarCartaoResumo("Despesa", formatarMoeda(despesa), "#ff7777")
-        );
-        resumo.appendChild(
-            criarCartaoResumo(
+        [
+            ["Receita", entrada, "#74c7ff"],
+            ["Despesa", saida, "#ff7777"],
+            [
                 "Total",
-                formatarSaldo(receita - despesa),
-                receita - despesa >= 0 ? "#8ff0ce" : "#f0f0f0"
-            )
-        );
+                entrada - saida,
+                entrada >= saida ? "#8ff0ce" : "#ff9d9d"
+            ]
+        ].forEach(([rotulo, valor, cor]) => {
+            const card = document.createElement("div");
+            const nome = document.createElement("span");
+            const valorEl = document.createElement("strong");
+            nome.textContent = rotulo;
+            valorEl.textContent = `${valor < 0 ? "-" : ""}${moeda(Math.abs(valor))}`;
+            estilo(card, {
+                flex: "1 1 0",
+                minWidth: "0",
+                padding: "8px 3px",
+                textAlign: "center",
+                background: "#202329"
+            });
+            estilo(nome, {
+                display: "block",
+                color: "#b5bbc2",
+                fontSize: "10px"
+            });
+            estilo(valorEl, {
+                display: "block",
+                marginTop: "3px",
+                color: cor,
+                fontSize: "14px"
+            });
+            card.append(nome, valorEl);
+            resumo.appendChild(card);
+        });
+    };
+
+    const fecharDetalhe = () => {
+        detalhe.style.display = "none";
+        topo.style.display = "flex";
+        resumo.style.display = "flex";
+        navegacao.style.display = "flex";
+        diasSemana.style.display = "grid";
+        grade.style.display = "grid";
+        plus.style.display = "block";
     };
 
     const renderizarDetalhe = () => {
-        detalhe.innerHTML = "";
         if (!dataSelecionada) {
-            detalhe.style.display = "none";
+            fecharDetalhe();
             return;
         }
-        const dataTexto = dataSelecionada.split("-").reverse().join("/");
+        detalhe.innerHTML = "";
+        const doDia = lancamentos.filter(item => {
+            return String(item.dataMovimento || "") === dataSelecionada;
+        });
+        const eventosDoDia = eventos.filter(item => {
+            return String(item.data || "") === dataSelecionada;
+        });
+        const cabecalho = document.createElement("div");
+        const voltarDia = criarBotao("‹", fecharDetalhe);
         const tituloDia = document.createElement("strong");
-        tituloDia.textContent = `Detalhes de ${dataTexto}`;
-        tituloDia.style.color = "#fff";
-        tituloDia.style.fontSize = "12px";
-        detalhe.appendChild(tituloDia);
-        const financeiros = lancamentos.filter(item =>
-            String(item.dataMovimento || "") === dataSelecionada
-        );
-        const eventosDia = eventos.filter(item =>
-            String(item.data || "") === dataSelecionada
-        );
-        if (!financeiros.length && !eventosDia.length) {
-            const vazio = document.createElement("span");
+        tituloDia.textContent = dataSelecionada
+            .split("-")
+            .reverse()
+            .join("/");
+        estilo(tituloDia, {
+            color: "#fff",
+            fontSize: "20px"
+        });
+        estilo(cabecalho, {
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            paddingBottom: "8px",
+            borderBottom: "1px solid #34373d"
+        });
+        estilo(voltarDia, {
+            border: "0",
+            background: "transparent",
+            color: "#fff",
+            fontSize: "25px",
+            cursor: "pointer"
+        });
+        cabecalho.append(voltarDia, tituloDia);
+        detalhe.appendChild(cabecalho);
+
+        doDia.forEach(item => {
+            const linha = document.createElement("div");
+            const marcador = document.createElement("span");
+            const descricao = document.createElement("span");
+            const valor = document.createElement("strong");
+            linha.dataset.linhaDia = "true";
+            marcador.textContent = "●";
+            marcador.style.color = item.tipo === "entrada"
+                ? "#74c7ff"
+                : "#ff7777";
+            descricao.textContent = item.descricao ||
+                item.categoria ||
+                "Lançamento financeiro";
+            descricao.style.color = "#d7d9db";
+            descricao.style.fontSize = "12px";
+            descricao.style.overflowWrap = "anywhere";
+            valor.textContent = `${item.tipo === "entrada" ? "+" : "-"}${moeda(centavos(item))}`;
+            valor.style.color = item.tipo === "entrada"
+                ? "#74c7ff"
+                : "#ff7777";
+            valor.style.fontSize = "11px";
+            linha.append(marcador, descricao, valor);
+            detalhe.appendChild(linha);
+        });
+
+        eventosDoDia.forEach(item => {
+            const linha = document.createElement("div");
+            linha.dataset.linhaDia = "true";
+            linha.textContent = `Evento · ${item.titulo}${item.tipo ? ` · ${item.tipo}` : ""}`;
+            linha.style.color = "#9ed8ff";
+            linha.style.fontSize = "11px";
+            detalhe.appendChild(linha);
+        });
+
+        if (!doDia.length && !eventosDoDia.length) {
+            const vazio = document.createElement("p");
             vazio.textContent = "Nenhum lançamento ou evento neste dia.";
-            vazio.style.color = "#a8a8a8";
-            vazio.style.fontSize = "11px";
+            vazio.style.color = "#9eaab4";
+            vazio.style.fontSize = "12px";
             detalhe.appendChild(vazio);
         }
-        financeiros.forEach(item => {
-            const linha = document.createElement("div");
-            const valor = valorLancamento(item);
-            linha.textContent = `${item.tipo === "entrada" ? "+" : "-"}${formatarMoeda(valor)} · ${item.descricao || item.categoria || "Lançamento"}`;
-            linha.style.color = item.tipo === "entrada"
-                ? "#8ff0ce"
-                : "#ff9d9d";
-            linha.style.fontSize = "11px";
-            linha.style.whiteSpace = "normal";
-            detalhe.appendChild(linha);
-        });
-        eventosDia.forEach(item => {
-            const linha = document.createElement("div");
-            linha.textContent = `Evento · ${item.titulo}${item.tipo ? ` · ${item.tipo}` : ""}`;
-            linha.style.color = "#74c7ff";
-            linha.style.fontSize = "11px";
-            linha.style.whiteSpace = "normal";
-            detalhe.appendChild(linha);
-        });
+
+        if (typeof onAbrirMensalidades === "function") {
+            const mensalidades = criarBotao(
+                "Mensalidades deste dia",
+                () => onAbrirMensalidades(dataSelecionada)
+            );
+            estilo(mensalidades, {
+                minHeight: "38px",
+                border: "1px solid #58b7ff",
+                borderRadius: "8px",
+                background: "#10283a",
+                color: "#b9e5ff",
+                cursor: "pointer"
+            });
+            detalhe.appendChild(mensalidades);
+        }
+
+        topo.style.display = "none";
+        resumo.style.display = "none";
+        navegacao.style.display = "none";
+        diasSemana.style.display = "none";
+        grade.style.display = "none";
         detalhe.style.display = "flex";
+        plus.style.display = "block";
     };
 
     const renderizarGrade = () => {
         grade.innerHTML = "";
-        mes.textContent = nomeMes(mesAtual);
-        const primeiroDia = new Date(
+        mes.textContent = mesAtual.toLocaleDateString(
+            "pt-BR",
+            { month: "short", year: "numeric" }
+        ).replace(".", "");
+        const primeiro = new Date(
             mesAtual.getFullYear(),
             mesAtual.getMonth(),
             1
         ).getDay();
+
         for (let indice = 0; indice < 42; indice += 1) {
             const data = new Date(
                 mesAtual.getFullYear(),
                 mesAtual.getMonth(),
-                indice - primeiroDia + 1
+                indice - primeiro + 1
             );
-            const dataId = criarDataId(data);
-            const pertenceAoMes = data.getMonth() === mesAtual.getMonth();
+            const id = dataId(data);
+            const pertence = data.getMonth() === mesAtual.getMonth();
             const celula = document.createElement("button");
-            const cabecalho = document.createElement("div");
             const numero = document.createElement("strong");
-            const conteudo = document.createElement("div");
-            const doDia = lancamentos.filter(item =>
-                String(item.dataMovimento || "") === dataId
-            );
-            const eventosDoDia = eventos.filter(item =>
-                String(item.data || "") === dataId
-            );
+            const valores = document.createElement("div");
+            const doDia = lancamentos.filter(item => {
+                return String(item.dataMovimento || "") === id;
+            });
+            const eventosDoDia = eventos.filter(item => {
+                return String(item.data || "") === id;
+            });
             const receita = doDia
                 .filter(item => item.tipo === "entrada")
-                .reduce((total, item) => total + valorLancamento(item), 0);
+                .reduce((total, item) => total + centavos(item), 0);
             const despesa = doDia
                 .filter(item => item.tipo === "saida")
-                .reduce((total, item) => total + valorLancamento(item), 0);
+                .reduce((total, item) => total + centavos(item), 0);
 
             celula.type = "button";
-            aplicarEstilo(celula, {
+            celula.dataset.celulaFinanceira = "true";
+            estilo(celula, {
                 minWidth: "0",
-                minHeight: "112px",
-                padding: "7px",
+                minHeight: "0",
+                padding: "5px 4px",
                 border: "0",
                 borderRadius: "0",
-                background: dataSelecionada === dataId
+                background: dataSelecionada === id
                     ? "#30343a"
-                    : pertenceAoMes
+                    : pertence
                         ? "#24272c"
                         : "#1c1e22",
                 color: "#fff",
@@ -14960,172 +15586,121 @@ async function renderizarCalendarioFinanceiroTesoureiro({
                 cursor: "pointer",
                 overflow: "hidden"
             });
-            cabecalho.style.display = "flex";
-            cabecalho.style.flexDirection = "column";
-            cabecalho.style.alignItems = "stretch";
-            cabecalho.style.gap = "5px";
             numero.textContent = String(data.getDate());
-            numero.style.color = data.getDay() === 0
-                ? "#ff8c8c"
-                : data.getDay() === 6
-                    ? "#74c7ff"
-                    : pertenceAoMes
-                        ? "#f4f4f4"
-                        : "#73787d";
-            numero.style.fontSize = "13px";
-            cabecalho.appendChild(numero);
-            conteudo.style.display = "flex";
-            conteudo.style.flexDirection = "column";
-            conteudo.style.gap = "3px";
-            conteudo.style.marginTop = "8px";
+            estilo(numero, {
+                display: "block",
+                marginBottom: "7px",
+                color: data.getDay() === 0
+                    ? "#ff8c8c"
+                    : data.getDay() === 6
+                        ? "#74c7ff"
+                        : pertence
+                            ? "#f4f4f4"
+                            : "#73787d",
+                fontSize: "12px"
+            });
+            estilo(valores, {
+                display: "flex",
+                flexDirection: "column",
+                gap: "2px"
+            });
 
             if (receita) {
-                const linha = document.createElement("span");
-                linha.textContent = `+${formatarMoeda(receita)}`;
-                linha.style.color = "#74c7ff";
-                linha.style.fontSize = "11px";
-                linha.style.fontWeight = "700";
-                conteudo.appendChild(linha);
+                const valor = document.createElement("span");
+                valor.textContent = moeda(receita)
+                    .replace("R$", "")
+                    .trim();
+                valor.style.color = "#74c7ff";
+                valor.style.fontSize = "10px";
+                valores.appendChild(valor);
             }
             if (despesa) {
-                const linha = document.createElement("span");
-                linha.textContent = `-${formatarMoeda(despesa)}`;
-                linha.style.color = "#ff7777";
-                linha.style.fontSize = "11px";
-                linha.style.fontWeight = "700";
-                conteudo.appendChild(linha);
+                const valor = document.createElement("span");
+                valor.textContent = moeda(despesa)
+                    .replace("R$", "")
+                    .trim();
+                valor.style.color = "#ff7777";
+                valor.style.fontSize = "10px";
+                valores.appendChild(valor);
             }
-            if (receita && despesa) {
-                const linha = document.createElement("span");
-                linha.textContent = formatarSaldo(receita - despesa);
-                linha.style.color = "#e8e8e8";
-                linha.style.fontSize = "11px";
-                linha.style.fontWeight = "700";
-                conteudo.appendChild(linha);
-            }
-            eventosDoDia.slice(0, 4).forEach(evento => {
-                const linha = document.createElement("span");
-                linha.textContent = `• ${evento.titulo}`;
-                linha.style.color = "#9ed8ff";
-                linha.style.fontSize = "10px";
-                linha.style.lineHeight = "1.2";
-                linha.style.whiteSpace = "normal";
-                linha.style.overflowWrap = "anywhere";
-                conteudo.appendChild(linha);
+            eventosDoDia.slice(0, 2).forEach(evento => {
+                const item = document.createElement("span");
+                item.textContent = evento.titulo;
+                item.style.color = "#9ed8ff";
+                item.style.fontSize = "9px";
+                item.style.overflowWrap = "anywhere";
+                valores.appendChild(item);
             });
-            if (eventosDoDia.length > 4) {
-                const mais = document.createElement("span");
-                mais.textContent = `+${eventosDoDia.length - 4} evento(s)`;
-                mais.style.color = "#9eaab4";
-                mais.style.fontSize = "10px";
-                conteudo.appendChild(mais);
-            }
-            cabecalho.appendChild(conteudo);
-            celula.appendChild(cabecalho);
+
+            celula.append(numero, valores);
             celula.addEventListener("click", () => {
-                dataSelecionada = dataId;
+                dataSelecionada = id;
                 if (typeof onDiaSelecionado === "function") {
-                    onDiaSelecionado(dataId);
+                    onDiaSelecionado(id);
                 }
-                renderizarGrade();
                 renderizarDetalhe();
             });
             grade.appendChild(celula);
         }
-        renderizarDetalhe();
     };
 
-    const carregarDadosCalendario = async () => {
-        const [lancamentosSnap, eventosCentrais, eventosUnidade] =
-            await Promise.all([
-                lancamentosRef
-                    .orderBy("dataMovimento", "desc")
-                    .limit(500)
-                    .get(),
-                banco.collection("eventos_clube").get(),
-                banco
-                    .collection("eventos_unidades")
-                    .doc(unidadeId)
-                    .collection("itens")
-                    .get()
-            ]);
-        lancamentos = [];
-        lancamentosSnap.forEach(documento => {
-            lancamentos.push({
-                id: documento.id,
-                ...documento.data()
-            });
-        });
+    const carregar = async () => {
+        const [financeiro, centrais, unidade] = await Promise.all([
+            lancamentosRef
+                .orderBy("dataMovimento", "desc")
+                .limit(500)
+                .get(),
+            banco.collection("eventos_clube").get(),
+            banco
+                .collection("eventos_unidades")
+                .doc(unidadeId)
+                .collection("itens")
+                .get()
+        ]);
+        lancamentos = financeiro.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
         eventos = [];
-        eventosCentrais.forEach(documento => {
-            const dados = documento.data() || {};
+        [...centrais.docs, ...unidade.docs].forEach(doc => {
+            const dados = doc.data() || {};
             if (!dados.data) return;
             eventos.push({
-                id: documento.id,
+                id: doc.id,
                 data: String(dados.data),
                 titulo: String(
-                    dados.titulo ||
-                    dados.nome ||
-                    "Evento central"
+                    dados.titulo || dados.nome || "Evento"
                 ),
-                tipo: String(
-                    dados.tipoNome ||
-                    dados.tipo ||
-                    ""
-                ),
-                origem: "central"
-            });
-        });
-        eventosUnidade.forEach(documento => {
-            const dados = documento.data() || {};
-            if (!dados.data) return;
-            eventos.push({
-                id: documento.id,
-                data: String(dados.data),
-                titulo: String(
-                    dados.titulo ||
-                    dados.nome ||
-                    "Evento da unidade"
-                ),
-                tipo: String(
-                    dados.tipoNome ||
-                    dados.tipo ||
-                    ""
-                ),
-                origem: "unidade"
+                tipo: String(dados.tipoNome || dados.tipo || "")
             });
         });
         renderizarResumo();
         renderizarGrade();
+        if (dataSelecionada) renderizarDetalhe();
     };
 
-    voltar.addEventListener("click", () => {
+    function mudarMes(delta) {
         mesAtual = new Date(
             mesAtual.getFullYear(),
-            mesAtual.getMonth() - 1,
+            mesAtual.getMonth() + delta,
             1
         );
+        dataSelecionada = "";
+        fecharDetalhe();
         renderizarResumo();
         renderizarGrade();
-    });
-    avancar.addEventListener("click", () => {
-        mesAtual = new Date(
-            mesAtual.getFullYear(),
-            mesAtual.getMonth() + 1,
-            1
-        );
-        renderizarResumo();
-        renderizarGrade();
-    });
-    botaoNovo.addEventListener("click", () => {
-        if (typeof onNovoLancamento === "function") {
-            onNovoLancamento();
-        }
-    });
+    }
 
-    await carregarDadosCalendario();
+    await carregar();
     return {
-        atualizar: carregarDadosCalendario
+        atualizar: carregar,
+        mostrarCalendario: () => {
+            dataSelecionada = "";
+            fecharDetalhe();
+            renderizarResumo();
+            renderizarGrade();
+        },
+        elemento: secao
     };
 }
 
@@ -15607,12 +16182,8 @@ async function renderizarPainelTesoureiroUnidade(
 
     let selecionarDataMensalidade = null;
     let atualizarCalendarioFinanceiro = null;
-    const atualizarPainelFinanceiro = async () => {
-        await carregarDados();
-        if (typeof atualizarCalendarioFinanceiro === "function") {
-            await atualizarCalendarioFinanceiro();
-        }
-    };
+    let abrirTelaNovoLancamento = null;
+    let abrirTelaMensalidades = null;
 
     const calendarioFinanceiro =
         await renderizarCalendarioFinanceiroTesoureiro({
@@ -15620,19 +16191,23 @@ async function renderizarPainelTesoureiroUnidade(
             banco,
             unidadeId,
             nomeUnidade,
-            onNovoLancamento: () => {
-                formulario.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start"
-                });
-                campoValor.focus();
+            onNovoLancamento: dataId => {
+                if (typeof abrirTelaNovoLancamento === "function") {
+                    abrirTelaNovoLancamento(dataId);
+                }
             },
             onDiaSelecionado: dataId => {
                 if (typeof selecionarDataMensalidade === "function") {
                     selecionarDataMensalidade(dataId);
                 }
+            },
+            onAbrirMensalidades: dataId => {
+                if (typeof abrirTelaMensalidades === "function") {
+                    abrirTelaMensalidades(dataId);
+                }
             }
         });
+
     atualizarCalendarioFinanceiro = calendarioFinanceiro.atualizar;
 
     const controleMensalidades =
@@ -15643,10 +16218,20 @@ async function renderizarPainelTesoureiroUnidade(
             nomeUnidade,
             usernameLogado,
             dataInicial: dataHoje,
-            aoAtualizar: atualizarPainelFinanceiro
+            aoAtualizar: async () => {
+                await carregarDados();
+                try {
+                    await calendarioFinanceiro.atualizar();
+                } catch (erroCalendario) {
+                    console.warn(
+                        "Mensalidade salva, mas o calendário não foi atualizado:",
+                        erroCalendario
+                    );
+                }
+            }
         });
-    selecionarDataMensalidade = controleMensalidades.selecionarData;
 
+    selecionarDataMensalidade = controleMensalidades.selecionarData;
 
     const tituloLancamento = document.createElement("h3");
     tituloLancamento.textContent = "Novo lançamento";
@@ -15764,6 +16349,126 @@ async function renderizarPainelTesoureiroUnidade(
     secao.appendChild(resumoFiltro);
     secao.appendChild(tabelaContainer);
     container.appendChild(secao);
+
+    const telaNovoLancamento = document.createElement("section");
+    const voltarDoLancamento = document.createElement("button");
+    telaNovoLancamento.dataset.telaNovoLancamento = "true";
+    aplicarEstilo(telaNovoLancamento, {
+        display: "none",
+        flexDirection: "column",
+        gap: "10px",
+        marginTop: "12px",
+        padding: "14px",
+        border: "1px solid #9b7b22",
+        borderRadius: "14px",
+        background: "#15120a",
+        boxSizing: "border-box"
+    });
+    voltarDoLancamento.type = "button";
+    voltarDoLancamento.textContent = "‹ Voltar ao calendário";
+    aplicarEstilo(voltarDoLancamento, {
+        alignSelf: "flex-start",
+        padding: "7px 10px",
+        border: "1px solid #52606d",
+        borderRadius: "8px",
+        background: "#1b232b",
+        color: "#fff",
+        fontSize: "11px",
+        cursor: "pointer"
+    });
+    telaNovoLancamento.append(
+        voltarDoLancamento,
+        tituloLancamento,
+        formulario
+    );
+    secao.insertBefore(telaNovoLancamento, tituloLivro);
+
+    const voltarMensalidades = document.createElement("button");
+    voltarMensalidades.type = "button";
+    voltarMensalidades.textContent = "‹ Voltar para o calendário";
+    aplicarEstilo(voltarMensalidades, {
+        alignSelf: "flex-start",
+        padding: "7px 10px",
+        border: "1px solid #52606d",
+        borderRadius: "8px",
+        background: "#1b232b",
+        color: "#fff",
+        fontSize: "11px",
+        cursor: "pointer"
+    });
+    controleMensalidades.elemento.insertBefore(
+        voltarMensalidades,
+        controleMensalidades.elemento.firstChild
+    );
+
+    const elementosDoPainel = [
+        titulo,
+        descricao,
+        status,
+        resumo,
+        calendarioFinanceiro.elemento,
+        tituloLivro,
+        filtros,
+        resumoFiltro,
+        tabelaContainer
+    ];
+    const esconderElemento = elemento => {
+        elemento.dataset.displayAnteriorFinanceiro =
+            elemento.style.display || "";
+        elemento.style.display = "none";
+    };
+    const restaurarElemento = elemento => {
+        elemento.style.display =
+            elemento.dataset.displayAnteriorFinanceiro || "";
+    };
+    const abrirTelaPrincipal = () => {
+        elementosDoPainel.forEach(restaurarElemento);
+        calendarioFinanceiro.elemento.style.display = "flex";
+        controleMensalidades.elemento.style.display = "none";
+        telaNovoLancamento.style.display = "none";
+        calendarioFinanceiro.mostrarCalendario();
+        secao.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+    };
+    abrirTelaMensalidades = async dataId => {
+        if (
+            dataId &&
+            typeof selecionarDataMensalidade === "function"
+        ) {
+            await selecionarDataMensalidade(dataId);
+        }
+        elementosDoPainel.forEach(esconderElemento);
+        controleMensalidades.elemento.style.display = "flex";
+        telaNovoLancamento.style.display = "none";
+        secao.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+    };
+    abrirTelaNovoLancamento = dataId => {
+        if (dataId) {
+            campoData.value = dataId;
+        }
+        elementosDoPainel.forEach(esconderElemento);
+        controleMensalidades.elemento.style.display = "none";
+        telaNovoLancamento.style.display = "flex";
+        secao.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+        campoValor.focus();
+    };
+    voltarDoLancamento.addEventListener(
+        "click",
+        abrirTelaPrincipal
+    );
+    voltarMensalidades.addEventListener(
+        "click",
+        abrirTelaPrincipal
+    );
+    controleMensalidades.elemento.style.display = "none";
 
     [busca, dataInicio, dataFim].forEach(campo => {
         campo.addEventListener("input", renderizarTabela);
@@ -15929,6 +16634,15 @@ async function renderizarPainelTesoureiroUnidade(
             campoData.value = dataHoje;
             campoFormaPagamento.value = "dinheiro";
             await carregarDados();
+            try {
+                await calendarioFinanceiro.atualizar();
+            } catch (erroCalendario) {
+                console.warn(
+                    "Lançamento salvo, mas o calendário não foi atualizado:",
+                    erroCalendario
+                );
+            }
+            abrirTelaPrincipal();
             window.alert("Lançamento registrado com sucesso.");
         } catch (erro) {
             console.error(
