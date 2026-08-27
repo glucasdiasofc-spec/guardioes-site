@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.555.0 - versão alpha";
+const VERSAO_ATUAL = "v0.556.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13994,13 +13994,586 @@ async function renderizarPainelPontuacaoConselheiro(
     }
 }
 
+async function renderizarControleMensalidades({
+    container,
+    banco,
+    unidadeId,
+    nomeUnidade,
+    usernameLogado,
+    dataInicial,
+    aoAtualizar
+}) {
+    const unidadeRef = banco
+        .collection("financeiro_unidades")
+        .doc(unidadeId);
+    const lancamentosRef = unidadeRef.collection("lancamentos");
+    const membros = [];
+    let dataSelecionada = dataInicial || "";
+    let pagamentosDoDia = [];
+
+    const dinheiro = valor => {
+        return (Number(valor || 0) / 100).toLocaleString(
+            "pt-BR",
+            { style: "currency", currency: "BRL" }
+        );
+    };
+    const converterCentavos = valor => {
+        const numero = Number(
+            String(valor || "").trim().replace(",", ".")
+        );
+        return Number.isFinite(numero)
+            ? Math.round(numero * 100)
+            : 0;
+    };
+    const aplicarEstilo = (elemento, estilos) => {
+        Object.assign(elemento.style, estilos);
+    };
+
+    if (!document.getElementById("estilo-controle-mensalidades")) {
+        const estilo = document.createElement("style");
+        estilo.id = "estilo-controle-mensalidades";
+        estilo.textContent = `
+            [data-controle-mensalidades="true"] {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            [data-controle-mensalidades="true"] [data-lista-mensalidades="true"] {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            [data-controle-mensalidades="true"] [data-cartao-mensalidade="true"] {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding: 10px;
+                border: 1px solid #3a3a3a;
+                border-radius: 9px;
+                background: #17191c;
+            }
+            [data-controle-mensalidades="true"] [data-topo-mensalidade="true"] {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 0;
+            }
+            [data-controle-mensalidades="true"] [data-identificacao-mensalidade="true"] {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                min-width: 0;
+                flex: 1;
+            }
+            [data-controle-mensalidades="true"] [data-linha-pagamento="true"] {
+                display: grid;
+                grid-template-columns: minmax(110px, 1fr) minmax(150px, 1fr);
+                gap: 7px;
+            }
+            @media (max-width: 480px) {
+                [data-controle-mensalidades="true"] [data-linha-pagamento="true"] {
+                    grid-template-columns: 1fr;
+                }
+            }
+        `;
+        document.head.appendChild(estilo);
+    }
+
+    const secao = document.createElement("section");
+    const titulo = document.createElement("h3");
+    const descricao = document.createElement("p");
+    const controles = document.createElement("div");
+    const dataInput = document.createElement("input");
+    const valorPadraoInput = document.createElement("input");
+    const justificativaInput = document.createElement("textarea");
+    const atualizar = document.createElement("button");
+    const resumo = document.createElement("p");
+    const lista = document.createElement("div");
+    const status = document.createElement("p");
+
+    secao.dataset.controleMensalidades = "true";
+    aplicarEstilo(secao, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "9px",
+        margin: "10px 0",
+        padding: "12px",
+        border: "1px solid #3f6380",
+        borderRadius: "10px",
+        background: "#101820",
+        boxSizing: "border-box"
+    });
+    titulo.textContent = "Mensalidades da unidade";
+    aplicarEstilo(titulo, {
+        margin: "0",
+        color: "#fff",
+        fontSize: "14px"
+    });
+    descricao.textContent =
+        "Selecione um dia no calendário, confira o valor padrão e registre somente quem pagou. Se necessário, altere o valor no cartão para registrar uma contribuição maior.";
+    aplicarEstilo(descricao, {
+        margin: "0",
+        color: "#a9c4d8",
+        fontSize: "11px",
+        lineHeight: "1.45"
+    });
+
+    const criarCampo = (tipo, placeholder) => {
+        const campo = document.createElement("input");
+        campo.type = tipo;
+        campo.placeholder = placeholder || "";
+        campo.style.width = "100%";
+        campo.style.boxSizing = "border-box";
+        campo.style.padding = "9px 10px";
+        campo.style.border = "1px solid #3a3a3a";
+        campo.style.borderRadius = "8px";
+        campo.style.background = "#1c1c1c";
+        campo.style.color = "#fff";
+        campo.style.fontSize = "12px";
+        return campo;
+    };
+    const criarRotulo = (texto, campo) => {
+        const rotulo = document.createElement("label");
+        const legenda = document.createElement("span");
+        legenda.textContent = texto;
+        aplicarEstilo(rotulo, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+            color: "#d7d9db",
+            fontSize: "11px"
+        });
+        rotulo.appendChild(legenda);
+        rotulo.appendChild(campo);
+        return rotulo;
+    };
+
+    dataInput.type = "date";
+    dataInput.value = dataSelecionada;
+    dataInput.required = true;
+    valorPadraoInput.type = "number";
+    valorPadraoInput.min = "0.01";
+    valorPadraoInput.step = "0.01";
+    valorPadraoInput.inputMode = "decimal";
+    valorPadraoInput.placeholder = "Ex.: 30.00";
+    [dataInput, valorPadraoInput].forEach(campo => {
+        aplicarEstilo(campo, {
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "9px 10px",
+            border: "1px solid #3a3a3a",
+            borderRadius: "8px",
+            background: "#1c1c1c",
+            color: "#fff",
+            fontSize: "12px"
+        });
+    });
+    justificativaInput.rows = 2;
+    justificativaInput.required = true;
+    justificativaInput.maxLength = 500;
+    justificativaInput.placeholder =
+        "Justificativa obrigatória do recebimento...";
+    aplicarEstilo(justificativaInput, {
+        width: "100%",
+        boxSizing: "border-box",
+        padding: "9px 10px",
+        border: "1px solid #3a3a3a",
+        borderRadius: "8px",
+        background: "#1c1c1c",
+        color: "#fff",
+        fontSize: "12px",
+        resize: "vertical"
+    });
+    aplicarEstilo(controles, {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+        gap: "8px"
+    });
+    const grupoJustificativa = criarRotulo(
+        "Justificativa obrigatória",
+        justificativaInput
+    );
+    grupoJustificativa.style.gridColumn = "1 / -1";
+    atualizar.type = "button";
+    atualizar.textContent = "Atualizar lista do dia";
+    aplicarEstilo(atualizar, {
+        alignSelf: "end",
+        minHeight: "36px",
+        padding: "8px 12px",
+        border: "1px solid #58b7ff",
+        borderRadius: "8px",
+        background: "#10283a",
+        color: "#b9e5ff",
+        fontSize: "11px",
+        fontWeight: "700",
+        cursor: "pointer"
+    });
+    controles.appendChild(criarRotulo("Dia da mensalidade", dataInput));
+    controles.appendChild(criarRotulo("Valor padrão (R$)", valorPadraoInput));
+    controles.appendChild(grupoJustificativa);
+    controles.appendChild(atualizar);
+    resumo.style.margin = "0";
+    resumo.style.color = "#d7d9db";
+    resumo.style.fontSize = "11px";
+    status.style.margin = "0";
+    status.style.color = "#9eaab4";
+    status.style.fontSize = "11px";
+    lista.dataset.listaMensalidades = "true";
+    secao.append(
+        titulo,
+        descricao,
+        controles,
+        resumo,
+        lista,
+        status
+    );
+    container.appendChild(secao);
+
+    const carregarPagamentos = async () => {
+        const snapshot = await lancamentosRef
+            .where("categoria", "==", "mensalidade")
+            .get();
+        pagamentosDoDia = [];
+        snapshot.forEach(documento => {
+            const dados = documento.data() || {};
+            if (
+                dados.tipo === "entrada" &&
+                String(dados.dataMovimento || "") ===
+                    String(dataSelecionada || "")
+            ) {
+                pagamentosDoDia.push({
+                    id: documento.id,
+                    ...dados
+                });
+            }
+        });
+    };
+
+    const registrarPagamento = async (
+        membro,
+        valorInput,
+        botao,
+        situacao
+    ) => {
+        const valorCentavos = converterCentavos(valorInput.value);
+        const justificativa = String(
+            justificativaInput.value || ""
+        ).trim();
+        if (!dataSelecionada) {
+            window.alert("Selecione o dia da mensalidade.");
+            return;
+        }
+        if (valorCentavos <= 0) {
+            window.alert("Informe o valor pago por este Desbravador.");
+            valorInput.focus();
+            return;
+        }
+        if (justificativa.length < 5) {
+            window.alert(
+                "Informe uma justificativa com pelo menos 5 caracteres."
+            );
+            justificativaInput.focus();
+            return;
+        }
+        if (pagamentosDoDia.some(pagamento => {
+            return String(
+                pagamento.desbravadorUid || pagamento.membroUid || ""
+            ) === membro.uid;
+        })) {
+            window.alert("Este pagamento já foi registrado neste dia.");
+            return;
+        }
+        botao.disabled = true;
+        botao.textContent = "Registrando...";
+        try {
+            const novoLancamentoRef = lancamentosRef.doc();
+            await banco.runTransaction(async transacao => {
+                const resumoSnap = await transacao.get(unidadeRef);
+                const dadosResumo = resumoSnap.exists
+                    ? resumoSnap.data() || {}
+                    : {};
+                const saldoAnterior = Number(
+                    dadosResumo.saldoCentavos || 0
+                );
+                const entradasAnteriores = Number(
+                    dadosResumo.totalEntradasCentavos || 0
+                );
+                const saidasAnteriores = Number(
+                    dadosResumo.totalSaidasCentavos || 0
+                );
+                const saldoPosterior =
+                    saldoAnterior + valorCentavos;
+                transacao.set(novoLancamentoRef, {
+                    unidadeId,
+                    unidade: nomeUnidade,
+                    tipo: "entrada",
+                    categoria: "mensalidade",
+                    descricao: `Mensalidade · ${membro.nome}`,
+                    formaPagamento: "a_definir",
+                    comprovanteUrl: "",
+                    justificativa,
+                    desbravadorUid: membro.uid,
+                    membroUid: membro.uid,
+                    desbravadorNome: membro.nome,
+                    desbravadorUsername: membro.username,
+                    valorCentavos,
+                    valor: valorCentavos / 100,
+                    saldoAnteriorCentavos: saldoAnterior,
+                    saldoPosteriorCentavos: saldoPosterior,
+                    lancadoPor: usernameLogado,
+                    dataMovimento: dataSelecionada,
+                    criadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                });
+                transacao.set(unidadeRef, {
+                    unidadeId,
+                    unidade: nomeUnidade,
+                    saldoCentavos: saldoPosterior,
+                    saldo: saldoPosterior / 100,
+                    totalEntradasCentavos:
+                        entradasAnteriores + valorCentavos,
+                    totalSaidasCentavos: saidasAnteriores,
+                    ultimoLancamentoId: novoLancamentoRef.id,
+                    atualizadoPor: usernameLogado,
+                    atualizadoEm:
+                        firebase.firestore.FieldValue.serverTimestamp()
+                }, {
+                    merge: true
+                });
+            });
+            situacao.textContent = `Pago · ${dinheiro(valorCentavos)}`;
+            situacao.style.color = "#8ff0ce";
+            pagamentosDoDia.push({
+                desbravadorUid: membro.uid,
+                membroUid: membro.uid,
+                valorCentavos,
+                dataMovimento: dataSelecionada,
+                tipo: "entrada",
+                categoria: "mensalidade"
+            });
+            await renderizarLista();
+            if (typeof aoAtualizar === "function") {
+                try {
+                    await aoAtualizar();
+                } catch (erroAtualizacao) {
+                    console.warn(
+                        "Mensalidade salva, mas o painel não foi atualizado:",
+                        erroAtualizacao
+                    );
+                }
+            }
+        } catch (erro) {
+            console.error("Erro ao registrar mensalidade:", erro);
+            window.alert(
+                erro.message ||
+                "Não foi possível registrar a mensalidade."
+            );
+            botao.disabled = false;
+            botao.textContent = "Tentar novamente";
+        }
+    };
+
+    const renderizarLista = async () => {
+        lista.innerHTML = "";
+        status.textContent = "Carregando situação dos pagamentos...";
+        await carregarPagamentos();
+        const valorPadrao = converterCentavos(
+            valorPadraoInput.value
+        );
+        let pagos = 0;
+        membros.forEach(membro => {
+            const pagamento = pagamentosDoDia.find(item => {
+                return String(
+                    item.desbravadorUid || item.membroUid || ""
+                ) === membro.uid;
+            });
+            const cartao = document.createElement("article");
+            const topo = document.createElement("div");
+            const foto = document.createElement("img");
+            const identificacao = document.createElement("div");
+            const nome = document.createElement("strong");
+            const usuario = document.createElement("span");
+            const situacao = document.createElement("span");
+            const linhaPagamento = document.createElement("div");
+            const valorInput = criarCampo("number", "Valor pago");
+            const botao = document.createElement("button");
+
+            cartao.dataset.cartaoMensalidade = "true";
+            topo.dataset.topoMensalidade = "true";
+            identificacao.dataset.identificacaoMensalidade = "true";
+            linhaPagamento.dataset.linhaPagamento = "true";
+            foto.src = membro.fotoUrl ||
+                window.AVATAR_USUARIO_PADRAO || "";
+            foto.alt = `Foto de ${membro.nome}`;
+            aplicarEstilo(foto, {
+                width: "42px",
+                height: "42px",
+                flex: "0 0 42px",
+                objectFit: "cover",
+                borderRadius: "50%",
+                background: "#202020"
+            });
+            foto.onerror = () => {
+                foto.onerror = null;
+                foto.src = window.AVATAR_USUARIO_PADRAO || "";
+            };
+            nome.textContent = membro.nome;
+            nome.style.color = "#fff";
+            nome.style.fontSize = "12px";
+            usuario.textContent = `@${membro.username}`;
+            usuario.style.color = "#8e9aa5";
+            usuario.style.fontSize = "10px";
+            situacao.textContent = pagamento
+                ? `Pago · ${dinheiro(pagamento.valorCentavos)}`
+                : "Não pago";
+            situacao.style.color = pagamento
+                ? "#8ff0ce"
+                : "#ffb0b0";
+            situacao.style.fontSize = "10px";
+            situacao.style.fontWeight = "700";
+            valorInput.min = "0.01";
+            valorInput.step = "0.01";
+            valorInput.inputMode = "decimal";
+            valorInput.value = pagamento
+                ? (pagamento.valorCentavos / 100).toFixed(2)
+                : valorPadrao
+                    ? (valorPadrao / 100).toFixed(2)
+                    : "";
+            valorInput.setAttribute(
+                "aria-label",
+                `Valor da mensalidade de ${membro.nome}`
+            );
+            botao.type = "button";
+            botao.textContent = pagamento
+                ? `Pago · ${dinheiro(pagamento.valorCentavos)}`
+                : valorPadrao
+                    ? `Registrar ${dinheiro(valorPadrao)}`
+                    : "Informar valor";
+            aplicarEstilo(botao, {
+                width: "100%",
+                minHeight: "34px",
+                padding: "7px 11px",
+                border: "1px solid #20c997",
+                borderRadius: "8px",
+                background: "#123a31",
+                color: "#fff",
+                fontSize: "11px",
+                fontWeight: "700",
+                cursor: "pointer"
+            });
+            identificacao.append(nome, usuario, situacao);
+            topo.append(foto, identificacao);
+            botao.addEventListener(
+                "click",
+                () => registrarPagamento(
+                    membro,
+                    valorInput,
+                    botao,
+                    situacao
+                )
+            );
+            valorInput.addEventListener("input", () => {
+                if (!pagamento) {
+                    const valorAtual = converterCentavos(
+                        valorInput.value
+                    );
+                    botao.textContent = valorAtual
+                        ? `Registrar ${dinheiro(valorAtual)}`
+                        : "Informar valor";
+                }
+            });
+            if (pagamento) {
+                pagos += 1;
+                botao.disabled = true;
+                valorInput.disabled = true;
+            }
+            linhaPagamento.append(valorInput, botao);
+            cartao.append(topo, linhaPagamento);
+            lista.appendChild(cartao);
+        });
+        const dataTexto = dataSelecionada
+            ? dataSelecionada.split("-").reverse().join("/")
+            : "não selecionado";
+        resumo.textContent =
+            `${pagos} de ${membros.length} mensalidade(s) registrada(s) em ${dataTexto}.`;
+        status.textContent = membros.length
+            ? "Vermelho = não pago. Edite o valor antes de registrar se a contribuição for maior."
+            : "Nenhum Desbravador encontrado nesta unidade.";
+    };
+
+    const carregarMembros = async () => {
+        const snapshot = await banco
+            .collection("usuarios")
+            .where("unidade", "==", nomeUnidade)
+            .get();
+        snapshot.forEach(documento => {
+            const dados = documento.data() || {};
+            if (
+                String(dados.tipo || "")
+                    .trim()
+                    .toLowerCase() !== "desbravador"
+            ) {
+                return;
+            }
+            const username = String(
+                dados.username || ""
+            ).trim().toLowerCase();
+            if (!username) return;
+            membros.push({
+                uid: documento.id,
+                nome: String(
+                    dados.nomeReal || username
+                ).trim(),
+                username,
+                fotoUrl: String(dados.fotoUrl || "").trim()
+            });
+        });
+        membros.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    };
+
+    const selecionarData = async dataId => {
+        dataSelecionada = dataId;
+        dataInput.value = dataId;
+        await renderizarLista();
+        secao.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+    dataInput.addEventListener("change", async () => {
+        dataSelecionada = dataInput.value;
+        await renderizarLista();
+    });
+    valorPadraoInput.addEventListener("input", () => {
+        lista.querySelectorAll("input[aria-label]").forEach(input => {
+            if (!input.disabled && !input.value) {
+                input.value = valorPadraoInput.value;
+                input.dispatchEvent(new Event("input"));
+            }
+        });
+    });
+    atualizar.addEventListener("click", renderizarLista);
+
+    try {
+        await carregarMembros();
+        await renderizarLista();
+    } catch (erro) {
+        console.error(
+            "Erro ao carregar mensalidades da unidade:",
+            erro
+        );
+        status.textContent =
+            "Não foi possível carregar os Desbravadores desta unidade.";
+    }
+    return { selecionarData };
+}
+
+
 async function renderizarCalendarioFinanceiroTesoureiro({
     container,
     banco,
     unidadeId,
     nomeUnidade,
-    onNovoLancamento
+    onNovoLancamento,
+    onDiaSelecionado
 }) {
+
     const financeiroRef = banco
         .collection("financeiro_unidades")
         .doc(unidadeId);
@@ -14114,6 +14687,49 @@ async function renderizarCalendarioFinanceiroTesoureiro({
     const detalhe = document.createElement("div");
     const botaoNovo = document.createElement("button");
     const nomesDias = ["Dom.", "Seg.", "Ter.", "Qua.", "Qui.", "Sex.", "Sáb."];
+    secao.dataset.calendarioFinanceiro = "true";
+
+    if (!document.getElementById("estilo-calendario-financeiro")) {
+        const estiloCalendario = document.createElement("style");
+        estiloCalendario.id = "estilo-calendario-financeiro";
+        estiloCalendario.textContent = `
+            [data-calendario-financeiro="true"] {
+                width: 100%;
+                max-width: 760px;
+                box-sizing: border-box;
+                align-self: center;
+            }
+            [data-calendario-financeiro="true"] [data-grade-financeira="true"],
+            [data-calendario-financeiro="true"] [data-cabecalho-financeiro="true"] {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            @media (max-width: 600px) {
+                [data-calendario-financeiro="true"] {
+                    width: calc(100% + 28px) !important;
+                    max-width: none !important;
+                    margin-left: -14px !important;
+                    margin-right: -14px !important;
+                    border-left: 0 !important;
+                    border-right: 0 !important;
+                    border-radius: 0 !important;
+                    padding-left: 8px !important;
+                    padding-right: 8px !important;
+                }
+                [data-calendario-financeiro="true"] [data-celula-financeira="true"] {
+                    min-height: 82px !important;
+                    padding: 5px 4px !important;
+                }
+                [data-calendario-financeiro="true"] [data-resumo-financeiro="true"] {
+                    gap: 4px !important;
+                }
+                [data-calendario-financeiro="true"] [data-cartao-resumo="true"] {
+                    padding: 8px 5px !important;
+                }
+            }
+        `;
+        document.head.appendChild(estiloCalendario);
+    }
 
     aplicarEstilo(secao, {
         display: "flex",
@@ -14165,12 +14781,16 @@ async function renderizarCalendarioFinanceiroTesoureiro({
     navegacao.appendChild(mes);
     navegacao.appendChild(avancar);
 
+    diasSemana.dataset.cabecalhoFinanceiro = "true";
     aplicarEstilo(diasSemana, {
         display: "grid",
         gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
         gap: "2px",
-        padding: "0 2px"
+        padding: "0 2px",
+        width: "100%",
+        boxSizing: "border-box"
     });
+
     nomesDias.forEach((nome, indice) => {
         const dia = document.createElement("div");
         dia.textContent = nome;
@@ -14404,6 +15024,9 @@ async function renderizarCalendarioFinanceiroTesoureiro({
             celula.appendChild(cabecalho);
             celula.addEventListener("click", () => {
                 dataSelecionada = dataId;
+                if (typeof onDiaSelecionado === "function") {
+                    onDiaSelecionado(dataId);
+                }
                 renderizarGrade();
                 renderizarDetalhe();
             });
@@ -14501,6 +15124,9 @@ async function renderizarCalendarioFinanceiroTesoureiro({
     });
 
     await carregarDadosCalendario();
+    return {
+        atualizar: carregarDadosCalendario
+    };
 }
 
 async function renderizarPainelTesoureiroUnidade(
@@ -14979,19 +15605,48 @@ async function renderizarPainelTesoureiroUnidade(
         fontSize: "11px"
     });
 
-    await renderizarCalendarioFinanceiroTesoureiro({
-        container: secao,
-        banco,
-        unidadeId,
-        nomeUnidade,
-        onNovoLancamento: () => {
-            formulario.scrollIntoView({
-                behavior: "smooth",
-                block: "start"
-            });
-            campoValor.focus();
+    let selecionarDataMensalidade = null;
+    let atualizarCalendarioFinanceiro = null;
+    const atualizarPainelFinanceiro = async () => {
+        await carregarDados();
+        if (typeof atualizarCalendarioFinanceiro === "function") {
+            await atualizarCalendarioFinanceiro();
         }
-    });
+    };
+
+    const calendarioFinanceiro =
+        await renderizarCalendarioFinanceiroTesoureiro({
+            container: secao,
+            banco,
+            unidadeId,
+            nomeUnidade,
+            onNovoLancamento: () => {
+                formulario.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+                campoValor.focus();
+            },
+            onDiaSelecionado: dataId => {
+                if (typeof selecionarDataMensalidade === "function") {
+                    selecionarDataMensalidade(dataId);
+                }
+            }
+        });
+    atualizarCalendarioFinanceiro = calendarioFinanceiro.atualizar;
+
+    const controleMensalidades =
+        await renderizarControleMensalidades({
+            container: secao,
+            banco,
+            unidadeId,
+            nomeUnidade,
+            usernameLogado,
+            dataInicial: dataHoje,
+            aoAtualizar: atualizarPainelFinanceiro
+        });
+    selecionarDataMensalidade = controleMensalidades.selecionarData;
+
 
     const tituloLancamento = document.createElement("h3");
     tituloLancamento.textContent = "Novo lançamento";
