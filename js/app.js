@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.557.0 - versão alpha";
+const VERSAO_ATUAL = "v0.558.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -15192,13 +15192,14 @@ async function renderizarCalendarioFinanceiroTesoureiro({
                 min-height: 444px;
             }
             [data-calendario-financeiro="true"] [data-plus-financeiro="true"] {
-                position: absolute;
-                right: 14px;
-                bottom: 14px;
-                z-index: 4;
+                position: fixed;
+                right: 18px;
+                bottom: calc(18px + env(safe-area-inset-bottom));
+                z-index: 3000;
                 width: 54px;
                 height: 54px;
                 padding: 0;
+                border: 0;
                 border: 0;
                 border-radius: 50%;
                 background: #ff655f;
@@ -15208,14 +15209,28 @@ async function renderizarCalendarioFinanceiroTesoureiro({
                 line-height: 54px;
                 box-shadow: 0 4px 14px rgba(0, 0, 0, .4);
             }
+
             [data-calendario-financeiro="true"] [data-detalhe-dia="true"] {
                 display: none;
                 flex-direction: column;
-                min-height: 444px;
-                padding: 10px 12px 78px;
+                gap: 8px;
+                position: sticky;
+                top: 10px;
+                z-index: 20;
+                max-height: min(430px, calc(100svh - 190px));
+                margin: 10px 10px 18px;
+                padding: 10px 12px 18px;
                 box-sizing: border-box;
+                overflow-y: auto;
+                overflow-x: hidden;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+                border: 1px solid #454a52;
+                border-radius: 12px;
                 background: #202227;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, .34);
             }
+
             [data-calendario-financeiro="true"] [data-linha-dia="true"] {
                 display: grid;
                 grid-template-columns: 26px minmax(0, 1fr) auto;
@@ -15244,7 +15259,13 @@ async function renderizarCalendarioFinanceiroTesoureiro({
                     grid-auto-rows: minmax(66px, 1fr);
                 }
                 [data-calendario-financeiro="true"] [data-detalhe-dia="true"] {
-                    min-height: calc(100svh - 285px);
+                    max-height: min(430px, calc(100svh - 170px));
+                    margin-left: 8px;
+                    margin-right: 8px;
+                }
+                [data-calendario-financeiro="true"] [data-plus-financeiro="true"] {
+                    right: 16px;
+                    bottom: calc(16px + env(safe-area-inset-bottom));
                 }
             }
         `;
@@ -15416,23 +15437,19 @@ async function renderizarCalendarioFinanceiroTesoureiro({
 
     const fecharDetalhe = () => {
         detalhe.style.display = "none";
-        topo.style.display = "flex";
-        resumo.style.display = "flex";
-        navegacao.style.display = "flex";
-        diasSemana.style.display = "grid";
-        grade.style.display = "grid";
-        plus.style.display = "block";
+        detalhe.innerHTML = "";
     };
 
+
     const renderizarDetalhe = () => {
-        if (!dataSelecionada) {
+        const doDia = lancamentos.filter(item => {
+            return String(item.dataMovimento || "") === dataSelecionada;
+        });
+        if (!dataSelecionada || !doDia.length) {
             fecharDetalhe();
             return;
         }
         detalhe.innerHTML = "";
-        const doDia = lancamentos.filter(item => {
-            return String(item.dataMovimento || "") === dataSelecionada;
-        });
         const eventosDoDia = eventos.filter(item => {
             return String(item.data || "") === dataSelecionada;
         });
@@ -15522,13 +15539,8 @@ async function renderizarCalendarioFinanceiroTesoureiro({
             detalhe.appendChild(mensalidades);
         }
 
-        topo.style.display = "none";
-        resumo.style.display = "none";
-        navegacao.style.display = "none";
-        diasSemana.style.display = "none";
-        grade.style.display = "none";
         detalhe.style.display = "flex";
-        plus.style.display = "block";
+
     };
 
     const renderizarGrade = () => {
@@ -16351,18 +16363,33 @@ async function renderizarPainelTesoureiroUnidade(
     container.appendChild(secao);
 
     const telaNovoLancamento = document.createElement("section");
+    const cartaoNovoLancamento = document.createElement("div");
     const voltarDoLancamento = document.createElement("button");
     telaNovoLancamento.dataset.telaNovoLancamento = "true";
     aplicarEstilo(telaNovoLancamento, {
         display: "none",
+        position: "fixed",
+        inset: "0",
+        zIndex: "4000",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "max(14px, env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom))",
+        background: "rgba(0, 0, 0, .72)",
+        boxSizing: "border-box",
+        overflowY: "auto"
+    });
+    aplicarEstilo(cartaoNovoLancamento, {
+        display: "flex",
         flexDirection: "column",
         gap: "10px",
-        marginTop: "12px",
+        width: "min(680px, 100%)",
+        maxHeight: "calc(100svh - 28px)",
         padding: "14px",
         border: "1px solid #9b7b22",
         borderRadius: "14px",
         background: "#15120a",
-        boxSizing: "border-box"
+        boxSizing: "border-box",
+        overflowY: "auto"
     });
     voltarDoLancamento.type = "button";
     voltarDoLancamento.textContent = "‹ Voltar ao calendário";
@@ -16376,12 +16403,14 @@ async function renderizarPainelTesoureiroUnidade(
         fontSize: "11px",
         cursor: "pointer"
     });
-    telaNovoLancamento.append(
+    cartaoNovoLancamento.append(
         voltarDoLancamento,
         tituloLancamento,
         formulario
     );
+    telaNovoLancamento.appendChild(cartaoNovoLancamento);
     secao.insertBefore(telaNovoLancamento, tituloLivro);
+
 
     const voltarMensalidades = document.createElement("button");
     voltarMensalidades.type = "button";
