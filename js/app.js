@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.554.0 - versão alpha";
+const VERSAO_ATUAL = "v0.555.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13994,6 +13994,515 @@ async function renderizarPainelPontuacaoConselheiro(
     }
 }
 
+async function renderizarCalendarioFinanceiroTesoureiro({
+    container,
+    banco,
+    unidadeId,
+    nomeUnidade,
+    onNovoLancamento
+}) {
+    const financeiroRef = banco
+        .collection("financeiro_unidades")
+        .doc(unidadeId);
+    const lancamentosRef = financeiroRef.collection("lancamentos");
+    let mesAtual = new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        1
+    );
+    let dataSelecionada = "";
+    let lancamentos = [];
+    let eventos = [];
+
+    const doisDigitos = valor => String(valor).padStart(2, "0");
+    const criarDataId = data => [
+        data.getFullYear(),
+        doisDigitos(data.getMonth() + 1),
+        doisDigitos(data.getDate())
+    ].join("-");
+    const inteiro = valor => {
+        const numero = Number(valor);
+        return Number.isFinite(numero) ? Math.trunc(numero) : 0;
+    };
+    const valorLancamento = lancamento => {
+        if (Number.isFinite(Number(lancamento.valorCentavos))) {
+            return Math.abs(inteiro(lancamento.valorCentavos));
+        }
+        const texto = String(lancamento.valor || "")
+            .replace(/\s/g, "")
+            .replace(/\./g, "")
+            .replace(",", ".");
+        const numero = Number(texto);
+        return Number.isFinite(numero)
+            ? Math.round(Math.abs(numero) * 100)
+            : 0;
+    };
+    const formatarMoeda = centavos => {
+        return (Number(centavos || 0) / 100).toLocaleString(
+            "pt-BR",
+            {
+                style: "currency",
+                currency: "BRL"
+            }
+        );
+    };
+    const formatarSaldo = centavos => {
+        const valor = Number(centavos || 0);
+        return `${valor < 0 ? "-" : ""}${formatarMoeda(Math.abs(valor))}`;
+    };
+    const nomeMes = data => data.toLocaleDateString(
+        "pt-BR",
+        { month: "long", year: "numeric" }
+    ).replace(/^./, letra => letra.toUpperCase());
+    const aplicarEstilo = (elemento, estilos) => {
+        Object.entries(estilos).forEach(
+            ([propriedade, valor]) => {
+                elemento.style[propriedade] = valor;
+            }
+        );
+    };
+    const prepararBotao = (botao, cor, fundo) => {
+        botao.type = "button";
+        aplicarEstilo(botao, {
+            padding: "8px 11px",
+            border: `1px solid ${cor}`,
+            borderRadius: "8px",
+            background: fundo,
+            color: "#fff",
+            fontSize: "11px",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+    };
+    const criarCartaoResumo = (rotulo, valor, cor) => {
+        const cartao = document.createElement("div");
+        const legenda = document.createElement("span");
+        const valorEl = document.createElement("strong");
+        legenda.textContent = rotulo;
+        valorEl.textContent = valor;
+        aplicarEstilo(cartao, {
+            flex: "1 1 140px",
+            minWidth: "0",
+            padding: "10px 12px",
+            border: "1px solid #34383d",
+            borderRadius: "8px",
+            background: "#26282d",
+            textAlign: "center"
+        });
+        legenda.style.display = "block";
+        legenda.style.color = "#d7d9db";
+        legenda.style.fontSize = "11px";
+        valorEl.style.display = "block";
+        valorEl.style.marginTop = "3px";
+        valorEl.style.color = cor;
+        valorEl.style.fontSize = "17px";
+        cartao.appendChild(legenda);
+        cartao.appendChild(valorEl);
+        return cartao;
+    };
+
+    const secao = document.createElement("section");
+    const topo = document.createElement("div");
+    const titulo = document.createElement("h3");
+    const resumo = document.createElement("div");
+    const navegacao = document.createElement("div");
+    const voltar = document.createElement("button");
+    const mes = document.createElement("strong");
+    const avancar = document.createElement("button");
+    const diasSemana = document.createElement("div");
+    const grade = document.createElement("div");
+    const detalhe = document.createElement("div");
+    const botaoNovo = document.createElement("button");
+    const nomesDias = ["Dom.", "Seg.", "Ter.", "Qua.", "Qui.", "Sex.", "Sáb."];
+
+    aplicarEstilo(secao, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        margin: "12px 0 18px",
+        padding: "10px",
+        border: "1px solid #35383d",
+        borderRadius: "12px",
+        background: "#1d1f23",
+        overflow: "hidden"
+    });
+    titulo.textContent = "Calendário financeiro e de eventos";
+    aplicarEstilo(titulo, {
+        margin: "0",
+        color: "#fff",
+        fontSize: "14px"
+    });
+    topo.style.display = "flex";
+    topo.style.alignItems = "center";
+    topo.style.justifyContent = "space-between";
+    topo.style.gap = "8px";
+    topo.style.flexWrap = "wrap";
+    topo.appendChild(titulo);
+    topo.appendChild(botaoNovo);
+
+    aplicarEstilo(resumo, {
+        display: "flex",
+        gap: "6px",
+        flexWrap: "wrap"
+    });
+    aplicarEstilo(navegacao, {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "8px",
+        padding: "4px 0"
+    });
+    prepararBotao(voltar, "#52606d", "#272b30");
+    prepararBotao(avancar, "#52606d", "#272b30");
+    voltar.textContent = "‹";
+    avancar.textContent = "›";
+    voltar.setAttribute("aria-label", "Mês anterior");
+    avancar.setAttribute("aria-label", "Próximo mês");
+    mes.style.color = "#fff";
+    mes.style.fontSize = "14px";
+    mes.style.textTransform = "uppercase";
+    navegacao.appendChild(voltar);
+    navegacao.appendChild(mes);
+    navegacao.appendChild(avancar);
+
+    aplicarEstilo(diasSemana, {
+        display: "grid",
+        gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+        gap: "2px",
+        padding: "0 2px"
+    });
+    nomesDias.forEach((nome, indice) => {
+        const dia = document.createElement("div");
+        dia.textContent = nome;
+        dia.style.padding = "5px 2px";
+        dia.style.textAlign = "center";
+        dia.style.color = indice === 0
+            ? "#ff8c8c"
+            : indice === 6
+                ? "#74c7ff"
+                : "#aeb5bc";
+        dia.style.fontSize = "10px";
+        dia.style.fontWeight = "700";
+        dia.style.borderBottom = "1px solid #393c42";
+        diasSemana.appendChild(dia);
+    });
+
+    aplicarEstilo(grade, {
+        display: "grid",
+        gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+        gap: "2px",
+        background: "#3a3d42",
+        border: "1px solid #3a3d42"
+    });
+    aplicarEstilo(detalhe, {
+        display: "none",
+        flexDirection: "column",
+        gap: "7px",
+        marginTop: "4px",
+        padding: "10px",
+        border: "1px solid #3a3d42",
+        borderRadius: "8px",
+        background: "#26282d"
+    });
+    prepararBotao(botaoNovo, "#ff706b", "#ef625e");
+    botaoNovo.textContent = "+ Novo lançamento";
+
+    secao.appendChild(topo);
+    secao.appendChild(resumo);
+    secao.appendChild(navegacao);
+    secao.appendChild(diasSemana);
+    secao.appendChild(grade);
+    secao.appendChild(detalhe);
+    container.appendChild(secao);
+
+    const renderizarResumo = () => {
+        const prefixo = `${mesAtual.getFullYear()}-${doisDigitos(mesAtual.getMonth() + 1)}`;
+        const doMes = lancamentos.filter(item => String(
+            item.dataMovimento || ""
+        ).startsWith(prefixo));
+        const receita = doMes
+            .filter(item => item.tipo === "entrada")
+            .reduce((total, item) => total + valorLancamento(item), 0);
+        const despesa = doMes
+            .filter(item => item.tipo === "saida")
+            .reduce((total, item) => total + valorLancamento(item), 0);
+        resumo.innerHTML = "";
+        resumo.appendChild(
+            criarCartaoResumo("Receita", formatarMoeda(receita), "#74c7ff")
+        );
+        resumo.appendChild(
+            criarCartaoResumo("Despesa", formatarMoeda(despesa), "#ff7777")
+        );
+        resumo.appendChild(
+            criarCartaoResumo(
+                "Total",
+                formatarSaldo(receita - despesa),
+                receita - despesa >= 0 ? "#8ff0ce" : "#f0f0f0"
+            )
+        );
+    };
+
+    const renderizarDetalhe = () => {
+        detalhe.innerHTML = "";
+        if (!dataSelecionada) {
+            detalhe.style.display = "none";
+            return;
+        }
+        const dataTexto = dataSelecionada.split("-").reverse().join("/");
+        const tituloDia = document.createElement("strong");
+        tituloDia.textContent = `Detalhes de ${dataTexto}`;
+        tituloDia.style.color = "#fff";
+        tituloDia.style.fontSize = "12px";
+        detalhe.appendChild(tituloDia);
+        const financeiros = lancamentos.filter(item =>
+            String(item.dataMovimento || "") === dataSelecionada
+        );
+        const eventosDia = eventos.filter(item =>
+            String(item.data || "") === dataSelecionada
+        );
+        if (!financeiros.length && !eventosDia.length) {
+            const vazio = document.createElement("span");
+            vazio.textContent = "Nenhum lançamento ou evento neste dia.";
+            vazio.style.color = "#a8a8a8";
+            vazio.style.fontSize = "11px";
+            detalhe.appendChild(vazio);
+        }
+        financeiros.forEach(item => {
+            const linha = document.createElement("div");
+            const valor = valorLancamento(item);
+            linha.textContent = `${item.tipo === "entrada" ? "+" : "-"}${formatarMoeda(valor)} · ${item.descricao || item.categoria || "Lançamento"}`;
+            linha.style.color = item.tipo === "entrada"
+                ? "#8ff0ce"
+                : "#ff9d9d";
+            linha.style.fontSize = "11px";
+            linha.style.whiteSpace = "normal";
+            detalhe.appendChild(linha);
+        });
+        eventosDia.forEach(item => {
+            const linha = document.createElement("div");
+            linha.textContent = `Evento · ${item.titulo}${item.tipo ? ` · ${item.tipo}` : ""}`;
+            linha.style.color = "#74c7ff";
+            linha.style.fontSize = "11px";
+            linha.style.whiteSpace = "normal";
+            detalhe.appendChild(linha);
+        });
+        detalhe.style.display = "flex";
+    };
+
+    const renderizarGrade = () => {
+        grade.innerHTML = "";
+        mes.textContent = nomeMes(mesAtual);
+        const primeiroDia = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth(),
+            1
+        ).getDay();
+        for (let indice = 0; indice < 42; indice += 1) {
+            const data = new Date(
+                mesAtual.getFullYear(),
+                mesAtual.getMonth(),
+                indice - primeiroDia + 1
+            );
+            const dataId = criarDataId(data);
+            const pertenceAoMes = data.getMonth() === mesAtual.getMonth();
+            const celula = document.createElement("button");
+            const cabecalho = document.createElement("div");
+            const numero = document.createElement("strong");
+            const conteudo = document.createElement("div");
+            const doDia = lancamentos.filter(item =>
+                String(item.dataMovimento || "") === dataId
+            );
+            const eventosDoDia = eventos.filter(item =>
+                String(item.data || "") === dataId
+            );
+            const receita = doDia
+                .filter(item => item.tipo === "entrada")
+                .reduce((total, item) => total + valorLancamento(item), 0);
+            const despesa = doDia
+                .filter(item => item.tipo === "saida")
+                .reduce((total, item) => total + valorLancamento(item), 0);
+
+            celula.type = "button";
+            aplicarEstilo(celula, {
+                minWidth: "0",
+                minHeight: "112px",
+                padding: "7px",
+                border: "0",
+                borderRadius: "0",
+                background: dataSelecionada === dataId
+                    ? "#30343a"
+                    : pertenceAoMes
+                        ? "#24272c"
+                        : "#1c1e22",
+                color: "#fff",
+                textAlign: "left",
+                verticalAlign: "top",
+                cursor: "pointer",
+                overflow: "hidden"
+            });
+            cabecalho.style.display = "flex";
+            cabecalho.style.flexDirection = "column";
+            cabecalho.style.alignItems = "stretch";
+            cabecalho.style.gap = "5px";
+            numero.textContent = String(data.getDate());
+            numero.style.color = data.getDay() === 0
+                ? "#ff8c8c"
+                : data.getDay() === 6
+                    ? "#74c7ff"
+                    : pertenceAoMes
+                        ? "#f4f4f4"
+                        : "#73787d";
+            numero.style.fontSize = "13px";
+            cabecalho.appendChild(numero);
+            conteudo.style.display = "flex";
+            conteudo.style.flexDirection = "column";
+            conteudo.style.gap = "3px";
+            conteudo.style.marginTop = "8px";
+
+            if (receita) {
+                const linha = document.createElement("span");
+                linha.textContent = `+${formatarMoeda(receita)}`;
+                linha.style.color = "#74c7ff";
+                linha.style.fontSize = "11px";
+                linha.style.fontWeight = "700";
+                conteudo.appendChild(linha);
+            }
+            if (despesa) {
+                const linha = document.createElement("span");
+                linha.textContent = `-${formatarMoeda(despesa)}`;
+                linha.style.color = "#ff7777";
+                linha.style.fontSize = "11px";
+                linha.style.fontWeight = "700";
+                conteudo.appendChild(linha);
+            }
+            if (receita && despesa) {
+                const linha = document.createElement("span");
+                linha.textContent = formatarSaldo(receita - despesa);
+                linha.style.color = "#e8e8e8";
+                linha.style.fontSize = "11px";
+                linha.style.fontWeight = "700";
+                conteudo.appendChild(linha);
+            }
+            eventosDoDia.slice(0, 4).forEach(evento => {
+                const linha = document.createElement("span");
+                linha.textContent = `• ${evento.titulo}`;
+                linha.style.color = "#9ed8ff";
+                linha.style.fontSize = "10px";
+                linha.style.lineHeight = "1.2";
+                linha.style.whiteSpace = "normal";
+                linha.style.overflowWrap = "anywhere";
+                conteudo.appendChild(linha);
+            });
+            if (eventosDoDia.length > 4) {
+                const mais = document.createElement("span");
+                mais.textContent = `+${eventosDoDia.length - 4} evento(s)`;
+                mais.style.color = "#9eaab4";
+                mais.style.fontSize = "10px";
+                conteudo.appendChild(mais);
+            }
+            cabecalho.appendChild(conteudo);
+            celula.appendChild(cabecalho);
+            celula.addEventListener("click", () => {
+                dataSelecionada = dataId;
+                renderizarGrade();
+                renderizarDetalhe();
+            });
+            grade.appendChild(celula);
+        }
+        renderizarDetalhe();
+    };
+
+    const carregarDadosCalendario = async () => {
+        const [lancamentosSnap, eventosCentrais, eventosUnidade] =
+            await Promise.all([
+                lancamentosRef
+                    .orderBy("dataMovimento", "desc")
+                    .limit(500)
+                    .get(),
+                banco.collection("eventos_clube").get(),
+                banco
+                    .collection("eventos_unidades")
+                    .doc(unidadeId)
+                    .collection("itens")
+                    .get()
+            ]);
+        lancamentos = [];
+        lancamentosSnap.forEach(documento => {
+            lancamentos.push({
+                id: documento.id,
+                ...documento.data()
+            });
+        });
+        eventos = [];
+        eventosCentrais.forEach(documento => {
+            const dados = documento.data() || {};
+            if (!dados.data) return;
+            eventos.push({
+                id: documento.id,
+                data: String(dados.data),
+                titulo: String(
+                    dados.titulo ||
+                    dados.nome ||
+                    "Evento central"
+                ),
+                tipo: String(
+                    dados.tipoNome ||
+                    dados.tipo ||
+                    ""
+                ),
+                origem: "central"
+            });
+        });
+        eventosUnidade.forEach(documento => {
+            const dados = documento.data() || {};
+            if (!dados.data) return;
+            eventos.push({
+                id: documento.id,
+                data: String(dados.data),
+                titulo: String(
+                    dados.titulo ||
+                    dados.nome ||
+                    "Evento da unidade"
+                ),
+                tipo: String(
+                    dados.tipoNome ||
+                    dados.tipo ||
+                    ""
+                ),
+                origem: "unidade"
+            });
+        });
+        renderizarResumo();
+        renderizarGrade();
+    };
+
+    voltar.addEventListener("click", () => {
+        mesAtual = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth() - 1,
+            1
+        );
+        renderizarResumo();
+        renderizarGrade();
+    });
+    avancar.addEventListener("click", () => {
+        mesAtual = new Date(
+            mesAtual.getFullYear(),
+            mesAtual.getMonth() + 1,
+            1
+        );
+        renderizarResumo();
+        renderizarGrade();
+    });
+    botaoNovo.addEventListener("click", () => {
+        if (typeof onNovoLancamento === "function") {
+            onNovoLancamento();
+        }
+    });
+
+    await carregarDadosCalendario();
+}
+
 async function renderizarPainelTesoureiroUnidade(
     container,
     banco,
@@ -14001,6 +14510,7 @@ async function renderizarPainelTesoureiroUnidade(
     nomeUnidade,
     usernameLogado
 ) {
+
     const colecaoFinanceiro = "financeiro_unidades";
     const unidadeRef = banco
         .collection(colecaoFinanceiro)
@@ -14467,6 +14977,20 @@ async function renderizarPainelTesoureiroUnidade(
         margin: "0",
         color: "#a8a8a8",
         fontSize: "11px"
+    });
+
+    await renderizarCalendarioFinanceiroTesoureiro({
+        container: secao,
+        banco,
+        unidadeId,
+        nomeUnidade,
+        onNovoLancamento: () => {
+            formulario.scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+            });
+            campoValor.focus();
+        }
     });
 
     const tituloLancamento = document.createElement("h3");
