@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.558.0 - versão alpha";
+const VERSAO_ATUAL = "v0.559.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -13409,11 +13409,12 @@ async function renderizarPainelPontuacaoConselheiro(
         flexDirection: "column",
         gap: "10px",
         marginTop: "16px",
-        padding: "14px",
-        border: "1px solid #9b7b22",
-        borderRadius: "14px",
-        background: "#15120a"
+        padding: "0",
+        border: "0",
+        borderRadius: "0",
+        background: "transparent"
     });
+
     titulo.textContent = "Pontuação dos Desbravadores";
     aplicarEstilo(titulo, {
         margin: "0",
@@ -16255,9 +16256,9 @@ async function renderizarPainelTesoureiroUnidade(
         gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
         gap: "9px",
         padding: "12px",
-        border: "1px solid #4b3b16",
+        border: "1px solid #3a3a3a",
         borderRadius: "10px",
-        background: "#201a0c"
+        background: "#151515"
     });
     formulario.appendChild(campoComRotulo("Tipo", campoTipo));
     formulario.appendChild(campoComRotulo("Data do movimento", campoData));
@@ -16354,13 +16355,8 @@ async function renderizarPainelTesoureiroUnidade(
     secao.appendChild(descricao);
     secao.appendChild(status);
     secao.appendChild(resumo);
-    secao.appendChild(tituloLancamento);
-    secao.appendChild(formulario);
-    secao.appendChild(tituloLivro);
-    secao.appendChild(filtros);
-    secao.appendChild(resumoFiltro);
-    secao.appendChild(tabelaContainer);
     container.appendChild(secao);
+
 
     const telaNovoLancamento = document.createElement("section");
     const cartaoNovoLancamento = document.createElement("div");
