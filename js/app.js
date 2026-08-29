@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.559.0 - versão alpha";
+const VERSAO_ATUAL = "v0.560.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -16495,7 +16495,22 @@ async function renderizarPainelTesoureiroUnidade(
     );
     controleMensalidades.elemento.style.display = "none";
 
+    nomeCategoria.addEventListener("change", async () => {
+        if (nomeCategoria.value !== "mensalidade") {
+            return;
+        }
+
+        campoTipo.value = "entrada";
+
+        if (typeof abrirTelaMensalidades === "function") {
+            await abrirTelaMensalidades(
+                campoData.value || dataHoje
+            );
+        }
+    });
+
     [busca, dataInicio, dataFim].forEach(campo => {
+
         campo.addEventListener("input", renderizarTabela);
     });
     filtroTipo.addEventListener("change", renderizarTabela);
