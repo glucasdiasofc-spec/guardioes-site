@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.560.0 - versão alpha";
+const VERSAO_ATUAL = "v0.561.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -17154,12 +17154,24 @@ async function abrirPainelUnidade() {
         painel.appendChild(conteudo);
         document.body.appendChild(painel);
     } catch (erro) {
+        const mensagemErro = erro && erro.message
+            ? erro.message
+            : String(erro || "Erro desconhecido");
+        const pilhaErro = erro && erro.stack
+            ? erro.stack
+            : mensagemErro;
+
         console.error(
-            "Erro ao abrir Painel da Unidade:",
+            "Erro real ao abrir Painel da Unidade:",
             erro
         );
+        console.error(
+            "Detalhes completos da falha:",
+            pilhaErro
+        );
+
         window.alert(
-            "Não foi possível abrir o painel agora."
+            "Erro real ao abrir o painel:\n\n" + mensagemErro
         );
     }
 }
