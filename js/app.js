@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.562.0 - versão alpha";
+const VERSAO_ATUAL = "v0.563.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -7962,7 +7962,32 @@ function fecharPainelUnidade() {
     if (painel) {
         painel.remove();
     }
+
+    const estadoScroll =
+        window._estadoScrollPainelUnidade;
+
+    if (estadoScroll) {
+        document.documentElement.style.overflow =
+            estadoScroll.overflowHtml;
+        document.body.style.overflow =
+            estadoScroll.overflowBody;
+        document.body.style.position =
+            estadoScroll.positionBody;
+        document.body.style.top =
+            estadoScroll.topBody;
+        document.body.style.width =
+            estadoScroll.widthBody;
+        document.body.style.height =
+            estadoScroll.heightBody;
+
+        window.scrollTo(
+            0,
+            estadoScroll.scrollY
+        );
+        delete window._estadoScrollPainelUnidade;
+    }
 }
+
 
 function criarIdUnidadeParaPainel(nomeUnidade) {
     return String(nomeUnidade || "")
@@ -15172,17 +15197,20 @@ async function renderizarCalendarioFinanceiroTesoureiro({
                 width: 100%;
                 max-width: 760px;
                 margin: 12px auto 18px;
-                padding: 10px 0 0;
+                padding: 0;
                 box-sizing: border-box;
-                border: 1px solid #35383d;
-                border-radius: 12px;
-                background: #1d1f23;
-                overflow: hidden;
+                border: 0;
+                border-radius: 0;
+                background: transparent;
+                box-shadow: none;
+                overflow: visible;
             }
+
             [data-calendario-financeiro="true"] [data-faixa-calendario="true"] {
-                padding: 0 10px;
+                padding: 0;
                 box-sizing: border-box;
             }
+
             [data-calendario-financeiro="true"] [data-grade-financeira="true"],
             [data-calendario-financeiro="true"] [data-dias-financeira="true"] {
                 width: 100%;
@@ -15246,10 +15274,15 @@ async function renderizarCalendarioFinanceiroTesoureiro({
                     max-width: 100vw !important;
                     margin-left: calc((100% - 100vw) / 2) !important;
                     margin-right: calc((100% - 100vw) / 2) !important;
-                    border-left: 0 !important;
-                    border-right: 0 !important;
+                    margin-top: 0 !important;
+                    margin-bottom: 0 !important;
+                    padding: 0 !important;
+                    border: 0 !important;
                     border-radius: 0 !important;
+                    background: transparent !important;
+                    box-shadow: none !important;
                 }
+
                 [data-calendario-financeiro="true"] [data-grade-financeira="true"],
                 [data-calendario-financeiro="true"] [data-dias-financeira="true"] {
                     width: 100vw !important;
@@ -16883,9 +16916,37 @@ async function abrirPainelUnidade() {
         painel.style.zIndex = "2147483640";
         painel.style.display = "flex";
         painel.style.flexDirection = "column";
+        painel.style.width = "100vw";
+        painel.style.height = "100dvh";
+        painel.style.maxHeight = "100dvh";
         painel.style.overflowY = "auto";
+        painel.style.overflowX = "hidden";
+        painel.style.overscrollBehavior = "contain";
+        painel.style.webkitOverflowScrolling = "touch";
         painel.style.background = "#000";
         painel.style.color = "#fff";
+        painel.style.touchAction = "pan-y";
+
+        window._estadoScrollPainelUnidade = {
+            scrollY: window.scrollY ||
+                document.documentElement.scrollTop ||
+                0,
+            overflowHtml: document.documentElement.style.overflow,
+            overflowBody: document.body.style.overflow,
+            positionBody: document.body.style.position,
+            topBody: document.body.style.top,
+            widthBody: document.body.style.width,
+            heightBody: document.body.style.height
+        };
+
+        document.documentElement.style.overflow = "hidden";
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.top =
+            `-${window._estadoScrollPainelUnidade.scrollY}px`;
+        document.body.style.width = "100%";
+        document.body.style.height = "100%";
+
 
         cabecalho.style.position = "sticky";
         cabecalho.style.top = "0";
@@ -16963,7 +17024,9 @@ async function abrirPainelUnidade() {
             fecharPainelUnidade
         );
 
-        conteudo.style.width = "min(100%, 760px)";
+        conteudo.style.width = "100%";
+        conteudo.style.maxWidth = "760px";
+        conteudo.style.minWidth = "0";
         conteudo.style.margin = "0 auto";
         conteudo.style.padding = "18px 16px 40px";
         conteudo.style.boxSizing = "border-box";
