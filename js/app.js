@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.565.0 - versão alpha";
+const VERSAO_ATUAL = "v0.566.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -16892,11 +16892,13 @@ async function abrirPainelUnidade() {
             dadosConfiguracao.nomeClube ||
             "Clube Guardiões"
         ).trim();
-        const nomeExibicao = ehSecretarioClube
-            ? nomeClubeExibicao
-            : String(
-                dadosUnidade.nome || nomeUnidade
-            ).trim();
+        const nomeExibicao =
+            ehSecretarioClube || ehTesoureiroClube
+                ? nomeClubeExibicao
+                : String(
+                    dadosUnidade.nome || nomeUnidade
+                ).trim();
+
         const fotoUnidade = String(
             dadosUnidade.fotoUrl ||
             window.AVATAR_USUARIO_PADRAO ||
@@ -16908,9 +16910,10 @@ async function abrirPainelUnidade() {
             window.AVATAR_USUARIO_PADRAO ||
             ""
         );
-        const fotoIdentidade = ehSecretarioClube
-            ? fotoClube
-            : fotoUnidade;
+        const fotoIdentidade =
+            ehSecretarioClube || ehTesoureiroClube
+                ? fotoClube
+                : fotoUnidade;
         const unidadeId = nomeUnidade
             ? criarIdUnidadeParaPainel(nomeUnidade)
             : "";
@@ -16980,9 +16983,10 @@ async function abrirPainelUnidade() {
         identidade.style.minWidth = "0";
 
         logo.src = fotoIdentidade;
-        logo.alt = ehSecretarioClube
-            ? `Logo de ${nomeClubeExibicao}`
-            : `Logo da unidade ${nomeExibicao}`;
+        logo.alt =
+            ehSecretarioClube || ehTesoureiroClube
+                ? `Logo de ${nomeClubeExibicao}`
+                : `Logo da unidade ${nomeExibicao}`;
         logo.style.width = "44px";
         logo.style.height = "44px";
         logo.style.flex = "0 0 44px";
@@ -16999,9 +17003,10 @@ async function abrirPainelUnidade() {
         textos.style.gap = "3px";
         textos.style.minWidth = "0";
 
-        titulo.textContent = ehSecretarioClube
-            ? "Painel do Clube"
-            : nomeExibicao;
+        titulo.textContent =
+            ehSecretarioClube || ehTesoureiroClube
+                ? "Painel do Clube"
+                : nomeExibicao;
         titulo.style.fontSize = "16px";
         titulo.style.overflow = "hidden";
         titulo.style.textOverflow = "ellipsis";
@@ -17009,13 +17014,16 @@ async function abrirPainelUnidade() {
 
         subtitulo.textContent = ehSecretarioClube
             ? "Secretário(a) do Clube"
-            : ehSecretarioUnidade
-                ? "Secretário(a) de Unidade"
-                : ehConselheiroUnidade
-                    ? "Conselheiro(a) de Unidade"
-                    : ehTesoureiroUnidade
-                        ? "Tesoureiro(a) de Unidade"
-                        : "Painel da unidade";
+            : ehTesoureiroClube
+                ? "Tesoureiro(a) do Clube"
+                : ehSecretarioUnidade
+                    ? "Secretário(a) de Unidade"
+                    : ehConselheiroUnidade
+                        ? "Conselheiro(a) de Unidade"
+                        : ehTesoureiroUnidade
+                            ? "Tesoureiro(a) de Unidade"
+                            : "Painel da unidade";
+
 
         subtitulo.style.color = "#8e8e8e";
         subtitulo.style.fontSize = "12px";
@@ -17089,9 +17097,11 @@ async function abrirPainelUnidade() {
             logoCartao.src = window.AVATAR_USUARIO_PADRAO;
         };
 
-        tituloUnidade.textContent = ehSecretarioClube
-            ? nomeClubeExibicao.toUpperCase()
-            : `UNIDADE ${nomeExibicao.toUpperCase()}`;
+        tituloUnidade.textContent =
+            ehSecretarioClube || ehTesoureiroClube
+                ? nomeClubeExibicao.toUpperCase()
+                : `UNIDADE ${nomeExibicao.toUpperCase()}`;
+
         tituloUnidade.style.color = "#fff";
         tituloUnidade.style.fontSize = "18px";
         tituloUnidade.style.letterSpacing = ".5px";
@@ -17099,18 +17109,22 @@ async function abrirPainelUnidade() {
 
         nomeClube.textContent = ehSecretarioClube
             ? "Calendário central de eventos"
-            : nomeClubeExibicao;
+            : ehTesoureiroClube
+                ? "Prestação de contas financeira do clube"
+                : nomeClubeExibicao;
         nomeClube.style.color = "#d7d9db";
         nomeClube.style.fontSize = "15px";
         nomeClube.style.fontWeight = "600";
 
         identificacao.textContent = ehSecretarioClube
             ? "Eventos compartilhados com as unidades"
-            : ehSecretarioUnidade
-                ? "Frequência e relatórios da unidade"
-                : ehTesoureiroUnidade
-                    ? "Gestão financeira da unidade"
-                    : "Área da unidade";
+            : ehTesoureiroClube
+                ? "Gestão financeira consolidada do clube"
+                : ehSecretarioUnidade
+                    ? "Frequência e relatórios da unidade"
+                    : ehTesoureiroUnidade
+                        ? "Gestão financeira da unidade"
+                        : "Área da unidade";
         identificacao.style.color = "#8e8e8e";
         identificacao.style.fontSize = "11px";
 
