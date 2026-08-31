@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.563.0 - versão alpha";
+const VERSAO_ATUAL = "v0.564.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -7966,26 +7966,29 @@ function fecharPainelUnidade() {
     const estadoScroll =
         window._estadoScrollPainelUnidade;
 
-    if (estadoScroll) {
-        document.documentElement.style.overflow =
-            estadoScroll.overflowHtml;
-        document.body.style.overflow =
-            estadoScroll.overflowBody;
-        document.body.style.position =
-            estadoScroll.positionBody;
-        document.body.style.top =
-            estadoScroll.topBody;
-        document.body.style.width =
-            estadoScroll.widthBody;
-        document.body.style.height =
-            estadoScroll.heightBody;
-
-        window.scrollTo(
-            0,
-            estadoScroll.scrollY
-        );
-        delete window._estadoScrollPainelUnidade;
+    if (!estadoScroll) {
+        return;
     }
+
+    document.documentElement.style.overflow =
+        estadoScroll.overflowHtml;
+    document.body.style.overflow =
+        estadoScroll.overflowBody;
+    document.body.style.position =
+        estadoScroll.positionBody;
+    document.body.style.top =
+        estadoScroll.topBody;
+    document.body.style.width =
+        estadoScroll.widthBody;
+    document.body.style.height =
+        estadoScroll.heightBody;
+
+    window.scrollTo(
+        0,
+        estadoScroll.scrollY
+    );
+
+    delete window._estadoScrollPainelUnidade;
 }
 
 
@@ -16201,11 +16204,13 @@ async function renderizarPainelTesoureiroUnidade(
         flexDirection: "column",
         gap: "10px",
         marginTop: "16px",
-        padding: "14px",
-        border: "1px solid #9b7b22",
-        borderRadius: "14px",
-        background: "#15120a"
+        padding: "0",
+        border: "0",
+        borderRadius: "0",
+        background: "transparent",
+        boxShadow: "none"
     });
+
     titulo.textContent = "Tesouraria da Unidade";
     aplicarEstilo(titulo, {
         margin: "0",
