@@ -3,7 +3,7 @@
    LÓGICA: Controle de Interface, Prévias de Fotos e Validações
    ================================================================= */
 
-const VERSAO_ATUAL = "v0.564.0 - versão alpha";
+const VERSAO_ATUAL = "v0.565.0 - versão alpha";
 
 // Esta variável guardará o avatar padrão dos usuários e será atualizada pelo banco
 window.AVATAR_USUARIO_PADRAO = "https://res.cloudinary.com/dkozbm1ik/image/upload/v1720640000/avatar-padrao.png";
@@ -16818,6 +16818,16 @@ async function abrirPainelUnidade() {
                 cargoNome.includes("unidade")
             );
 
+        const ehTesoureiroClube =
+            cargoFuncao === "tesoureiro_clube" ||
+            cargoFuncao === "tesoureiro do clube" ||
+            cargoNome === "tesoureiro do clube" ||
+            (
+                cargoNome.includes("tesoureiro") &&
+                cargoNome.includes("clube")
+            );
+
+
         const nomeUnidade = String(
             dadosUsuario.unidade || ""
         ).trim();
@@ -17111,7 +17121,29 @@ async function abrirPainelUnidade() {
         cartaoUnidade.appendChild(identificacao);
         conteudo.appendChild(cartaoUnidade);
 
-        if (ehSecretarioClube) {
+        if (ehTesoureiroClube) {
+            const tituloFuncoes = document.createElement("h2");
+            tituloFuncoes.textContent =
+                "Responsabilidades do Tesoureiro(a) do Clube";
+            tituloFuncoes.style.margin = "18px 0 10px";
+            tituloFuncoes.style.fontSize = "16px";
+
+            const aviso = document.createElement("p");
+            aviso.textContent =
+                "Este painel consolida a movimentação financeira das unidades e permite registrar receitas e despesas vinculadas à unidade correta.";
+            aviso.style.color = "#a8a8a8";
+            aviso.style.fontSize = "13px";
+            aviso.style.lineHeight = "1.5";
+
+            conteudo.appendChild(tituloFuncoes);
+            conteudo.appendChild(aviso);
+
+            await renderizarPainelTesoureiroClube(
+                conteudo,
+                banco,
+                username
+            );
+        } else if (ehSecretarioClube) {
             const tituloFuncoes = document.createElement("h2");
             tituloFuncoes.textContent = "Administração do calendário central";
             tituloFuncoes.style.margin = "18px 0 10px";
@@ -20859,9 +20891,260 @@ function nomeFuncaoCargo(funcao) {
         secretario_unidade: "Secretário(a) de Unidade",
         secretario_clube: "Secretário(a) do Clube",
         conselheiro_unidade: "Conselheiro(a) de Unidade",
-        tesoureiro_unidade: "Tesoureiro(a) de Unidade"
+        tesoureiro_unidade: "Tesoureiro(a) de Unidade",
+        tesoureiro_clube: "Tesoureiro(a) do Clube"
     };
     return nomes[funcao] || "Função personalizada";
+}
+
+async function renderizarPainelTesoureiroClube(
+    container,
+    banco,
+    usernameLogado
+) {
+    const secao = document.createElement("section");
+    const titulo = document.createElement("h2");
+    const descricao = document.createElement("p");
+    const status = document.createElement("p");
+    const resumo = document.createElement("div");
+    const lista = document.createElement("div");
+    const unidadesSelect = document.createElement("select");
+    const tipoSelect = document.createElement("select");
+    const busca = document.createElement("input");
+    let unidades = [];
+    let lancamentos = [];
+
+    const estilo = (elemento, propriedades) => {
+        Object.assign(elemento.style, propriedades);
+    };
+    const opcao = (valor, texto) => {
+        const elemento = document.createElement("option");
+        elemento.value = valor;
+        elemento.textContent = texto;
+        return elemento;
+    };
+    const moeda = centavos => {
+        return (Number(centavos || 0) / 100).toLocaleString(
+            "pt-BR",
+            { style: "currency", currency: "BRL" }
+        );
+    };
+    const valorCentavos = lancamento => {
+        if (Number.isFinite(Number(lancamento.valorCentavos))) {
+            return Math.abs(Math.trunc(Number(lancamento.valorCentavos)));
+        }
+        const numero = Number(
+            String(lancamento.valor || "")
+                .replace(/\./g, "")
+                .replace(",", ".")
+        );
+        return Number.isFinite(numero)
+            ? Math.round(Math.abs(numero) * 100)
+            : 0;
+    };
+
+    estilo(secao, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        marginTop: "16px",
+        padding: "0",
+        border: "0",
+        background: "transparent",
+        color: "#fff"
+    });
+    titulo.textContent = "Visão financeira do clube";
+    titulo.style.margin = "0";
+    titulo.style.fontSize = "18px";
+    descricao.textContent =
+        "Acompanhe receitas, despesas e lançamentos de todas as unidades em uma visão consolidada.";
+    descricao.style.margin = "0";
+    descricao.style.color = "#a8a8a8";
+    descricao.style.fontSize = "13px";
+    status.style.margin = "0";
+    status.style.color = "#9eaab4";
+    status.style.fontSize = "12px";
+
+    estilo(resumo, {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "8px"
+    });
+    estilo(lista, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "7px",
+        maxHeight: "460px",
+        overflowY: "auto",
+        overscrollBehavior: "contain"
+    });
+    estilo(unidadesSelect, {
+        flex: "1 1 180px",
+        padding: "9px",
+        border: "1px solid #3a3a3a",
+        borderRadius: "8px",
+        background: "#1c1c1c",
+        color: "#fff"
+    });
+    estilo(tipoSelect, {
+        flex: "1 1 150px",
+        padding: "9px",
+        border: "1px solid #3a3a3a",
+        borderRadius: "8px",
+        background: "#1c1c1c",
+        color: "#fff"
+    });
+    estilo(busca, {
+        flex: "2 1 240px",
+        padding: "9px",
+        border: "1px solid #3a3a3a",
+        borderRadius: "8px",
+        background: "#1c1c1c",
+        color: "#fff"
+    });
+    const controles = document.createElement("div");
+    estilo(controles, {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "8px",
+        padding: "12px",
+        border: "1px solid #30363d",
+        borderRadius: "10px",
+        background: "#111519"
+    });
+    unidadesSelect.appendChild(opcao("", "Todas as unidades"));
+    tipoSelect.append(
+        opcao("", "Todos os tipos"),
+        opcao("entrada", "Somente receitas"),
+        opcao("saida", "Somente despesas")
+    );
+    busca.type = "search";
+    busca.placeholder = "Buscar lançamento, categoria ou responsável";
+    controles.append(unidadesSelect, tipoSelect, busca);
+
+    const renderizar = () => {
+        const unidadeFiltro = unidadesSelect.value;
+        const tipoFiltro = tipoSelect.value;
+        const termo = busca.value.trim().toLowerCase();
+        const filtrados = lancamentos.filter(item => {
+            const texto = [
+                item.unidade,
+                item.descricao,
+                item.categoria,
+                item.justificativa,
+                item.lancadoPor
+            ].join(" ").toLowerCase();
+            return (
+                (!unidadeFiltro || item.unidadeId === unidadeFiltro) &&
+                (!tipoFiltro || item.tipo === tipoFiltro) &&
+                (!termo || texto.includes(termo))
+            );
+        });
+        const entradas = filtrados
+            .filter(item => item.tipo === "entrada")
+            .reduce((total, item) => total + valorCentavos(item), 0);
+        const saidas = filtrados
+            .filter(item => item.tipo === "saida")
+            .reduce((total, item) => total + valorCentavos(item), 0);
+        resumo.innerHTML = `
+            <div style="flex:1 1 150px;padding:12px;border:1px solid #343b42;border-radius:10px;background:#14181c;">
+                <small style="color:#9eaab4;">Saldo filtrado</small>
+                <strong style="display:block;margin-top:5px;color:${entradas >= saidas ? "#8ff0ce" : "#ff9d9d"};">${moeda(entradas - saidas)}</strong>
+            </div>
+            <div style="flex:1 1 150px;padding:12px;border:1px solid #343b42;border-radius:10px;background:#14181c;">
+                <small style="color:#9eaab4;">Receitas</small>
+                <strong style="display:block;margin-top:5px;color:#74c7ff;">${moeda(entradas)}</strong>
+            </div>
+            <div style="flex:1 1 150px;padding:12px;border:1px solid #343b42;border-radius:10px;background:#14181c;">
+                <small style="color:#9eaab4;">Despesas</small>
+                <strong style="display:block;margin-top:5px;color:#ff9d9d;">${moeda(saidas)}</strong>
+            </div>
+        `;
+        lista.innerHTML = "";
+        filtrados.forEach(item => {
+            const linha = document.createElement("div");
+            const texto = document.createElement("div");
+            const valor = document.createElement("strong");
+            texto.textContent = `${item.descricao || item.categoria || "Lançamento"} · ${item.unidade || "Unidade não identificada"}`;
+            valor.textContent = `${item.tipo === "entrada" ? "+" : "-"}${moeda(valorCentavos(item))}`;
+            estilo(linha, {
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "8px",
+                padding: "10px",
+                border: "1px solid #30363d",
+                borderRadius: "8px",
+                background: "#14181c"
+            });
+            texto.style.color = "#d7d9db";
+            texto.style.fontSize = "12px";
+            texto.style.overflowWrap = "anywhere";
+            valor.style.color = item.tipo === "entrada"
+                ? "#8ff0ce"
+                : "#ff9d9d";
+            valor.style.fontSize = "11px";
+            linha.append(texto, valor);
+            lista.appendChild(linha);
+        });
+        status.textContent = `${filtrados.length} lançamento(s) exibido(s) de ${lancamentos.length}.`;
+    };
+
+    const carregar = async () => {
+        status.textContent = "Carregando financeiro consolidado...";
+        try {
+            const unidadesSnap = await banco.collection("unidades").get();
+            unidades = unidadesSnap.docs.map(documento => ({
+                id: documento.id,
+                nome: String(
+                    documento.data().nome || documento.id
+                ).trim()
+            }));
+            unidades.forEach(unidade => {
+                unidadesSelect.appendChild(
+                    opcao(unidade.id, unidade.nome)
+                );
+            });
+            const resultados = await Promise.all(
+                unidades.map(async unidade => {
+                    const snapshot = await banco
+                        .collection("financeiro_unidades")
+                        .doc(unidade.id)
+                        .collection("lancamentos")
+                        .orderBy("dataMovimento", "desc")
+                        .limit(500)
+                        .get();
+                    return snapshot.docs.map(documento => ({
+                        id: documento.id,
+                        unidadeId: unidade.id,
+                        unidade: unidade.nome,
+                        ...documento.data()
+                    }));
+                })
+            );
+            lancamentos = resultados.flat();
+            renderizar();
+            status.textContent = `${unidades.length} unidade(s) e ${lancamentos.length} lançamento(s) carregado(s).`;
+        } catch (erro) {
+            console.error("Erro ao carregar financeiro do clube:", erro);
+            status.textContent =
+                "Não foi possível carregar o financeiro consolidado.";
+        }
+    };
+
+    [unidadesSelect, tipoSelect, busca].forEach(campo => {
+        campo.addEventListener("input", renderizar);
+        campo.addEventListener("change", renderizar);
+    });
+    secao.append(
+        titulo,
+        descricao,
+        status,
+        resumo,
+        controles,
+        lista
+    );
+    container.appendChild(secao);
+    await carregar();
 }
 
 async function renderizarPainelSecretarioClubeEventos(
@@ -24183,6 +24466,9 @@ function controlarExibicaoSelecaoUnidadeEdicao() {
     const ehTesoureiroUnidade =
         funcaoCargo === "tesoureiro_unidade" ||
         funcaoCargo === "tesoureiro de unidade";
+    const ehTesoureiroClube =
+        funcaoCargo === "tesoureiro_clube" ||
+        funcaoCargo === "tesoureiro do clube";
 
     if (!campo) {
         return;
